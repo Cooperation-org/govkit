@@ -35,10 +35,23 @@ if env_file.exists():
     environ.Env.read_env(str(env_file))
 
 # --- Core ---
-SECRET_KEY = env("SECRET_KEY", default="dev-insecure-key-change-me")
+_INSECURE_SECRET_KEY_DEFAULT = "dev-insecure-key-change-me"
+SECRET_KEY = env("SECRET_KEY", default=_INSECURE_SECRET_KEY_DEFAULT)
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
+
+# H1: never run production on the insecure dev default. Invite tokens are signed with
+# SECRET_KEY (django.core.signing), so a forgotten prod key = forgeable admin invites.
+# Fail loudly at startup rather than silently accept forgeable signatures.
+if not DEBUG and (not SECRET_KEY or SECRET_KEY == _INSECURE_SECRET_KEY_DEFAULT):
+    from django.core.exceptions import ImproperlyConfigured
+
+    raise ImproperlyConfigured(
+        "SECRET_KEY is unset or the insecure development default while DEBUG is False. "
+        "Set a strong, unique SECRET_KEY in the environment before running in production "
+        "(invite tokens are signed with it — a default key makes them forgeable)."
+    )
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -152,6 +165,10 @@ STORAGES = {
 # Behind a reverse proxy terminating TLS.
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# L8: mark cookies secure in production (HTTPS-only). Left False in dev so local http works.
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
