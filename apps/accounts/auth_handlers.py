@@ -69,9 +69,24 @@ def upsert_oauth_user(provider: str, userinfo: dict[str, Any]):
     if email and email_verified:
         existing = User.objects.filter(email__iexact=email).first()
         if existing is not None:
-            if not existing.auth_provider_id:
-                existing.auth_provider = provider
-                existing.auth_provider_id = sub
+            if existing.auth_provider_id:
+                # Already claimed by a (different) provider identity — refresh, don't reassign.
+                return _refresh_profile(existing, display_name, avatar_url)
+            # M2: refuse to auto-take-over a privileged or password-protected account via a
+            # freshly-asserted provider identity. A verified email alone must not grant control
+            # of a staff/superuser account or one that already has a real login credential —
+            # otherwise an attacker who registers the same email at an IdP inherits the account.
+            # The owner must sign in with their existing credential and link the provider
+            # explicitly.
+            if existing.is_staff or existing.is_superuser or existing.has_usable_password():
+                raise UserUpsertError(
+                    "An account with this email already exists. Sign in with your existing "
+                    "credentials and link this provider from your account settings."
+                )
+            # Provider-less, password-less placeholder (e.g. invited-but-never-logged-in):
+            # safe to claim by verified email.
+            existing.auth_provider = provider
+            existing.auth_provider_id = sub
             return _refresh_profile(existing, display_name, avatar_url)
 
     # 3. Create a new user. Email is required (it is the unique username field).

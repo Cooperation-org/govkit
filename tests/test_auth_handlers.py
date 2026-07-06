@@ -45,13 +45,46 @@ def test_second_login_same_subject_is_idempotent():
 
 
 @pytest.mark.django_db
-def test_links_verified_email_to_existing_unclaimed_user():
-    existing = User.objects.create_user(email="person@example.com", password="pw12345!")
+def test_links_verified_email_to_existing_placeholder_user():
+    # A provider-less, password-less placeholder (e.g. invited but never logged in) is
+    # safe to claim by a VERIFIED email.
+    existing = User.objects.create_user(email="person@example.com", password=None)
     assert existing.auth_provider_id == ""
+    assert not existing.has_usable_password()
     user = get_or_create_user(_userinfo())
     assert user.pk == existing.pk
     assert user.auth_provider == "linkedtrust"
     assert user.auth_provider_id == "lt-sub-1"
+
+
+@pytest.mark.django_db
+def test_verified_email_does_not_take_over_password_account():
+    # M2: an account with a real login credential must NOT be auto-claimed by a provider
+    # asserting the same verified email — the owner must link explicitly.
+    existing = User.objects.create_user(email="person@example.com", password="pw12345!")
+    with pytest.raises(UserUpsertError):
+        get_or_create_user(_userinfo())
+    existing.refresh_from_db()
+    assert existing.auth_provider_id == ""  # untouched
+
+
+@pytest.mark.django_db
+def test_verified_email_does_not_take_over_superuser():
+    existing = User.objects.create_superuser(email="admin@example.com", password="pw12345!")
+    with pytest.raises(UserUpsertError):
+        get_or_create_user(_userinfo(email="admin@example.com"))
+    existing.refresh_from_db()
+    assert existing.auth_provider_id == ""
+
+
+@pytest.mark.django_db
+def test_verified_email_does_not_take_over_staff():
+    existing = User.objects.create_user(email="staff@example.com", password=None, is_staff=True)
+    # Even with no usable password, a staff flag alone blocks silent provider takeover.
+    with pytest.raises(UserUpsertError):
+        get_or_create_user(_userinfo(email="staff@example.com"))
+    existing.refresh_from_db()
+    assert existing.auth_provider_id == ""
 
 
 @pytest.mark.django_db
