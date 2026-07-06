@@ -1,0 +1,15 @@
+{# Verify panel — swapped in by HTMX. Proves the stored result follows from seed+weights. #}
+<div id="verify-panel">
+  {% if verified %}
+    <p class="gk-verify-ok">
+      ✓ Verified — re-running seed <span class="gk-mono">{{ draw.seed }}</span> over the
+      stored weights reproduced the exact same seats.
+    </p>
+  {% else %}
+    <p class="gk-verify-bad">
+      ✗ Mismatch — the stored result did not reproduce. Stored
+      <span class="gk-mono">{{ stored }}</span>, reproduced
+      <span class="gk-mono">{{ reproduced }}</span>.
+    </p>
+  {% endif %}
+</div>

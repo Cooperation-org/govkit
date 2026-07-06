@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ page_title }} — {{ current_org.display_name }}{% endblock %}
+{% block content %}
+  <link rel="stylesheet" href="{% static 'votes/votes.css' %}">
+
+  <p><a href="{% url 'votes:index' org_slug=org_slug %}">&larr; All votes</a></p>
+  <h1>{{ vote.question }}
+    <span class="gk-badge gk-badge-{{ tally.status }}">{{ tally.status|capfirst }}</span>
+  </h1>
+  <div class="gk-note">
+    Weighted result reflects each voter's work weight <strong>as it stood when the vote
+    opened</strong> (snapshot) — later earnings don't change a recorded result. The raw
+    one-member-one-vote count is shown alongside for transparency. Informal vote, not an
+    election.
+  </div>
+
+  {% if tally.winner %}
+    <p class="gk-winner">Leading (by weight): {{ tally.winner }}</p>
+  {% else %}
+    <p class="gk-muted">No clear leader yet.</p>
+  {% endif %}
+
+  <div class="gk-card">
+    <h2>Weighted ({{ tally.weighted_total }} {{ unit_name }} cast)</h2>
+    {% for r in tally.results %}
+      <div class="gk-bar-row">
+        <div class="gk-bar-label">
+          <span>{{ r.option }}</span>
+          <span>{{ r.weighted }} {{ unit_name }} · {{ r.weighted_pct }}%</span>
+        </div>
+        <div class="gk-bar-track"><div class="gk-bar-fill" style="width: {{ r.weighted_pct }}%"></div></div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="gk-card">
+    <h2>Raw count ({{ tally.raw_total }} ballot{{ tally.raw_total|pluralize }})</h2>
+    {% for r in tally.results %}
+      <div class="gk-bar-row">
+        <div class="gk-bar-label">
+          <span>{{ r.option }}</span>
+          <span>{{ r.raw }} · {{ r.raw_pct }}%</span>
+        </div>
+        <div class="gk-bar-track"><div class="gk-bar-fill raw" style="width: {{ r.raw_pct }}%"></div></div>
+      </div>
+    {% endfor %}
+  </div>
+
+  {% if can_steward and is_live %}
+    <form method="post" action="{% url 'votes:close' org_slug=org_slug vote_id=vote.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="gk-btn">Close vote</button>
+    </form>
+  {% endif %}
+  {% if is_live %}
+    <p><a href="{% url 'votes:detail' org_slug=org_slug vote_id=vote.pk %}">&larr; Back to voting</a></p>
+  {% endif %}
+{% endblock %}

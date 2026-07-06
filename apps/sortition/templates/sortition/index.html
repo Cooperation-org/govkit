@@ -1,9 +1,78 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}{{ page_title }} — {{ current_org.display_name }}{% endblock %}
 {% block content %}
-  <h1>{{ page_title }}</h1>
-  <div class="gk-card gk-placeholder">
-    Placeholder page (M2). The sortition agent builds the seeded, work-weighted committee
-    draw here (auditable: same seed reproduces the draw).
+  <link rel="stylesheet" href="{% static 'sortition/sortition.css' %}">
+  <h1>Committee</h1>
+  <div class="gk-note">
+    A committee draw selects members at random <strong>weighted by work</strong> — more
+    issued earnings means a higher chance of selection. Each draw is <strong>seeded</strong>
+    and stores the exact weights used, so anyone can re-run the seed and confirm the same
+    seats come out. Sortition, not election.
+  </div>
+
+  {% if can_steward %}
+    <div class="gk-card">
+      <h2>Run a draw</h2>
+      <form method="post" action="{% url 'sortition:run' org_slug=org_slug %}">
+        {% csrf_token %}
+        <div class="gk-form-row">
+          <label for="id_seats">Seats</label>
+          <input type="number" id="id_seats" name="seats" min="1" value="3" required>
+        </div>
+        <div class="gk-form-row">
+          <label for="id_window">Weight window</label>
+          <select id="id_window" name="window">
+            {% for value, label in windows %}
+              <option value="{{ value }}" {% if value == default_window %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="gk-form-row">
+          <label for="id_seed">Seed</label>
+          <input type="text" id="id_seed" name="seed" maxlength="128"
+                 placeholder="e.g. 2026-07-meeting" required>
+          <span class="gk-muted">Any text. The same seed + weights always reproduces the draw.</span>
+        </div>
+        <button type="submit" class="gk-btn gk-btn-primary">Draw committee</button>
+      </form>
+    </div>
+  {% else %}
+    <p class="gk-muted">Stewards and admins run draws; anyone can view and verify them.</p>
+  {% endif %}
+
+  {% if latest %}
+    <div class="gk-card">
+      <h2>Latest draw — #{{ latest.draw.pk }}</h2>
+      <p class="gk-muted">
+        {{ latest.draw.seats }} seat(s), {{ latest.draw.get_weight_window_display }},
+        seed <span class="gk-mono">{{ latest.draw.seed }}</span>,
+        {{ latest.draw.created_at|date:"Y-m-d H:i" }}.
+      </p>
+      {% include "sortition/_seats.html" with seats=latest.seats unit_name=latest.unit_name draw=latest.draw %}
+      <p><a href="{% url 'sortition:detail' org_slug=org_slug draw_id=latest.draw.pk %}">Open + verify &rarr;</a></p>
+    </div>
+  {% endif %}
+
+  <div class="gk-card">
+    <h2>Draw history</h2>
+    {% if draws %}
+      <table class="gk-table">
+        <thead><tr><th>Draw</th><th>Seats</th><th>Window</th><th>Seed</th><th>When</th></tr></thead>
+        <tbody>
+          {% for d in draws %}
+            <tr>
+              <td><a href="{% url 'sortition:detail' org_slug=org_slug draw_id=d.pk %}">#{{ d.pk }}</a></td>
+              <td>{{ d.seats }}</td>
+              <td>{{ d.get_weight_window_display }}</td>
+              <td class="gk-mono">{{ d.seed }}</td>
+              <td>{{ d.created_at|date:"Y-m-d H:i" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="gk-muted">No draws yet.</p>
+    {% endif %}
   </div>
 {% endblock %}

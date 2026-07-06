@@ -1,0 +1,12 @@
+{# The drawn committee: selection order + the snapshot weight each was drawn on. #}
+<ol class="gk-seats">
+  {% for s in seats %}
+    <li>
+      Seat {{ s.seat }}: {{ s.membership.user.get_short_name }}
+      ({{ s.membership.get_role_display }})
+      — drawn on weight <strong>{{ s.weight }}</strong> {{ unit_name }}
+    </li>
+  {% empty %}
+    <li class="gk-muted">No members were drawn.</li>
+  {% endfor %}
+</ol>

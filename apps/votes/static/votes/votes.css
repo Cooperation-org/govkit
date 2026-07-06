@@ -1,0 +1,63 @@
+/* Votes-app styling. Scoped to votes pages; loaded from votes templates only so it does
+   not touch the shared govkit.css. Calm, phone-first ballot UI. */
+
+.gk-muted { color: #666; font-size: 0.9rem; }
+.gk-note {
+  border-left: 4px solid #6c8ebf;
+  background: #f3f7fc;
+  padding: 0.5rem 0.8rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  color: #33475b;
+  margin: 0.6rem 0;
+}
+
+.gk-btn {
+  display: inline-block;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  background: #f6f6f6;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.gk-btn-primary { background: #2f6f4f; color: #fff; border-color: #2f6f4f; }
+
+.gk-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+.gk-table th, .gk-table td {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+.gk-num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.gk-badge { font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 999px; }
+.gk-badge-live { background: #d4edda; color: #1c5b32; }
+.gk-badge-draft { background: #fff3cd; color: #7a5b00; }
+.gk-badge-closed { background: #e2e3e5; color: #41464b; }
+
+/* Phone-first ballot options: big tappable buttons. */
+.gk-choices { display: flex; flex-direction: column; gap: 0.6rem; margin: 0.8rem 0; }
+.gk-choice button {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  font-size: 1.05rem;
+  border: 2px solid #2f6f4f;
+  border-radius: 8px;
+  background: #fff;
+  color: #2f6f4f;
+  cursor: pointer;
+}
+.gk-choice button:hover { background: #eaf3ee; }
+.gk-choice.chosen button { background: #2f6f4f; color: #fff; }
+
+.gk-error { color: #b00020; font-size: 0.9rem; }
+
+/* Result bars. */
+.gk-bar-row { margin: 0.5rem 0; }
+.gk-bar-label { display: flex; justify-content: space-between; font-size: 0.9rem; }
+.gk-bar-track { background: #eee; border-radius: 4px; height: 0.8rem; overflow: hidden; }
+.gk-bar-fill { background: #2f6f4f; height: 100%; }
+.gk-bar-fill.raw { background: #6c8ebf; }
+.gk-winner { font-weight: 600; color: #1c5b32; }

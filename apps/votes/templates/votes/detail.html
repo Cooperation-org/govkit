@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ page_title }} — {{ current_org.display_name }}{% endblock %}
+{% block content %}
+  <link rel="stylesheet" href="{% static 'votes/votes.css' %}">
+  <script src="{% static 'votes/htmx.min.js' %}" defer></script>
+
+  <p><a href="{% url 'votes:index' org_slug=org_slug %}">&larr; All votes</a></p>
+  <h1>{{ vote.question }}
+    <span class="gk-badge gk-badge-{{ status }}">{{ status|capfirst }}</span>
+  </h1>
+  <div class="gk-note">
+    Informal work-weighted direction vote — not a binding election.
+  </div>
+
+  <div class="gk-card">
+    {% if can_vote %}
+      {% include "votes/_ballot_panel.html" %}
+    {% else %}
+      <p class="gk-muted">You are viewing as a non-member; only org members can vote.</p>
+    {% endif %}
+  </div>
+
+  <div class="gk-card">
+    <p>
+      <a href="{% url 'votes:results' org_slug=org_slug vote_id=vote.pk %}">See live results &rarr;</a>
+    </p>
+    {% if can_steward and is_live %}
+      <form method="post" action="{% url 'votes:close' org_slug=org_slug vote_id=vote.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="gk-btn">Close vote</button>
+      </form>
+    {% endif %}
+  </div>
+{% endblock %}

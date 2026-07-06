@@ -1,8 +1,75 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}{{ page_title }} — {{ current_org.display_name }}{% endblock %}
 {% block content %}
-  <h1>{{ page_title }}</h1>
-  <div class="gk-card gk-placeholder">
-    Placeholder page (M2). The votes agent builds live work-weighted meeting votes here.
+  <link rel="stylesheet" href="{% static 'votes/votes.css' %}">
+  <h1>Votes</h1>
+  <div class="gk-note">
+    These are <strong>informal live direction votes</strong> for meetings — work-weighted
+    so contribution is reflected, and recorded for the team. They are <em>not</em> binding
+    elections. Formal elections happen elsewhere.
+  </div>
+
+  {% if can_steward %}
+    <div class="gk-card">
+      <h2>Start a vote</h2>
+      <form method="post" action="{% url 'votes:create' org_slug=org_slug %}">
+        {% csrf_token %}
+        <p>
+          <label for="id_question">Question</label><br>
+          {{ form.question }}
+          {% if form.question.errors %}<span class="gk-error">{{ form.question.errors|join:", " }}</span>{% endif %}
+        </p>
+        <p>
+          <label for="id_options">Options</label><br>
+          {{ form.options }}
+          <span class="gk-muted">{{ form.options.help_text }}</span>
+          {% if form.options.errors %}<span class="gk-error">{{ form.options.errors|join:", " }}</span>{% endif %}
+        </p>
+        <button type="submit" class="gk-btn gk-btn-primary">Open vote</button>
+      </form>
+    </div>
+  {% else %}
+    <p class="gk-muted">Stewards and admins start votes; anyone can vote from their phone.</p>
+  {% endif %}
+
+  <div class="gk-card">
+    <h2>Open now</h2>
+    {% if live_votes %}
+      <table class="gk-table">
+        <thead><tr><th>Question</th><th>Opened</th><th></th></tr></thead>
+        <tbody>
+          {% for v in live_votes %}
+            <tr>
+              <td><a href="{% url 'votes:detail' org_slug=org_slug vote_id=v.pk %}">{{ v.question }}</a></td>
+              <td>{{ v.opened_at|date:"Y-m-d H:i" }}</td>
+              <td><a href="{% url 'votes:detail' org_slug=org_slug vote_id=v.pk %}">Vote &rarr;</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="gk-muted">No open votes.</p>
+    {% endif %}
+  </div>
+
+  <div class="gk-card">
+    <h2>History</h2>
+    {% if history %}
+      <table class="gk-table">
+        <thead><tr><th>Question</th><th>Closed</th><th></th></tr></thead>
+        <tbody>
+          {% for v in history %}
+            <tr>
+              <td>{{ v.question }}</td>
+              <td>{{ v.closed_at|date:"Y-m-d H:i" }}</td>
+              <td><a href="{% url 'votes:results' org_slug=org_slug vote_id=v.pk %}">Results &rarr;</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="gk-muted">No past votes yet.</p>
+    {% endif %}
   </div>
 {% endblock %}
