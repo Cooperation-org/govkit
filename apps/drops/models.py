@@ -37,6 +37,15 @@ class DropRun(OrgScoped):
     )
     state = models.CharField(max_length=16, choices=DropRunState.choices, default=DropRunState.OPEN)
     opened_at = models.DateTimeField(auto_now_add=True)
+    # Who approved the run (audit trail). Nullable so a superuser (no membership) can
+    # approve, and to keep the row if the membership is later removed.
+    approved_by = models.ForeignKey(
+        "orgs.Membership",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_drop_runs",
+    )
     approved_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -63,6 +72,16 @@ class DropLine(OrgScoped):
     computed_value = models.DecimalField(max_digits=16, decimal_places=2, default=Decimal("0"))
     adjustment = models.DecimalField(max_digits=16, decimal_places=2, default=Decimal("0"))
     adjustment_reason = models.CharField(max_length=500, blank=True)
+    # Who adjusted this line and when (audit trail). Set only alongside a non-zero
+    # adjustment + reason; cleared when the adjustment is reset to zero.
+    adjusted_by = models.ForeignKey(
+        "orgs.Membership",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="adjusted_drop_lines",
+    )
+    adjusted_at = models.DateTimeField(null=True, blank=True)
     final_value = models.DecimalField(max_digits=16, decimal_places=2, default=Decimal("0"))
 
     class Meta:

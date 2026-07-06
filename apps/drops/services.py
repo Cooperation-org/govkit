@@ -181,33 +181,45 @@ def review_queue(run) -> dict:
     }
 
 
-def adjust_line(line: DropLine, adjustment: Decimal, reason: str) -> DropLine:
+def adjust_line(line: DropLine, adjustment: Decimal, reason: str, adjusted_by=None) -> DropLine:
     """Apply a steward adjustment to a line, recomputing final_value.
 
     A non-zero adjustment REQUIRES a reason (enforced by DropLine.clean(), re-run here via
     save()). Raises if the line's run is already approved (immutability). final_value is
     always computed_value + adjustment so the audit chain computed -> adjustment(+reason)
     -> final stays consistent.
+
+    ``adjusted_by`` (the acting orgs.Membership) and ``adjusted_at`` are recorded as the
+    audit trail for who changed what, but only for a non-zero adjustment; resetting the
+    adjustment to zero clears them (there is no adjustment to attribute).
     """
     adjustment = Decimal(adjustment)
     line.adjustment = adjustment
     line.adjustment_reason = (reason or "").strip()
     line.final_value = line.computed_value + adjustment
+    if adjustment != Decimal("0"):
+        line.adjusted_by = adjusted_by
+        line.adjusted_at = timezone.now()
+    else:
+        line.adjusted_by = None
+        line.adjusted_at = None
     line.save()  # DropLine.save() runs full_clean (reason required) + immutability guard
     return line
 
 
 @transaction.atomic
-def approve_run(run: DropRun, approved_by_user=None) -> DropRun:
+def approve_run(run: DropRun, approved_by_membership=None) -> DropRun:
     """Transition a run open -> approved; its lines become issued + immutable.
 
     Line values are already final (set at open + each adjust), so approval only flips the
-    run state and stamps the time. After this, DropLine.save() refuses edits, so the
-    lines are frozen equity that the Pie reads.
+    run state and stamps who approved (``approved_by_membership``, the acting
+    orgs.Membership) and when. After this, DropLine.save() refuses edits, so the lines are
+    frozen equity that the Pie reads.
     """
     if run.is_approved:
         raise ValueError("Run is already approved.")
     run.state = DropRunState.APPROVED
+    run.approved_by = approved_by_membership
     run.approved_at = timezone.now()
-    run.save(update_fields=["state", "approved_at"])
+    run.save(update_fields=["state", "approved_by", "approved_at"])
     return run

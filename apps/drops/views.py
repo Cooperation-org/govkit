@@ -114,6 +114,7 @@ def adjust_line(request, org_slug, line_id):
                 line,
                 form.cleaned_data["adjustment"],
                 form.cleaned_data["adjustment_reason"],
+                adjusted_by=request.membership,
             )
         except ValidationError as exc:
             form.add_error(None, exc.messages)
@@ -133,7 +134,7 @@ def approve_run(request, org_slug, run_id):
     """Approve a run: lines become issued + immutable. Back to the review page."""
     run = get_object_or_404(DropRun.objects.for_org(request.org), pk=run_id)
     try:
-        services.approve_run(run, approved_by_user=request.user)
+        services.approve_run(run, approved_by_membership=request.membership)
     except ValueError as exc:
         messages.warning(request, str(exc))
     else:

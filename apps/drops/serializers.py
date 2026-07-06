@@ -20,6 +20,8 @@ class DropLineSerializer(serializers.ModelSerializer):
             "computed_value",
             "adjustment",
             "adjustment_reason",
+            "adjusted_by",
+            "adjusted_at",
             "final_value",
             "task_ids",
         ]
@@ -43,6 +45,7 @@ class DropRunSerializer(serializers.ModelSerializer):
             "state",
             "opened_by",
             "opened_at",
+            "approved_by",
             "approved_at",
             "lines",
             "total_final",

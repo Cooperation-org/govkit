@@ -90,7 +90,7 @@ class DropRunViewSet(OrgScopedMixin, viewsets.ReadOnlyModelViewSet):
     def approve(self, request, *args, **kwargs):
         run = self.get_object()
         try:
-            services.approve_run(run, approved_by_user=request.user)
+            services.approve_run(run, approved_by_membership=getattr(request, "membership", None))
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(DropRunSerializer(run).data)
@@ -118,6 +118,7 @@ class DropLineViewSet(
             line,
             serializer.validated_data["adjustment"],
             serializer.validated_data.get("adjustment_reason", ""),
+            adjusted_by=getattr(request, "membership", None),
         )
         line.refresh_from_db()
         return Response(DropLineSerializer(line).data)

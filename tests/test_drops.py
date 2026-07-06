@@ -220,16 +220,44 @@ def test_adjust_then_approve_lifecycle(
 
     run = services.open_run(org, opened_by_membership=m, opened_by_user=m.user)
     line = run.lines.get()
-    services.adjust_line(line, Decimal("15.00"), "corrected under-claim")
+    services.adjust_line(line, Decimal("15.00"), "corrected under-claim", adjusted_by=m)
     line.refresh_from_db()
     assert line.adjustment == Decimal("15.00")
     assert line.final_value == Decimal("65.00")
     assert line.adjustment_reason == "corrected under-claim"
+    # Audit trail: who adjusted, and when.
+    assert line.adjusted_by_id == m.pk
+    assert line.adjusted_at is not None
 
-    services.approve_run(run, approved_by_user=m.user)
+    services.approve_run(run, approved_by_membership=m)
     run.refresh_from_db()
     assert run.state == DropRunState.APPROVED
     assert run.approved_at is not None
+    # Audit trail: who approved.
+    assert run.approved_by_id == m.pk
+
+
+def test_adjust_to_zero_clears_adjuster(
+    org_factory, user_factory, membership_factory, source_factory, task_factory
+):
+    org = org_factory()
+    org.default_hourly_rate = Decimal("10.00")
+    org.save()
+    _config(org, ValuationMode.HOURS_RATE)
+    src = source_factory(org)
+    m = membership_factory(org, user_factory(), role=MembershipRole.STEWARD)
+    task_factory(org, src, assignee=m, hours=Decimal("5"))
+
+    run = services.open_run(org, opened_by_membership=m, opened_by_user=m.user)
+    line = run.lines.get()
+    services.adjust_line(line, Decimal("15.00"), "bump", adjusted_by=m)
+    line.refresh_from_db()
+    assert line.adjusted_by_id == m.pk
+    # Resetting to zero clears the attribution (there is no adjustment to attribute).
+    services.adjust_line(line, Decimal("0.00"), "", adjusted_by=m)
+    line.refresh_from_db()
+    assert line.adjusted_by_id is None
+    assert line.adjusted_at is None
 
 
 def test_adjust_without_reason_rejected(

@@ -10,7 +10,12 @@ one inline HTMX form; once approved (or for non-stewards) it is read-only.
 
   {% if line.run.is_approved or not can_steward %}
     <td class="gk-num">{{ line.adjustment }}</td>
-    <td>{{ line.adjustment_reason|default:"&mdash;" }}</td>
+    <td>
+      {% if line.adjusted_by %}
+        by {{ line.adjusted_by.user.get_short_name }} —
+      {% endif %}
+      {{ line.adjustment_reason|default:"&mdash;" }}
+    </td>
     <td class="gk-num gk-final">{{ line.final_value }}</td>
     {% if not line.run.is_approved and can_steward %}<td></td>{% endif %}
   {% else %}

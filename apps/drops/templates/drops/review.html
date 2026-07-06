@@ -17,7 +17,9 @@
         {% if run.opened_by %}{{ run.opened_by.user.get_short_name }}{% else %}&mdash;{% endif %}
         at {{ run.opened_at|date:"Y-m-d H:i" }}</li>
       {% if run.is_approved %}
-        <li>Approved at {{ run.approved_at|date:"Y-m-d H:i" }} — lines are issued and immutable.</li>
+        <li>Approved
+          {% if run.approved_by %}by {{ run.approved_by.user.get_short_name }}{% endif %}
+          at {{ run.approved_at|date:"Y-m-d H:i" }} — lines are issued and immutable.</li>
       {% else %}
         <li>Not yet approved.</li>
       {% endif %}
