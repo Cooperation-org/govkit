@@ -27,14 +27,40 @@ runnable by us as a multitenant service. Full contract:
       (verified against Compose Postgres: migrations + `check` clean, 16 tests green,
        black/flake8 clean, live-server curl of landing/org-dashboard/base-path OK.
        See "Foundation notes for feature agents" below.)
-- [ ] M1.3 Auth + onboarding (LinkedTrust OIDC default, Google secondary)
-- [ ] M1.4 Taiga adapter (REST API, both valuation modes, missing-value queue)
-- [ ] M1.5 Drop runs (open → review → adjust w/ reason → approve → issued; audit trail)
-- [ ] M1.6 Pie (org shares + traceability drilldown, personal standing)
-- [ ] M1.7 Import (opening balances CSV) + export (generic CSV, Slicing Pie format)
-- [ ] M2 Votes, Sortition, Docs
+- [x] M1.3 Auth + onboarding (LinkedTrust OIDC default, Google secondary) — 54 tests
+- [x] M1.4 Taiga adapter (REST API, both valuation modes, missing-value queue) — 22 tests
+- [x] M1.5 Drop runs (open → review → adjust w/ reason → approve → issued; audit trail) — 19 tests
+- [x] M1.6 Pie (org shares + traceability drilldown, personal standing) — 14 tests
+- [x] M1.7 Import (opening balances CSV) + export (generic CSV, Slicing Pie format) — 21 tests
+- [x] **M1 INTEGRATED** — 5 feature branches merged to main; audit-trail fields added
+      (`DropRun.approved_by`, `DropLine.adjusted_by/adjusted_at`); API convention unified to
+      path-based (`/api/v1/<app>/<org_slug>/...`); `value_tag_pattern` greedy default removed.
+      **131 tests green** on Postgres, `check`+`makemigrations --check` clean, black/flake8 clean.
+      Smoke-tested end-to-end: landing/login/dashboard + all 7 org pages + 3 APIs = 200;
+      cross-org non-member = 403. Pushed to `origin/main` (6fa0c7b).
+- [ ] M2 Votes, Sortition, Docs  ← NEXT
 - [ ] Deploy: systemd `tmp-govkit-backend.service`, nginx `govkit.conf`,
-      `demos.linkedtrust.us/govkit/`, register in app-registry
+      `demos.linkedtrust.us/govkit/`, register in app-registry (BLOCKED on Q1 prod DB)
+
+### Security review triage (M1 review, 2026-07-06) — core tenant isolation CLEAN
+To fix in the hardening pass (after M2 merges):
+- **H1** SECRET_KEY insecure default silently used in prod → invite-token forgery. Raise
+  `ImproperlyConfigured` when `not DEBUG and SECRET_KEY==default`. **must-fix**
+- **M2** OAuth link-by-verified-email can take over a no-provider account (incl. superuser).
+  Refuse auto-link to staff/superuser or accounts with a usable password. **must-fix**
+- **M3** Fernet `api_token` shown plaintext in Django admin change form → mask/exclude. **must-fix**
+- **M4** `open_run` double-count race → `select_for_update` eligible tasks in the txn. **fix**
+- **L5** member `hourly_rate` readable by any org member via API retrieve → admin-gate. **fix**
+- **L7** sync holds a DB txn open across Taiga HTTP → fetch outside txn, upsert inside. **fix**
+- **L8** no `SESSION_COOKIE_SECURE`/`CSRF_COOKIE_SECURE` in prod → set when `not DEBUG`. **fix**
+- **L9** encrypted-field key-rotation returns ciphertext-as-plaintext → log + raise. **fix**
+- **L10** CSV formula-injection surface in exports → prefix risky cells. **harden**
+- **L6** invite links multi-use / not email-bound / unrevocable (no Invite model) — DESIGN
+  tradeoff. Flagged for Golda: acceptable for v1, or add single-use/email-binding? → _Answer:_
+
+### Pre-public checklist (before flipping repo to public per Q6)
+- Scrub or remove this `scratch.md` (it references internal paths/org names) — it is the
+  active coordination board during dev, not part of the shipped toolkit.
 
 ---
 
