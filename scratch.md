@@ -38,9 +38,30 @@ runnable by us as a multitenant service. Full contract:
       **131 tests green** on Postgres, `check`+`makemigrations --check` clean, black/flake8 clean.
       Smoke-tested end-to-end: landing/login/dashboard + all 7 org pages + 3 APIs = 200;
       cross-org non-member = 403. Pushed to `origin/main` (6fa0c7b).
-- [ ] M2 Votes, Sortition, Docs  ← NEXT
+- [x] M2 Votes (weighted, snapshot tally) + Sortition (seeded, reproducible) + Docs
+      (README, self-hosting guide, governance-practices from abra) — 34 tests
+- [x] **Hardening pass** — all 9 security-review findings fixed (H1 prod SECRET_KEY guard,
+      M2 OAuth-takeover refusal, M3 admin token mask, M4 open_run lock, L5 rate privacy,
+      L7 txn/HTTP split, L8 secure cookies, L9 fail-safe decrypt, L10 CSV-injection guard).
+- [x] **API surface unified** to `/api/v1/<app>/orgs/<org_slug>/…` across all 6 apps.
+- [x] **FINAL STATE: 180 tests green** on Postgres; check + migration-check clean; black/flake8
+      clean; full end-to-end smoke (all pages + all 6 app APIs = 200; cross-org = 403).
+      Pushed to `origin/main`. Port 8062 + app-registry entry registered (deploy pending).
 - [ ] Deploy: systemd `tmp-govkit-backend.service`, nginx `govkit.conf`,
-      `demos.linkedtrust.us/govkit/`, register in app-registry (BLOCKED on Q1 prod DB)
+      `demos.linkedtrust.us/govkit/` — **BLOCKED on Q1 (prod DB) + Q2/Q3/Q4 (OIDC/Taiga/Google creds)**.
+      Artifacts staged: `~golda/work/7-6-2026-govkit.conf` + `...-tmp-govkit-backend.service`.
+
+### Deviations from the build doc (flag for Golda — accept or change)
+- **D1 (re item 15) — LinkedTrust OIDC is implemented IN-APP, not via the pip package
+  `django-linkedtrust-auth`.** Reason: that package's flow redirects to a *frontend* with
+  tokens in the URL fragment (SPA model); GovKit is server-rendered Django with **session**
+  login, which the package doesn't do. We vendored a session-based adaptation of its `oidc.py`
+  (same OIDC protocol, same live issuer) into `apps/accounts/`, and left the package include a
+  commented seam. Net: identical protocol/IdP, one fewer external dependency for self-hosters.
+  Accept? → _Answer:_
+- **L6 (invite links)** — signed 14-day bearer tokens, multi-use, not email-bound, no
+  server-side revocation (frozen schema has no Invite model). Fine for v1, or add
+  single-use/email-binding? → _Answer:_ (see security triage above)
 
 ### Security review triage (M1 review, 2026-07-06) — core tenant isolation CLEAN
 To fix in the hardening pass (after M2 merges):
