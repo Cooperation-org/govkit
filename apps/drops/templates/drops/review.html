@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ page_title }} — {{ current_org.display_name }}{% endblock %}
+{% block content %}
+  <link rel="stylesheet" href="{% static 'drops/drops.css' %}">
+  <script src="{% static 'drops/htmx.min.js' %}" defer></script>
+
+  <p><a href="{% url 'drops:index' org_slug=org_slug %}">&larr; All runs</a></p>
+  <h1>Run #{{ run.pk }}
+    <span class="gk-badge gk-badge-{{ run.state }}">{{ run.get_state_display }}</span>
+  </h1>
+
+  <div class="gk-card">
+    <h2>Audit</h2>
+    <ul class="gk-audit">
+      <li>Opened by
+        {% if run.opened_by %}{{ run.opened_by.user.get_short_name }}{% else %}&mdash;{% endif %}
+        at {{ run.opened_at|date:"Y-m-d H:i" }}</li>
+      {% if run.is_approved %}
+        <li>Approved at {{ run.approved_at|date:"Y-m-d H:i" }} — lines are issued and immutable.</li>
+      {% else %}
+        <li>Not yet approved.</li>
+      {% endif %}
+    </ul>
+  </div>
+
+  {% if not run.is_approved %}
+    <div class="gk-card gk-queue">
+      <h2>Tasks missing a value ({{ missing_value_tasks|length }})</h2>
+      <p class="gk-muted">
+        Under-claiming is the real failure mode. These done tasks carry no value yet —
+        correct them by adjusting the member's line below (with a reason).
+      </p>
+      {% if missing_value_tasks %}
+        <ul class="gk-missing">
+          {% for task in missing_value_tasks %}
+            <li>
+              {% if task.external_url %}<a href="{{ task.external_url }}">{{ task.external_id }}</a>
+              {% else %}{{ task.external_id }}{% endif %}
+              — {{ task.subject|default:"(no subject)" }}
+              {% if task.assignee %}(&rarr; {{ task.assignee.user.get_short_name }}){% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="gk-muted">None — every task in this run has a value.</p>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div class="gk-card">
+    <h2>Lines by member</h2>
+    <table class="gk-table gk-lines">
+      <thead>
+        <tr>
+          <th>Member</th><th>Computed</th><th>Adjustment</th>
+          <th>Reason</th><th>Final</th>{% if not run.is_approved and can_steward %}<th></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for line in lines %}
+          {% include "drops/_line_row.html" %}
+        {% empty %}
+          <tr><td colspan="6" class="gk-muted">No lines in this run.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="gk-total">Total: {{ total_final }} {{ current_org.unit_name }}</p>
+  </div>
+
+  {% if not run.is_approved and can_steward %}
+    <form method="post" action="{% url 'drops:approve_run' org_slug=org_slug run_id=run.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="gk-btn gk-btn-primary">Approve run</button>
+    </form>
+  {% endif %}
+{% endblock %}

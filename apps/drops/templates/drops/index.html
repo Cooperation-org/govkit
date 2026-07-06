@@ -1,10 +1,44 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}{{ page_title }} — {{ current_org.display_name }}{% endblock %}
 {% block content %}
-  <h1>{{ page_title }}</h1>
-  <div class="gk-card gk-placeholder">
-    Placeholder page. The drops agent builds the steward flow here:
-    open a run &rarr; review queue (tasks missing values) &rarr; adjust with reason &rarr;
-    approve &rarr; issued. Full audit trail.
+  <link rel="stylesheet" href="{% static 'drops/drops.css' %}">
+  <h1>Drops</h1>
+  <p class="gk-muted">
+    The periodic earning ritual: open a run, review the tasks (correcting under-claims),
+    then approve — approved lines become immutable issued equity.
+  </p>
+
+  {% if can_steward %}
+    <form method="post" action="{% url 'drops:open_run' org_slug=org_slug %}">
+      {% csrf_token %}
+      <button type="submit" class="gk-btn gk-btn-primary">Open a new run</button>
+    </form>
+  {% else %}
+    <p class="gk-muted">Only stewards and admins can open or approve runs.</p>
+  {% endif %}
+
+  <div class="gk-card">
+    <h2>Runs</h2>
+    {% if runs %}
+      <table class="gk-table">
+        <thead>
+          <tr><th>Run</th><th>State</th><th>Lines</th><th>Opened</th><th>Approved</th></tr>
+        </thead>
+        <tbody>
+          {% for run in runs %}
+            <tr>
+              <td><a href="{% url 'drops:review' org_slug=org_slug run_id=run.pk %}">#{{ run.pk }}</a></td>
+              <td>{{ run.get_state_display }}</td>
+              <td>{{ run.lines.count }}</td>
+              <td>{{ run.opened_at|date:"Y-m-d H:i" }}</td>
+              <td>{% if run.approved_at %}{{ run.approved_at|date:"Y-m-d H:i" }}{% else %}&mdash;{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="gk-muted">No runs yet.</p>
+    {% endif %}
   </div>
 {% endblock %}

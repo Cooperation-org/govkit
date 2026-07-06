@@ -1,0 +1,37 @@
+{% comment %}
+Single line row. Rendered inside review.html AND returned on its own by the HTMX
+adjust view (hx-swap=outerHTML on the <tr>), so it must be a self-contained <tr>.
+When the run is open and the viewer is a steward the adjustment/reason/final cells become
+one inline HTMX form; once approved (or for non-stewards) it is read-only.
+{% endcomment %}
+<tr id="line-{{ line.pk }}" class="gk-line-row">
+  <td>{{ line.membership.user.get_short_name }}</td>
+  <td class="gk-num">{{ line.computed_value }}</td>
+
+  {% if line.run.is_approved or not can_steward %}
+    <td class="gk-num">{{ line.adjustment }}</td>
+    <td>{{ line.adjustment_reason|default:"&mdash;" }}</td>
+    <td class="gk-num gk-final">{{ line.final_value }}</td>
+    {% if not line.run.is_approved and can_steward %}<td></td>{% endif %}
+  {% else %}
+    <td colspan="4">
+      <form class="gk-adjust-form"
+            hx-post="{% url 'drops:adjust_line' org_slug=org_slug line_id=line.pk %}"
+            hx-target="#line-{{ line.pk }}"
+            hx-swap="outerHTML">
+        {% csrf_token %}
+        <input type="number" step="0.01" name="adjustment" value="{{ line.adjustment }}"
+               aria-label="Adjustment">
+        <input type="text" name="adjustment_reason" value="{{ line.adjustment_reason }}"
+               placeholder="Reason (required if adjusting)" aria-label="Reason">
+        <span class="gk-num gk-final">= {{ line.final_value }}</span>
+        <button type="submit" class="gk-btn">Save</button>
+        {% if form.errors %}
+          <span class="gk-error">
+            {% for field, errs in form.errors.items %}{{ errs|join:" " }} {% endfor %}
+          </span>
+        {% endif %}
+      </form>
+    </td>
+  {% endif %}
+</tr>
