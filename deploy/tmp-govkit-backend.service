@@ -1,0 +1,26 @@
+[Unit]
+Description=GovKit backend (Django + gunicorn) — demos.linkedtrust.us/govkit/
+After=network.target
+
+[Service]
+Type=simple
+User=golda
+Group=devteam
+WorkingDirectory=/opt/shared/repos/govkit
+# .env (0600, gitignored) holds DEBUG=0, SECRET_KEY, DATABASE_URL, GOVKIT_SECRET_KEY,
+# BASE_PATH=/govkit, and the LINKEDTRUST_*/GOOGLE_OAUTH_* login creds.
+# settings.py also reads this same .env via django-environ; EnvironmentFile is belt-and-suspenders.
+EnvironmentFile=/opt/shared/repos/govkit/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/shared/repos/govkit/venv/bin/gunicorn config.wsgi:application \
+  --bind 127.0.0.1:8062 \
+  --workers 2 \
+  --timeout 30 \
+  --access-logfile - \
+  --error-logfile -
+Restart=on-failure
+RestartSec=5
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target
