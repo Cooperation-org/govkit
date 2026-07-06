@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Members — {{ current_org.display_name }} — GovKit{% endblock %}
+{% block content %}
+  <h1>Members — {{ current_org.display_name }}</h1>
+
+  <div class="gk-card">
+    <h2>Org-wide default hourly rate</h2>
+    <form method="post" action="{% url 'orgs:org_rate' org_slug=current_org.slug %}">
+      {% csrf_token %}
+      {{ rate_form.default_hourly_rate.label_tag }} {{ rate_form.default_hourly_rate }}
+      <button type="submit">Save default rate</button>
+    </form>
+    <small>Members without an override use this rate.</small>
+  </div>
+
+  <div class="gk-card">
+    <h2>Members &amp; roles</h2>
+    <table>
+      <thead>
+        <tr><th>Email</th><th>Role</th><th>Hourly rate override</th><th>Effective</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for m in memberships %}
+          <tr>
+            <td>{{ m.user.email }}</td>
+            <td colspan="3">
+              <form method="post"
+                    action="{% url 'orgs:member_update' org_slug=current_org.slug membership_id=m.id %}">
+                {% csrf_token %}
+                <select name="role">
+                  {% for value, label in roles %}
+                    <option value="{{ value }}" {% if m.role == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+                <input type="number" step="0.01" name="hourly_rate"
+                       value="{{ m.hourly_rate|default_if_none:'' }}" placeholder="(org default)">
+                <span class="gk-placeholder">effective: {{ m.effective_rate|default_if_none:'—' }}</span>
+                <button type="submit">Save</button>
+              </form>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5" class="gk-placeholder">No members yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="gk-card">
+    <h2>Invite a member</h2>
+    <form method="post" action="{% url 'orgs:invite_create' org_slug=current_org.slug %}">
+      {% csrf_token %}
+      {{ invite_form.email.label_tag }} {{ invite_form.email }}
+      {{ invite_form.role.label_tag }} {{ invite_form.role }}
+      {{ invite_form.hourly_rate.label_tag }} {{ invite_form.hourly_rate }}
+      <small>{{ invite_form.hourly_rate.help_text }}</small>
+      <button type="submit">Generate invite link</button>
+    </form>
+    <small>A signed link is generated for you to share; they join on sign-in.</small>
+  </div>
+{% endblock %}
