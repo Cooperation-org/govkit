@@ -1,0 +1,29 @@
+{% load static %}
+{# The tappable ballot panel — swapped in place by HTMX after each cast. #}
+<div id="ballot-panel">
+  {% if error %}<p class="gk-error">{{ error }}</p>{% endif %}
+  {% if is_live %}
+    {% if my_ballot %}
+      <p>Your vote: <strong>{{ my_ballot.choice }}</strong>. You can change it below.</p>
+    {% else %}
+      <p class="gk-muted">Tap your choice:</p>
+    {% endif %}
+    <div class="gk-choices">
+      {% for option in vote.options %}
+        <div class="gk-choice{% if my_ballot and my_ballot.choice == option %} chosen{% endif %}">
+          <form method="post"
+                action="{% url 'votes:cast' org_slug=org_slug vote_id=vote.pk %}"
+                hx-post="{% url 'votes:cast' org_slug=org_slug vote_id=vote.pk %}"
+                hx-target="#ballot-panel"
+                hx-swap="outerHTML">
+            {% csrf_token %}
+            <input type="hidden" name="choice" value="{{ option }}">
+            <button type="submit">{{ option }}</button>
+          </form>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="gk-muted">This vote is not open for voting.</p>
+  {% endif %}
+</div>

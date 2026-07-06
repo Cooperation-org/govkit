@@ -1,0 +1,50 @@
+/* Committee/sortition styling. Scoped to sortition pages; loaded from its templates only
+   so it does not touch the shared govkit.css. */
+
+.gk-muted { color: #666; font-size: 0.9rem; }
+.gk-note {
+  border-left: 4px solid #6c8ebf;
+  background: #f3f7fc;
+  padding: 0.5rem 0.8rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  color: #33475b;
+  margin: 0.6rem 0;
+}
+
+.gk-btn {
+  display: inline-block;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  background: #f6f6f6;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.gk-btn-primary { background: #2f6f4f; color: #fff; border-color: #2f6f4f; }
+
+.gk-form-row { margin: 0.5rem 0; }
+.gk-form-row label { display: inline-block; min-width: 8rem; }
+
+.gk-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+.gk-table th, .gk-table td {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+.gk-num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.gk-seats { list-style: none; padding: 0; margin: 0.5rem 0; }
+.gk-seats li {
+  padding: 0.5rem 0.8rem;
+  border: 1px solid #d4edda;
+  border-left: 4px solid #2f6f4f;
+  border-radius: 4px;
+  margin-bottom: 0.4rem;
+  background: #f6fbf8;
+}
+
+.gk-verify-ok { color: #1c5b32; font-weight: 600; }
+.gk-verify-bad { color: #b00020; font-weight: 600; }
+.gk-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
