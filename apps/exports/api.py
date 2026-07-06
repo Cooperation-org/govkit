@@ -1,14 +1,14 @@
 """
 DRF endpoints for import/export (API-first: every UI action has an endpoint).
 
-Routes are mounted under an `o/<org_slug>/` prefix so OrgContextMiddleware resolves
+Routes are mounted under an `orgs/<org_slug>/` prefix so OrgContextMiddleware resolves
 `request.org` / `request.membership` and enforces org membership on the API exactly as it
 does for the HTML pages:
 
-    GET  /api/v1/exports/o/<org_slug>/batches/            list import batches (audit)
-    GET  /api/v1/exports/o/<org_slug>/batches/<pk>/       one batch
-    POST /api/v1/exports/o/<org_slug>/batches/import_csv/ upload a CSV (admin/steward)
-    GET  /api/v1/exports/o/<org_slug>/export/<format>/    download an export as CSV
+    GET  /api/v1/exports/orgs/<org_slug>/batches/            list import batches (audit)
+    GET  /api/v1/exports/orgs/<org_slug>/batches/<pk>/       one batch
+    POST /api/v1/exports/orgs/<org_slug>/batches/import_csv/ upload a CSV (admin/steward)
+    GET  /api/v1/exports/orgs/<org_slug>/export/<format>/    download an export as CSV
 
 Every queryset is scoped to `request.org`.
 """
@@ -119,22 +119,22 @@ def export_view(request, org_slug=None, format_key=None):
 
 urlpatterns = [
     path(
-        "o/<slug:org_slug>/batches/import_csv/",
+        "orgs/<slug:org_slug>/batches/import_csv/",
         ImportBatchViewSet.as_view({"post": "import_csv"}),
         name="importbatch-import-csv",
     ),
     path(
-        "o/<slug:org_slug>/batches/",
+        "orgs/<slug:org_slug>/batches/",
         ImportBatchViewSet.as_view({"get": "list"}),
         name="importbatch-list",
     ),
     path(
-        "o/<slug:org_slug>/batches/<int:pk>/",
+        "orgs/<slug:org_slug>/batches/<int:pk>/",
         ImportBatchViewSet.as_view({"get": "retrieve"}),
         name="importbatch-detail",
     ),
     path(
-        "o/<slug:org_slug>/export/<slug:format_key>/",
+        "orgs/<slug:org_slug>/export/<slug:format_key>/",
         export_view,
         name="exports-export",
     ),

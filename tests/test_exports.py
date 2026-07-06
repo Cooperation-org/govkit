@@ -388,17 +388,17 @@ def test_api_import_and_export(client, org_factory, membership_factory, user_fac
     client.force_login(steward.user)
 
     resp = client.post(
-        f"/api/v1/exports/o/{org.slug}/batches/import_csv/",
+        f"/api/v1/exports/orgs/{org.slug}/batches/import_csv/",
         {"file": _upload("member_email,value\ntarget@example.org,200\n")},
     )
     assert resp.status_code == 201
     assert resp.json()["created"] == 1
 
-    resp = client.get(f"/api/v1/exports/o/{org.slug}/batches/")
+    resp = client.get(f"/api/v1/exports/orgs/{org.slug}/batches/")
     assert resp.status_code == 200
     assert len(resp.json()) == 1
 
-    resp = client.get(f"/api/v1/exports/o/{org.slug}/export/generic/")
+    resp = client.get(f"/api/v1/exports/orgs/{org.slug}/export/generic/")
     assert resp.status_code == 200
     assert resp["Content-Type"] == "text/csv"
     assert b"target@example.org" in resp.content
@@ -412,7 +412,7 @@ def test_api_import_forbidden_for_member(client, org_factory, membership_factory
     client.force_login(member.user)
 
     resp = client.post(
-        f"/api/v1/exports/o/{org.slug}/batches/import_csv/",
+        f"/api/v1/exports/orgs/{org.slug}/batches/import_csv/",
         {"file": _upload("member_email,value\ntarget@example.org,200\n")},
     )
     assert resp.status_code == 403
@@ -426,7 +426,7 @@ def test_api_non_member_blocked(client, org_factory, membership_factory, user_fa
     outsider = user_factory(email="outsider@example.org")
     client.force_login(outsider)
 
-    resp = client.get(f"/api/v1/exports/o/{org.slug}/batches/")
+    resp = client.get(f"/api/v1/exports/orgs/{org.slug}/batches/")
     assert resp.status_code == 403
 
 

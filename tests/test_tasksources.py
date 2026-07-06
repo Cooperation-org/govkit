@@ -356,7 +356,7 @@ def test_api_missing_value_endpoint(taiga_source, user_factory, membership_facto
     org, user = _seed_tasks(taiga_source, user_factory, membership_factory)
     client = APIClient()
     client.force_login(user)
-    resp = client.get(f"/api/v1/tasksources/{org.slug}/tasks/missing_value/")
+    resp = client.get(f"/api/v1/tasksources/orgs/{org.slug}/tasks/missing_value/")
     assert resp.status_code == 200
     ids = [row["external_id"] for row in resp.json()]
     assert ids == ["102"]
@@ -366,7 +366,7 @@ def test_api_unknown_org_404(taiga_source, user_factory, membership_factory):
     _org, user = _seed_tasks(taiga_source, user_factory, membership_factory)
     client = APIClient()
     client.force_login(user)
-    assert client.get("/api/v1/tasksources/no-such-org/tasks/").status_code == 404
+    assert client.get("/api/v1/tasksources/orgs/no-such-org/tasks/").status_code == 404
 
 
 def test_api_non_member_forbidden(taiga_source, user_factory, membership_factory):
@@ -374,7 +374,7 @@ def test_api_non_member_forbidden(taiga_source, user_factory, membership_factory
     outsider = user_factory()
     client = APIClient()
     client.force_login(outsider)
-    resp = client.get(f"/api/v1/tasksources/{org.slug}/tasks/")
+    resp = client.get(f"/api/v1/tasksources/orgs/{org.slug}/tasks/")
     assert resp.status_code == 403
 
 
@@ -385,7 +385,7 @@ def test_api_sync_requires_steward(taiga_source, user_factory, membership_factor
     membership_factory(org=org, user=member, role=MembershipRole.MEMBER)
     client = APIClient()
     client.force_login(member)
-    resp = client.post(f"/api/v1/tasksources/{org.slug}/sync/")
+    resp = client.post(f"/api/v1/tasksources/orgs/{org.slug}/sync/")
     assert resp.status_code == 403
 
 
@@ -398,7 +398,7 @@ def test_api_sync_action_runs(taiga_source, user_factory, membership_factory):
     client = APIClient()
     client.force_login(steward)
     with mock_taiga(_base_routes(stories)):
-        resp = client.post(f"/api/v1/tasksources/{org.slug}/sync/")
+        resp = client.post(f"/api/v1/tasksources/orgs/{org.slug}/sync/")
     assert resp.status_code == 200
     assert resp.json()["sources"][0]["created"] == 1
 

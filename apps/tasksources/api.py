@@ -2,15 +2,15 @@
 DRF endpoints for tasksources (API-first: every UI action has an endpoint).
 
 Path-based org scoping — the SAME convention as drops/pie/exports. Every route nests an
-``<org_slug>/`` segment, so OrgContextMiddleware (which keys on the ``org_slug`` view
+``orgs/<org_slug>/`` segment, so OrgContextMiddleware (which keys on the ``org_slug`` view
 kwarg) resolves ``request.org`` / ``request.membership`` and enforces membership (404 for
 an unknown org, 403 for an authenticated non-member) exactly as it does for the HTML
 pages. No ``?org=`` query param and no manual membership check here.
 
 Endpoints:
-  GET  /api/v1/tasksources/<org_slug>/tasks/                 tracked tasks for the org
-  GET  /api/v1/tasksources/<org_slug>/tasks/missing_value/   the missing-value queue
-  POST /api/v1/tasksources/<org_slug>/sync/                  run a sync (steward/admin)
+  GET  /api/v1/tasksources/orgs/<org_slug>/tasks/                 tracked tasks for the org
+  GET  /api/v1/tasksources/orgs/<org_slug>/tasks/missing_value/   the missing-value queue
+  POST /api/v1/tasksources/orgs/<org_slug>/sync/                  run a sync (steward/admin)
 """
 
 from django.urls import path
@@ -109,17 +109,17 @@ class SyncView(APIView):
 
 urlpatterns = [
     path(
-        "<slug:org_slug>/tasks/",
+        "orgs/<slug:org_slug>/tasks/",
         TrackedTaskViewSet.as_view({"get": "list"}),
         name="trackedtask-list",
     ),
     path(
-        "<slug:org_slug>/tasks/missing_value/",
+        "orgs/<slug:org_slug>/tasks/missing_value/",
         TrackedTaskViewSet.as_view({"get": "missing_value"}),
         name="trackedtask-missing-value",
     ),
     path(
-        "<slug:org_slug>/sync/",
+        "orgs/<slug:org_slug>/sync/",
         SyncView.as_view(),
         name="tasksource-sync",
     ),

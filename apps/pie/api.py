@@ -1,12 +1,12 @@
 """
 DRF endpoints for the pie (API-first — every UI action has an endpoint).
 
-Two read-only endpoints, both mounted under ``<org_slug>/`` so OrgContextMiddleware
+Two read-only endpoints, both mounted under ``orgs/<org_slug>/`` so OrgContextMiddleware
 resolves ``request.org`` / ``request.membership`` and enforces membership (403 for
 non-members) exactly as it does for the HTML pages:
 
-    GET /api/v1/pie/<org_slug>/summary/    → the whole org pie + per-member provenance
-    GET /api/v1/pie/<org_slug>/standing/   → the requesting member's personal standing
+    GET /api/v1/pie/orgs/<org_slug>/summary/    → the whole org pie + per-member provenance
+    GET /api/v1/pie/orgs/<org_slug>/standing/   → the requesting member's personal standing
 
 Decimals are serialised as strings to preserve precision on the wire.
 """
@@ -113,6 +113,6 @@ class PersonalStandingView(APIView):
 
 
 urlpatterns = [
-    path("<slug:org_slug>/summary/", PieSummaryView.as_view(), name="pie-summary"),
-    path("<slug:org_slug>/standing/", PersonalStandingView.as_view(), name="pie-standing"),
+    path("orgs/<slug:org_slug>/summary/", PieSummaryView.as_view(), name="pie-summary"),
+    path("orgs/<slug:org_slug>/standing/", PersonalStandingView.as_view(), name="pie-standing"),
 ]

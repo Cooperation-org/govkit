@@ -297,14 +297,14 @@ def test_api_summary_and_standing(
     make_line(org, make_run(org), m, Decimal("100.00"))
     client.force_login(user)
 
-    summary = client.get(f"/api/v1/pie/{org.slug}/summary/")
+    summary = client.get(f"/api/v1/pie/orgs/{org.slug}/summary/")
     assert summary.status_code == 200
     data = summary.json()
     assert data["total"] == "100.00"
     assert data["unit_name"] == "COOK"
     assert data["slices"][0]["share_pct"] == "100.00"
 
-    standing = client.get(f"/api/v1/pie/{org.slug}/standing/")
+    standing = client.get(f"/api/v1/pie/orgs/{org.slug}/standing/")
     assert standing.status_code == 200
     sdata = standing.json()
     assert sdata["realized_total"] == "100.00"
@@ -315,5 +315,5 @@ def test_api_summary_forbidden_for_non_member(client, org_factory, user_factory)
     org = org_factory()
     outsider = user_factory(email="outsider@example.com")
     client.force_login(outsider)
-    resp = client.get(f"/api/v1/pie/{org.slug}/summary/")
+    resp = client.get(f"/api/v1/pie/orgs/{org.slug}/summary/")
     assert resp.status_code == 403
