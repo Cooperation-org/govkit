@@ -27,6 +27,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("apps.accounts.urls")),
     # --- API (one router per app; feature agents register viewsets in <app>/api.py) ---
+    path("api/v1/accounts/", include("apps.accounts.api")),
     path("api/v1/orgs/", include("apps.orgs.api")),
     path("api/v1/tasksources/", include("apps.tasksources.api")),
     path("api/v1/drops/", include("apps.drops.api")),
