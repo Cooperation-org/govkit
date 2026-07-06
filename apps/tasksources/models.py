@@ -34,12 +34,21 @@ class TaskSourceConfig(OrgScoped):
     )
 
     # Field mapping — which task metadata carries value/hours.
+    #
+    # NO greedy default on purpose: a bare "(\d+)" would match ANY number in ANY tag
+    # (e.g. a "3 priority" tag -> value 3), silently miscounting. Empty means "not
+    # configured": in direct_value mode the sync skips value parsing and the tasks surface
+    # in the missing-value queue until a steward sets a unit-specific pattern (e.g.
+    # r"(\d+)\s*cook").
     value_tag_pattern = models.CharField(
         max_length=128,
-        default=r"(\d+)\s*",
+        blank=True,
+        default="",
         help_text=(
             "Regex (case-insensitive) matched against task tags in direct_value mode; "
-            r"group 1 is the numeric value. e.g. r'(\d+)\s*cook'."
+            r"group 1 is the numeric value, e.g. r'(\d+)\s*cook'. Leave EMPTY to disable "
+            "value parsing (tasks then surface as missing-value) — there is deliberately "
+            "no greedy default, which would miscount any number in any tag."
         ),
     )
     hours_field = models.CharField(

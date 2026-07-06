@@ -137,6 +137,18 @@ def sync_source(source: TaskSourceConfig) -> SyncResult:
     identities = _IdentityMap(org)
     now = timezone.now()
 
+    # Safety: direct_value with no configured pattern must NOT guess. We skip value
+    # parsing (tasks land in the missing-value queue) and surface a clear config warning
+    # so a steward sets a unit-specific pattern (e.g. r"(\d+)\s*cook") rather than
+    # silently miscounting any number in any tag.
+    if mode == ValuationMode.DIRECT_VALUE and not (source.value_tag_pattern or "").strip():
+        msg = (
+            "value_tag_pattern is not configured for this direct_value source; "
+            "tasks are surfaced as missing-value until a pattern is set."
+        )
+        logger.warning("source %s: %s", source.pk, msg)
+        result.errors.append(msg)
+
     dtos = get_adapter(source).fetch_tasks()
     result.fetched = len(dtos)
 
