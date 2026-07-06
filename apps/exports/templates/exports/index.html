@@ -2,8 +2,95 @@
 {% block title %}{{ page_title }} — {{ current_org.display_name }}{% endblock %}
 {% block content %}
   <h1>{{ page_title }}</h1>
-  <div class="gk-card gk-placeholder">
-    Placeholder page. The exports agent builds opening-balance import (CSV) plus generic
-    CSV and Slicing Pie-format export here.
-  </div>
+
+  <section class="gk-card">
+    <h2>Export</h2>
+    <p>Download the org's current equity record. Every share traces back to the work that
+       earned it (issued drops) plus any imported opening balances.</p>
+    <ul>
+      {% for exp in exports %}
+        <li>
+          <a href="{% url 'exports:export' org_slug=org_slug format_key=exp.format_key %}">
+            {{ exp.label }}</a>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="gk-card">
+    <h2>Import opening balances</h2>
+    {% if can_import %}
+      <p>Upload a CSV to record pre-existing equity as opening balances. Required column:
+         <code>value</code>. Identifier column(s): <code>member_email</code> and/or
+         <code>taiga_user_id</code> (mapped to a member explicitly — an unmatched
+         identifier is reported, never created). Optional: <code>source_note</code>.</p>
+      <form method="post"
+            action="{% url 'exports:import' org_slug=org_slug %}"
+            enctype="multipart/form-data">
+        {% csrf_token %}
+        <p><input type="file" name="file" accept=".csv,text/csv" required></p>
+        <p>
+          <label>Re-run mode:
+            <select name="mode">
+              {% for m in modes %}
+                <option value="{{ m }}"{% if m == default_mode %} selected{% endif %}>{{ m }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <small>replace = a member's balances are replaced by the file (idempotent);
+                 append = add rows, skip exact duplicates.</small>
+        </p>
+        <p><button type="submit">Import CSV</button></p>
+      </form>
+    {% else %}
+      <p class="gk-placeholder">Importing opening balances requires an admin or steward role.</p>
+    {% endif %}
+
+    {% if last_result %}
+      <div class="gk-card">
+        <strong>Last import:</strong>
+        {{ last_result.created }} created, {{ last_result.skipped }} skipped,
+        {{ last_result.errors|length }} rejected.
+        {% if last_result.errors %}
+          <table>
+            <thead><tr><th>Line</th><th>Identifier</th><th>Problem</th></tr></thead>
+            <tbody>
+              {% for err in last_result.errors %}
+                <tr>
+                  <td>{{ err.line_number }}</td>
+                  <td>{{ err.identifier }}</td>
+                  <td>{{ err.message }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% endif %}
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="gk-card">
+    <h2>Import history</h2>
+    {% if recent_batches %}
+      <table>
+        <thead>
+          <tr><th>When</th><th>Kind</th><th>File</th><th>Rows</th><th>By</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          {% for batch in recent_batches %}
+            <tr>
+              <td>{{ batch.created_at }}</td>
+              <td>{{ batch.get_kind_display }}</td>
+              <td>{{ batch.filename|default:"—" }}</td>
+              <td>{{ batch.row_count }}</td>
+              <td>{{ batch.created_by|default:"—" }}</td>
+              <td>{{ batch.notes }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="gk-placeholder">No imports yet.</p>
+    {% endif %}
+  </section>
 {% endblock %}
