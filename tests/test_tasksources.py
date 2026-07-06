@@ -124,6 +124,31 @@ def test_parse_direct_value_bad_pattern_returns_none():
     assert services.parse_direct_value(["5 cook"], r"(\d+") is None
 
 
+def test_parse_direct_value_empty_pattern_returns_none():
+    # No greedy default: an unset pattern never matches, so nothing is auto-valued.
+    assert services.parse_direct_value(["5 cook"], "") is None
+
+
+def test_direct_value_unset_pattern_does_not_assign_value(
+    taiga_source, user_factory, membership_factory
+):
+    """An unset value_tag_pattern must NOT silently assign a value; tasks go missing-value
+    and the steward gets a clear config warning to set a unit-specific pattern."""
+    src = taiga_source(value_tag_pattern="")
+    org = src.org
+    membership_factory(org=org, user=user_factory(), taiga_user_id=9)
+    # A tag with a bare number ("3 priority") would be miscounted by a greedy pattern.
+    stories = [_story(101, DONE, tags=[["3 priority", None]], assigned_to=9, username="alpha")]
+    with mock_taiga(_base_routes(stories)):
+        result = services.sync_source(src)
+
+    task = TrackedTask.objects.get(external_id="101")
+    assert task.claimed_value is None
+    assert task.is_missing_value is True
+    # The sync surfaces the misconfiguration rather than silently guessing.
+    assert any("value_tag_pattern" in e for e in result.errors)
+
+
 # --- encrypted token round-trip -------------------------------------------------------
 
 
@@ -330,26 +355,26 @@ def _seed_tasks(taiga_source, user_factory, membership_factory, role=MembershipR
 def test_api_missing_value_endpoint(taiga_source, user_factory, membership_factory):
     org, user = _seed_tasks(taiga_source, user_factory, membership_factory)
     client = APIClient()
-    client.force_authenticate(user)
-    resp = client.get(f"/api/v1/tasksources/tasks/missing_value/?org={org.slug}")
+    client.force_login(user)
+    resp = client.get(f"/api/v1/tasksources/{org.slug}/tasks/missing_value/")
     assert resp.status_code == 200
     ids = [row["external_id"] for row in resp.json()]
     assert ids == ["102"]
 
 
-def test_api_requires_org_param(taiga_source, user_factory, membership_factory):
-    org, user = _seed_tasks(taiga_source, user_factory, membership_factory)
+def test_api_unknown_org_404(taiga_source, user_factory, membership_factory):
+    _org, user = _seed_tasks(taiga_source, user_factory, membership_factory)
     client = APIClient()
-    client.force_authenticate(user)
-    assert client.get("/api/v1/tasksources/tasks/").status_code == 400
+    client.force_login(user)
+    assert client.get("/api/v1/tasksources/no-such-org/tasks/").status_code == 404
 
 
 def test_api_non_member_forbidden(taiga_source, user_factory, membership_factory):
     org, _ = _seed_tasks(taiga_source, user_factory, membership_factory)
     outsider = user_factory()
     client = APIClient()
-    client.force_authenticate(outsider)
-    resp = client.get(f"/api/v1/tasksources/tasks/?org={org.slug}")
+    client.force_login(outsider)
+    resp = client.get(f"/api/v1/tasksources/{org.slug}/tasks/")
     assert resp.status_code == 403
 
 
@@ -359,8 +384,8 @@ def test_api_sync_requires_steward(taiga_source, user_factory, membership_factor
     member = user_factory()
     membership_factory(org=org, user=member, role=MembershipRole.MEMBER)
     client = APIClient()
-    client.force_authenticate(member)
-    resp = client.post("/api/v1/tasksources/tasks/sync/", {"org": org.slug})
+    client.force_login(member)
+    resp = client.post(f"/api/v1/tasksources/{org.slug}/sync/")
     assert resp.status_code == 403
 
 
@@ -371,8 +396,8 @@ def test_api_sync_action_runs(taiga_source, user_factory, membership_factory):
     membership_factory(org=org, user=steward, role=MembershipRole.STEWARD, taiga_user_id=9)
     stories = [_story(101, DONE, tags=[["5 cook", None]], assigned_to=9, username="alpha")]
     client = APIClient()
-    client.force_authenticate(steward)
+    client.force_login(steward)
     with mock_taiga(_base_routes(stories)):
-        resp = client.post("/api/v1/tasksources/tasks/sync/", {"org": org.slug})
+        resp = client.post(f"/api/v1/tasksources/{org.slug}/sync/")
     assert resp.status_code == 200
     assert resp.json()["sources"][0]["created"] == 1

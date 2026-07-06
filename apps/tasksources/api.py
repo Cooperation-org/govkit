@@ -1,51 +1,32 @@
 """
 DRF endpoints for tasksources (API-first: every UI action has an endpoint).
 
-The router mounts at ``/api/v1/tasksources/`` — outside the ``/o/<org_slug>/`` prefix, so
-OrgContextMiddleware does not populate ``request.org`` here. Every endpoint therefore takes
-an explicit ``?org=<slug>`` (or ``org`` in the body) and verifies the caller's Membership,
-scoping every queryset to that org.
+Path-based org scoping — the SAME convention as drops/pie/exports. Every route nests an
+``<org_slug>/`` segment, so OrgContextMiddleware (which keys on the ``org_slug`` view
+kwarg) resolves ``request.org`` / ``request.membership`` and enforces membership (404 for
+an unknown org, 403 for an authenticated non-member) exactly as it does for the HTML
+pages. No ``?org=`` query param and no manual membership check here.
 
 Endpoints:
-  GET  /api/v1/tasksources/tasks/?org=<slug>                 tracked tasks for the org
-  GET  /api/v1/tasksources/tasks/missing_value/?org=<slug>   the missing-value queue
-  POST /api/v1/tasksources/tasks/sync/  {"org": "<slug>"}     run a sync (steward/admin)
+  GET  /api/v1/tasksources/<org_slug>/tasks/                 tracked tasks for the org
+  GET  /api/v1/tasksources/<org_slug>/tasks/missing_value/   the missing-value queue
+  POST /api/v1/tasksources/<org_slug>/sync/                  run a sync (steward/admin)
 """
 
+from django.urls import path
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.routers import DefaultRouter
+from rest_framework.views import APIView
 
-from apps.orgs.models import Membership, MembershipRole, Org
+from apps.orgs.models import MembershipRole
 
 from .models import TrackedTask
 from .services import missing_value_tasks, sync_org
 
 _STEWARD_ROLES = {MembershipRole.ADMIN, MembershipRole.STEWARD}
-
-
-def _resolve_org(request):
-    """Resolve the target org from ``org`` (query or body) and enforce membership.
-
-    Returns ``(org, membership)``. Superusers pass with ``membership=None``. Raises the
-    DRF exception matching the middleware's HTML behavior (404 unknown / 403 non-member).
-    """
-    slug = request.query_params.get("org") or request.data.get("org")
-    if not slug:
-        raise ValidationError({"org": "This query parameter is required."})
-    try:
-        org = Org.objects.get(slug=slug)
-    except Org.DoesNotExist as exc:
-        raise NotFound(f"No org with slug '{slug}'.") from exc
-
-    if request.user.is_superuser:
-        return org, None
-    membership = Membership.objects.filter(org=org, user=request.user).first()
-    if membership is None:
-        raise PermissionDenied("You are not a member of this organization.")
-    return org, membership
 
 
 class TrackedTaskSerializer(serializers.ModelSerializer):
@@ -78,34 +59,38 @@ class TrackedTaskSerializer(serializers.ModelSerializer):
 
 
 class TrackedTaskViewSet(viewsets.ReadOnlyModelViewSet):
-    """Read tracked tasks + trigger a sync. Always scoped to ``?org=<slug>``."""
+    """Read tracked tasks + the missing-value queue. Scoped to ``request.org``."""
 
     serializer_class = TrackedTaskSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        org, _ = _resolve_org(self.request)
-        return TrackedTask.objects.for_org(org).select_related(
+        return TrackedTask.objects.for_org(self.request.org).select_related(
             "assignee", "assignee__user", "source"
         )
 
     @action(detail=False, methods=["get"])
-    def missing_value(self, request):
-        org, _ = _resolve_org(request)
-        page = self.paginate_queryset(missing_value_tasks(org))
+    def missing_value(self, request, org_slug=None):
+        page = self.paginate_queryset(missing_value_tasks(request.org))
         if page is not None:
             return self.get_paginated_response(self.get_serializer(page, many=True).data)
-        tasks = missing_value_tasks(org)
+        tasks = missing_value_tasks(request.org)
         return Response(self.get_serializer(tasks, many=True).data)
 
-    @action(detail=False, methods=["post"])
-    def sync(self, request):
-        org, membership = _resolve_org(request)
+
+class SyncView(APIView):
+    """Trigger a sync of every task source for the org (steward/admin only)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, org_slug=None):
+        membership = getattr(request, "membership", None)
         if membership is not None and membership.role not in _STEWARD_ROLES:
             raise PermissionDenied("Only stewards or admins may sync task sources.")
-        results = sync_org(org)
+        results = sync_org(request.org)
         return Response(
             {
-                "org": org.slug,
+                "org": request.org.slug,
                 "sources": [
                     {
                         "source_id": r.source_id,
@@ -122,7 +107,20 @@ class TrackedTaskViewSet(viewsets.ReadOnlyModelViewSet):
         )
 
 
-router = DefaultRouter()
-router.register(r"tasks", TrackedTaskViewSet, basename="trackedtask")
-
-urlpatterns = router.urls
+urlpatterns = [
+    path(
+        "<slug:org_slug>/tasks/",
+        TrackedTaskViewSet.as_view({"get": "list"}),
+        name="trackedtask-list",
+    ),
+    path(
+        "<slug:org_slug>/tasks/missing_value/",
+        TrackedTaskViewSet.as_view({"get": "missing_value"}),
+        name="trackedtask-missing-value",
+    ),
+    path(
+        "<slug:org_slug>/sync/",
+        SyncView.as_view(),
+        name="tasksource-sync",
+    ),
+]
