@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}{{ current_org.display_name }} — GovKit{% endblock %}
+{% block content %}
+  <h1>{{ current_org.display_name }}</h1>
+  <p class="gk-placeholder">Unit: {{ current_org.unit_name }} &middot; {{ member_count }} member(s).</p>
+  <div class="gk-card">
+    <p>Use the tabs above: <strong>Drops</strong> (earnings engine), <strong>Pie</strong>
+      (shares), <strong>Votes</strong>, <strong>Committee</strong> (sortition).</p>
+    <p class="gk-placeholder">Feature pages are placeholders until the feature agents fill them in.</p>
+  </div>
+{% endblock %}

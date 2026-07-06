@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}GovKit — organizations{% endblock %}
+{% block content %}
+  <h1>Organizations</h1>
+  {% if request.user.is_authenticated %}
+    {% if my_orgs %}
+      <ul>
+        {% for org in my_orgs %}
+          <li><a href="{% url 'orgs:dashboard' org_slug=org.slug %}">{{ org.display_name }}</a>
+            <span class="gk-placeholder">/{{ org.slug }}</span></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="gk-placeholder">You are not a member of any organization yet.</p>
+    {% endif %}
+    <p><a href="{% url 'orgs:onboarding' %}">Set up a new organization &rarr;</a></p>
+  {% else %}
+    <p class="gk-placeholder">An earned-governance toolkit.</p>
+    <p><a href="{% url 'accounts:login' %}">Sign in</a> to continue.</p>
+  {% endif %}
+{% endblock %}

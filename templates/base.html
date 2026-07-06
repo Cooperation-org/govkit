@@ -1,0 +1,41 @@
+{% load static %}
+<!-- GovKit base layout. Uses {% templatetag openblock %} url {% templatetag closeblock %}
+     and {% templatetag openblock %} static {% templatetag closeblock %} throughout so a
+     BASE_PATH deploy prefix applies automatically. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}GovKit{% endblock %}</title>
+<link rel="stylesheet" href="{% static 'govkit.css' %}">
+
+<header class="gk-header">
+  <a class="gk-brand" href="{% url 'orgs:landing' %}">GovKit</a>
+  {% if current_org %}
+    <nav class="gk-tabs">
+      {% for label, url_name in nav_tabs %}
+        <a class="gk-tab" href="{% url url_name org_slug=current_org.slug %}">{{ label }}</a>
+      {% endfor %}
+    </nav>
+    <span class="gk-org">{{ current_org.display_name }}</span>
+  {% endif %}
+  <span class="gk-user">
+    {% if request.user.is_authenticated %}
+      {{ request.user.get_short_name }} &middot;
+      <a href="{% url 'accounts:logout' %}">Sign out</a>
+    {% else %}
+      <a href="{% url 'accounts:login' %}">Sign in</a>
+    {% endif %}
+  </span>
+</header>
+
+<main class="gk-main">
+  {% if messages %}
+    <ul class="gk-messages">
+      {% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}
+    </ul>
+  {% endif %}
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="gk-footer">
+  GovKit — earned-governance toolkit. Milestone 1 (in progress).
+</footer>

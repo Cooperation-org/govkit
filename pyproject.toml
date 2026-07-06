@@ -1,0 +1,14 @@
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+# force-exclude applies even when paths are passed explicitly (e.g. `black .`),
+# so the virtualenv and generated dirs are never reformatted.
+force-exclude = '''
+/(
+    \.git
+  | venv
+  | \.venv
+  | staticfiles
+  | migrations
+)/
+'''
