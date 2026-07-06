@@ -127,7 +127,17 @@ def open_run(org, opened_by_membership=None, opened_by_user=None) -> DropRun:
     links so the review queue can work BY TASK. Raises NoEligibleTasks when there is
     nothing to drop.
     """
-    tasks = list(eligible_tasks(org).select_related("assignee"))
+    # M4: guard against two concurrent open_run calls gathering the same task into two
+    # runs. Take a row lock on the candidate tasks, THEN re-check eligibility under the
+    # lock. A racing run that linked a task first will have committed by the time this
+    # transaction acquires the lock, so the task drops out of the re-checked set here.
+    # (select_for_update is issued on a plain pk filter — Postgres forbids FOR UPDATE with
+    # DISTINCT / the outer join that eligible_tasks uses, so we lock by pk separately.)
+    candidate_ids = list(eligible_tasks(org).values_list("pk", flat=True))
+    if not candidate_ids:
+        raise NoEligibleTasks("No eligible done tasks to drop for this org.")
+    list(TrackedTask.objects.filter(pk__in=candidate_ids).select_for_update())
+    tasks = list(eligible_tasks(org).filter(pk__in=candidate_ids).select_related("assignee"))
     if not tasks:
         raise NoEligibleTasks("No eligible done tasks to drop for this org.")
 

@@ -454,3 +454,28 @@ def test_api_open_run_and_role_gate(
         content_type="application/json",
     )
     assert resp.status_code == 409
+
+
+def test_open_run_never_double_drafts_a_task(
+    org_factory, user_factory, membership_factory, source_factory, task_factory
+):
+    """M4: single-run-per-task guarantee. A task linked into one run's line is not
+    re-gathered by a second open (even before approval); eligibility is re-checked under a
+    row lock inside the transaction, so two opens can't draft the same task twice."""
+    org = org_factory()
+    org.default_hourly_rate = Decimal("10.00")
+    org.save()
+    _config(org, ValuationMode.HOURS_RATE)
+    src = source_factory(org)
+    m = membership_factory(org, user_factory())
+    task = task_factory(org, src, assignee=m, hours=Decimal("5"))
+
+    run1 = services.open_run(org, opened_by_membership=m, opened_by_user=m.user)
+    assert run1.lines.count() == 1
+
+    # The OPEN (not yet approved) run already links the task -> a second open finds nothing.
+    with pytest.raises(services.NoEligibleTasks):
+        services.open_run(org, opened_by_membership=m, opened_by_user=m.user)
+
+    # The task belongs to exactly one drop line across all runs.
+    assert task.drop_lines.count() == 1
