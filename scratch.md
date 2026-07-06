@@ -47,9 +47,11 @@ runnable by us as a multitenant service. Full contract:
 - [x] **FINAL STATE: 180 tests green** on Postgres; check + migration-check clean; black/flake8
       clean; full end-to-end smoke (all pages + all 6 app APIs = 200; cross-org = 403).
       Pushed to `origin/main`. Port 8062 + app-registry entry registered (deploy pending).
-- [ ] Deploy: systemd `tmp-govkit-backend.service`, nginx `govkit.conf`,
-      `demos.linkedtrust.us/govkit/` — **BLOCKED on Q1 (prod DB) + Q2/Q3/Q4 (OIDC/Taiga/Google creds)**.
-      Artifacts staged: `~golda/work/7-6-2026-govkit.conf` + `...-tmp-govkit-backend.service`.
+- [x] **LIVE DEMO deployed 2026-07-06** → **https://demos.linkedtrust.us/govkit/**
+      (systemd `tmp-govkit-backend.service` :8062 + nginx `app-proxies/govkit.conf`; DB on VM100).
+      **TEMPORARY demo config:** `GOVKIT_DEV_LOGIN=1` is ON (public URL) + seeded demo org so it's
+      clickable before OIDC lands. **LOCK DOWN after the demo:** set `GOVKIT_DEV_LOGIN=` (unset),
+      restart service, once Q2 OIDC creds are in. Real go-live steps remain in `deploy/README.md`.
 
 ### Deviations from the build doc (flag for Golda — accept or change)
 - **D1 (re item 15) — LinkedTrust OIDC is implemented IN-APP, not via the pip package
@@ -117,18 +119,34 @@ supports all options, defaults noted so the build isn't blocked):**
 
 - **Q5a — Hourly rates:** single org-wide default rate, or per-member from day one?
   (Model stores per-member; default UX = org-wide default with per-member override.)
-  - _Answer:_
+  - _Answer:_ **Rec (confirm):** org-wide **default rate + per-member override**. Simplest
+    onboarding (set one rate, done) but lets you differentiate when needed; the model already
+    supports both, so this costs nothing and defers the per-person conversation.
 - **Q5b — Historical import source of truth on conflict:** legacy `issued_cook` table vs
   the totals spreadsheet — which wins?
-  - _Answer:_
+  - _Answer:_ **Rec (confirm):** **`issued_cook` wins** — it's the post-approval record of
+    record (the spreadsheet was a working scratchpad whose adjustments were approved *back
+    into* issued_cook). Import from issued_cook, spot-check totals against the spreadsheet,
+    and represent any residual spreadsheet-only delta as an explicit `OpeningBalance`
+    adjustment row with a `source_note` so it's traceable.
 - **Q5c — Budget policy defaults for our own org:** weekly assignable amount? self-assign cap?
   (Default seeded = unlimited / soft-warn only.)
-  - _Answer:_
+  - _Answer:_ **Rec (confirm):** start **unlimited + no self-assign cap, soft enforcement
+    (warn only)**. The team runs without budgets today; hard caps change behavior. Turn on
+    observability first (the budget state is shown), then tighten once you can see real
+    assignment patterns.
 - **Q5d — Our instance's org slug / unit:** `whatscookin / COOK` or `linkedtrust / COOK`?
-  - _Answer:_
+  - _Answer:_ **Rec (confirm):** **`whatscookin` / `COOK`** for the org that inherits the
+    historical `issued_cook` equity — that's where the data + cap-table continuity live.
+    Add `linkedtrust` as its own separate org later if/when it needs its own pie. (This is
+    genuinely your call — whose equity does this record represent?)
 - **Q5e — Taiga hours field:** native Taiga points, or a custom attribute? (Adapter maps
   either; question is what OUR Taiga will use.)
-  - _Answer:_
+  - _Answer:_ **Rec (confirm):** keep **`direct_value` (the `Ncook` value tags)** for now —
+    no hours field needed, matches current practice. When you move to `hours_rate`, use a
+    **dedicated custom attribute `hours`**, NOT native story points (points are used for
+    estimation/velocity; conflating them with billable hours is confusing). The adapter
+    supports both, so this is a config flip later.
 
 **Orchestrator defaults chosen (flag if wrong):**
 - **Q6 — Repo visibility:** created **private** (private→public is a deliberate publish
