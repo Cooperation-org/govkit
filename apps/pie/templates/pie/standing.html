@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title }} — {{ current_org.display_name }}{% endblock %}
+{% block content %}
+  <style>
+    .stand-tiles { display: flex; flex-wrap: wrap; gap: 1rem; margin: 1rem 0; }
+    .stand-tile { flex: 1 1 12rem; background: #fff; border: 1px solid #e2e2e2;
+      border-radius: 6px; padding: 1rem; }
+    .stand-tile .big { font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+    .stand-tile .lbl { color: #777; font-size: .85em; text-transform: uppercase;
+      letter-spacing: .03em; }
+    .pending { border-left: 4px solid #ff9900; }
+    .issued { border-left: 4px solid #109618; }
+    .trace-tbl { width: 100%; border-collapse: collapse; margin: .4rem 0 1rem; }
+    .trace-tbl th, .trace-tbl td { padding: .3rem .55rem; border-bottom: 1px solid #eee;
+      text-align: left; font-size: .92em; }
+    .trace-tbl td.num, .trace-tbl th.num { text-align: right;
+      font-variant-numeric: tabular-nums; }
+    .muted { color: #777; }
+  </style>
+
+  <div style="display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:.5rem;">
+    <h1>{{ page_title }}</h1>
+    <a class="gk-tab" href="{% url 'pie:index' org_slug=current_org.slug %}">&larr; Org pie</a>
+  </div>
+  <p class="muted">
+    Where you stand in <strong>{{ current_org.display_name }}</strong>, in
+    {{ standing.unit_name }}. Claiming credit means always being able to see this — and
+    trace every number below to the work behind it.
+  </p>
+
+  <div class="stand-tiles">
+    <div class="stand-tile issued">
+      <div class="lbl">Issued (in the pie)</div>
+      <div class="big">{{ standing.realized_total }} <small>{{ standing.unit_name }}</small></div>
+      <div class="muted">
+        {{ standing.issued_total }} from drops · {{ standing.opening_total }} opening
+      </div>
+    </div>
+    <div class="stand-tile issued">
+      <div class="lbl">Your share</div>
+      <div class="big">{{ standing.share_pct }}%</div>
+      <div class="muted">of all issued equity</div>
+    </div>
+    <div class="stand-tile pending">
+      <div class="lbl">Pending (open runs)</div>
+      <div class="big">{{ standing.pending_total }} <small>{{ standing.unit_name }}</small></div>
+      <div class="muted">provisional — not yet in the pie</div>
+    </div>
+  </div>
+
+  <div class="gk-card">
+    <h2>Issued — the work in your share</h2>
+    {% if standing.issued_lines or standing.opening_balances %}
+      {% if standing.issued_lines %}
+        <table class="trace-tbl">
+          <thead>
+            <tr>
+              <th>Drop line</th><th>Tasks</th>
+              <th class="num">Computed</th><th class="num">Adjustment</th><th class="num">Final</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for line in standing.issued_lines %}
+              <tr>
+                <td>Run #{{ line.run_id }} · line #{{ line.line_id }}</td>
+                <td>
+                  {% for t in line.tasks %}
+                    {% if t.external_url %}
+                      <a href="{{ t.external_url }}" target="_blank" rel="noopener">{{ t.external_id }}</a>
+                    {% else %}{{ t.external_id }}{% endif %}
+                    {% if t.subject %}<span class="muted">— {{ t.subject }}</span>{% endif %}<br>
+                  {% empty %}<span class="muted">—</span>{% endfor %}
+                </td>
+                <td class="num">{{ line.computed_value }}</td>
+                <td class="num">
+                  {{ line.adjustment }}
+                  {% if line.adjustment_reason %}<br><span class="muted">{{ line.adjustment_reason }}</span>{% endif %}
+                </td>
+                <td class="num">{{ line.final_value }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+      {% if standing.opening_balances %}
+        <h3>Opening balances</h3>
+        <table class="trace-tbl">
+          <thead><tr><th>#</th><th>Source</th><th class="num">Value</th></tr></thead>
+          <tbody>
+            {% for ob in standing.opening_balances %}
+              <tr>
+                <td>{{ ob.opening_balance_id }}</td>
+                <td class="muted">{{ ob.source_note|default:"—" }}</td>
+                <td class="num">{{ ob.value }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+    {% else %}
+      <p class="muted">No issued equity yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="gk-card">
+    <h2>Pending — in still-open runs</h2>
+    {% if standing.pending_lines %}
+      <table class="trace-tbl">
+        <thead>
+          <tr>
+            <th>Drop line</th><th>Tasks</th>
+            <th class="num">Computed</th><th class="num">Adjustment</th><th class="num">Provisional</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for line in standing.pending_lines %}
+            <tr>
+              <td>Run #{{ line.run_id }} · line #{{ line.line_id }}</td>
+              <td>
+                {% for t in line.tasks %}
+                  {% if t.external_url %}
+                    <a href="{{ t.external_url }}" target="_blank" rel="noopener">{{ t.external_id }}</a>
+                  {% else %}{{ t.external_id }}{% endif %}
+                  {% if t.subject %}<span class="muted">— {{ t.subject }}</span>{% endif %}<br>
+                {% empty %}<span class="muted">—</span>{% endfor %}
+              </td>
+              <td class="num">{{ line.computed_value }}</td>
+              <td class="num">{{ line.adjustment }}</td>
+              <td class="num">{{ line.final_value }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">Nothing pending — no lines in open runs for you.</p>
+    {% endif %}
+  </div>
+{% endblock %}
