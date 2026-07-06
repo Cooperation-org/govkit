@@ -401,3 +401,99 @@ def test_api_sync_action_runs(taiga_source, user_factory, membership_factory):
         resp = client.post(f"/api/v1/tasksources/{org.slug}/sync/")
     assert resp.status_code == 200
     assert resp.json()["sources"][0]["created"] == 1
+
+
+# --- M3: api_token is never rendered in the admin change form -------------------------
+
+
+@pytest.mark.django_db
+def test_admin_change_form_masks_api_token(settings, org_factory, client):
+    """The decrypted Fernet token must not appear in the admin change-form HTML (M3)."""
+    settings.GOVKIT_SECRET_KEY = FERNET_KEY
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    admin_user = User.objects.create_superuser(email="root@example.com", password="pw12345!")
+    org = org_factory()
+    src = TaskSourceConfig.objects.create(
+        org=org, base_url="https://taiga.example/", api_token="pl41nt3xt-secret-token"
+    )
+
+    client.force_login(admin_user)
+    resp = client.get(f"/admin/tasksources/tasksourceconfig/{src.pk}/change/")
+    assert resp.status_code == 200
+    html = resp.content.decode()
+    # Cleartext token is absent; the write-only input + status indicator are present.
+    assert "pl41nt3xt-secret-token" not in html
+    assert "api_token_input" in html
+    assert "set (hidden)" in html
+
+
+@pytest.mark.django_db
+def test_admin_form_sets_new_token_and_keeps_old_when_blank(settings, org_factory):
+    """The write-only admin form SETS a new token when provided and PRESERVES the existing
+    one when left blank — so staff can rotate the token without ever reading it (M3)."""
+    settings.GOVKIT_SECRET_KEY = FERNET_KEY
+    from apps.tasksources.admin import TaskSourceConfigForm
+
+    org = org_factory()
+    src = TaskSourceConfig.objects.create(
+        org=org, base_url="https://taiga.example/", api_token="old-token"
+    )
+
+    # Blank input leaves the existing token untouched.
+    form = TaskSourceConfigForm(
+        data={
+            "org": org.pk,
+            "adapter_type": "taiga",
+            "base_url": "https://taiga.example/",
+            "done_statuses": '["done"]',
+            "api_token_input": "",
+        },
+        instance=src,
+    )
+    assert form.is_valid(), form.errors
+    form.save()
+    src.refresh_from_db()
+    assert src.api_token == "old-token"
+
+    # A non-blank input replaces it.
+    form = TaskSourceConfigForm(
+        data={
+            "org": org.pk,
+            "adapter_type": "taiga",
+            "base_url": "https://taiga.example/",
+            "done_statuses": '["done"]',
+            "api_token_input": "rotated-token",
+        },
+        instance=src,
+    )
+    assert form.is_valid(), form.errors
+    form.save()
+    src.refresh_from_db()
+    assert src.api_token == "rotated-token"
+
+
+# --- L9: decrypt failure never returns ciphertext-as-plaintext ------------------------
+
+
+@pytest.mark.django_db
+def test_encrypted_field_returns_none_on_decrypt_failure(settings, org_factory, caplog):
+    """If the stored ciphertext can't be decrypted (key rotated/lost), reads must NOT hand
+    back the raw ciphertext as if it were the token — they return None + log an error (L9)."""
+    settings.GOVKIT_SECRET_KEY = FERNET_KEY
+    org = org_factory()
+    src = TaskSourceConfig.objects.create(
+        org=org, base_url="https://taiga.example/", api_token="s3cr3t-token"
+    )
+
+    # Simulate key rotation/loss: read under a DIFFERENT Fernet key.
+    settings.GOVKIT_SECRET_KEY = Fernet.generate_key().decode()
+    import logging
+
+    with caplog.at_level(logging.ERROR):
+        reloaded = TaskSourceConfig.objects.get(pk=src.pk)
+        value = reloaded.api_token
+
+    assert value is None  # fail safe: never the ciphertext, never the plaintext
+    assert any("could not be decrypted" in r.message for r in caplog.records)

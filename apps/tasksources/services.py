@@ -128,13 +128,11 @@ def _valuation_fields(dto: TaskDTO, mode: str, source: TaskSourceConfig) -> dict
     }
 
 
-@transaction.atomic
 def sync_source(source: TaskSourceConfig) -> SyncResult:
     """Fetch + upsert TrackedTasks for one TaskSourceConfig. Idempotent."""
     result = SyncResult(source_id=source.pk)
     org = source.org
     mode = org.valuation_config.valuation_mode
-    identities = _IdentityMap(org)
     now = timezone.now()
 
     # Safety: direct_value with no configured pattern must NOT guess. We skip value
@@ -149,31 +147,36 @@ def sync_source(source: TaskSourceConfig) -> SyncResult:
         logger.warning("source %s: %s", source.pk, msg)
         result.errors.append(msg)
 
+    # L7: run the tracker HTTP fetch OUTSIDE any DB transaction. A slow or hung tracker
+    # must never hold a Postgres transaction (and its row locks) open across network I/O.
     dtos = get_adapter(source).fetch_tasks()
     result.fetched = len(dtos)
 
-    for dto in dtos:
-        assignee = identities.resolve(dto)
-        if assignee is None:
-            result.unassigned += 1
-        defaults = {
-            "external_url": dto.external_url,
-            "subject": dto.subject,
-            "status": dto.status_slug,
-            "assignee": assignee,
-            "fetched_at": now,
-            **_valuation_fields(dto, mode, source),
-        }
-        _, created = TrackedTask.objects.update_or_create(
-            org=org,
-            source=source,
-            external_id=dto.external_id,
-            defaults=defaults,
-        )
-        if created:
-            result.created += 1
-        else:
-            result.updated += 1
+    # Only the DB upserts run inside the transaction.
+    with transaction.atomic():
+        identities = _IdentityMap(org)
+        for dto in dtos:
+            assignee = identities.resolve(dto)
+            if assignee is None:
+                result.unassigned += 1
+            defaults = {
+                "external_url": dto.external_url,
+                "subject": dto.subject,
+                "status": dto.status_slug,
+                "assignee": assignee,
+                "fetched_at": now,
+                **_valuation_fields(dto, mode, source),
+            }
+            _, created = TrackedTask.objects.update_or_create(
+                org=org,
+                source=source,
+                external_id=dto.external_id,
+                defaults=defaults,
+            )
+            if created:
+                result.created += 1
+            else:
+                result.updated += 1
     return result
 
 
