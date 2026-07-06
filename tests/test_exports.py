@@ -428,3 +428,46 @@ def test_api_non_member_blocked(client, org_factory, membership_factory, user_fa
 
     resp = client.get(f"/api/v1/exports/o/{org.slug}/batches/")
     assert resp.status_code == 403
+
+
+# --- L10: CSV formula-injection is neutralized in free-text columns --------------------
+
+
+@pytest.mark.django_db
+def test_export_neutralizes_csv_formula_injection(org_factory, membership_factory, user_factory):
+    """L10: attacker-controlled free text (a source_note or an org unit_name beginning with
+    = + - @) must never produce a CSV cell that a spreadsheet interprets as a live formula.
+    The safety invariant: NO exported cell starts with a formula-trigger character, and
+    numeric columns stay numeric."""
+    from apps.exports.exporters import _CSV_FORMULA_PREFIXES, _text
+
+    # Unit sanitizer neutralizes a leading formula char but leaves safe text alone.
+    assert _text("=HYPERLINK(1)") == "'=HYPERLINK(1)"
+    assert _text("done") == "done"
+
+    org = org_factory()
+    org.unit_name = "=cmd|'/c calc'!A1"  # admin-controlled free text -> a real cell value
+    org.save()
+    m = _member(org, membership_factory, user_factory, email="member1@example.org")
+    OpeningBalance.objects.create(
+        org=org,
+        membership=m,
+        value=Decimal("50"),
+        source_note="=HYPERLINK('http://evil','click')",
+    )
+
+    for key in ("generic", "slicing_pie"):
+        rows = list(csv.DictReader(io.StringIO(get_exporter(key).to_csv(org))))
+        assert rows, key
+        for row in rows:
+            for col, cell in row.items():
+                if cell:
+                    assert cell[0] not in _CSV_FORMULA_PREFIXES, (key, col, cell)
+
+    # The unit cell carried the payload but neutralized (still traceable as data).
+    unit_cell = list(csv.DictReader(io.StringIO(get_exporter("generic").to_csv(org))))[0]["unit"]
+    assert unit_cell.startswith("'=cmd")
+    # Numeric columns stay numeric (not quoted / not mangled).
+    slice_rows = list(csv.DictReader(io.StringIO(get_exporter("slicing_pie").to_csv(org))))
+    balance_row = next(r for r in slice_rows if r["contribution_type"] == "opening_balance")
+    assert balance_row["base_value"] == "50.00"

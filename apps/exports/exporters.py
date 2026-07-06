@@ -87,7 +87,28 @@ def membership_totals(org) -> list[dict]:
 
 def _member_identifier(membership) -> str:
     """Stable human identifier for a member — email (identity map is explicit, never a name)."""
-    return membership.user.email
+    return _text(membership.user.email)
+
+
+# Characters that make a spreadsheet treat a cell as a formula (or break parsing).
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _text(value) -> str:
+    """L10: neutralize CSV/formula injection in free-text cells.
+
+    Spreadsheet apps interpret a cell beginning with = + - @ (or tab/CR) as a formula, so a
+    crafted free-text value (e.g. a ``source_note`` of ``=HYPERLINK(...)``) becomes live code
+    when the export is opened. Prefix such values with a single quote so they render as
+    literal text. Numeric columns are formatted separately (via _money/_ratio) and are NOT
+    passed through here, so real numbers stay numeric.
+    """
+    if value is None:
+        return ""
+    text = str(value)
+    if text and text[0] in _CSV_FORMULA_PREFIXES:
+        return "'" + text
+    return text
 
 
 # --------------------------------------------------------------------------- #
@@ -153,7 +174,7 @@ class GenericPieExport(EquityExport):
                 "opening_balance": _money(row["opening_balance"]),
                 "total_value": _money(row["total_value"]),
                 "share": _ratio(row["share"]),
-                "unit": org.unit_name,
+                "unit": _text(org.unit_name),
             }
 
 
@@ -236,7 +257,7 @@ class SlicingPieExport(EquityExport):
                 "base_value": _money(line.computed_value),
                 "adjustment": _money(line.adjustment),
                 "slices": _money(line.final_value),
-                "unit": org.unit_name,
+                "unit": _text(org.unit_name),
             }
 
         # Historical contributions: imported opening balances.
@@ -250,8 +271,10 @@ class SlicingPieExport(EquityExport):
                 "member_email": _member_identifier(balance.membership),
                 "taiga_user_id": balance.membership.taiga_user_id or "",
                 "contribution_type": "opening_balance",
-                "contribution_ref": f"opening_balance:{balance.pk}"
-                + (f" ({balance.source_note})" if balance.source_note else ""),
+                "contribution_ref": _text(
+                    f"opening_balance:{balance.pk}"
+                    + (f" ({balance.source_note})" if balance.source_note else "")
+                ),
                 "contribution_date": balance.created_at.date().isoformat(),
                 "hours": "",
                 "rate": "",
@@ -261,7 +284,7 @@ class SlicingPieExport(EquityExport):
                 "base_value": _money(balance.value),
                 "adjustment": _money(ZERO),
                 "slices": _money(balance.value),
-                "unit": org.unit_name,
+                "unit": _text(org.unit_name),
             }
 
 
