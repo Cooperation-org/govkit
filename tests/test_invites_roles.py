@@ -190,3 +190,62 @@ def test_api_admin_can_invite(client, admin_org):
     )
     assert resp.status_code == 201, resp.content
     assert "invite_link" in resp.json()
+
+
+# --- L5: pay-rate visibility gated to admins / self ------------------------------------
+
+
+@pytest.mark.django_db
+def test_member_cannot_read_colleague_rate_via_members_list(
+    client, admin_org, user_factory, membership_factory
+):
+    """A non-admin member sees their OWN rate but not a colleague's (L5)."""
+    org, _ = admin_org
+    me = user_factory(email="me@example.com")
+    membership_factory(org=org, user=me, role=MembershipRole.MEMBER, hourly_rate=Decimal("40"))
+    colleague = user_factory(email="colleague@example.com")
+    membership_factory(
+        org=org, user=colleague, role=MembershipRole.MEMBER, hourly_rate=Decimal("99")
+    )
+
+    client.force_login(me)
+    resp = client.get(f"/api/v1/orgs/orgs/{org.slug}/members/")
+    assert resp.status_code == 200, resp.content
+    by_email = {row["email"]: row for row in resp.json()}
+    # Own row exposes the rate.
+    assert "hourly_rate" in by_email["me@example.com"]
+    assert "effective_rate" in by_email["me@example.com"]
+    # Colleague's row hides both rate fields.
+    assert "hourly_rate" not in by_email["colleague@example.com"]
+    assert "effective_rate" not in by_email["colleague@example.com"]
+
+
+@pytest.mark.django_db
+def test_member_cannot_retrieve_colleague_rate(client, admin_org, user_factory, membership_factory):
+    org, _ = admin_org
+    me = user_factory(email="me2@example.com")
+    membership_factory(org=org, user=me, role=MembershipRole.MEMBER)
+    colleague = user_factory(email="colleague2@example.com")
+    cm = membership_factory(
+        org=org, user=colleague, role=MembershipRole.MEMBER, hourly_rate=Decimal("99")
+    )
+
+    client.force_login(me)
+    resp = client.get(f"/api/v1/orgs/memberships/{cm.id}/")
+    assert resp.status_code == 200, resp.content
+    body = resp.json()
+    assert "hourly_rate" not in body
+    assert "effective_rate" not in body
+
+
+@pytest.mark.django_db
+def test_admin_can_read_member_rate(client, admin_org, user_factory, membership_factory):
+    org, admin = admin_org
+    colleague = user_factory(email="colleague3@example.com")
+    cm = membership_factory(
+        org=org, user=colleague, role=MembershipRole.MEMBER, hourly_rate=Decimal("99")
+    )
+    client.force_login(admin)
+    resp = client.get(f"/api/v1/orgs/memberships/{cm.id}/")
+    assert resp.status_code == 200, resp.content
+    assert resp.json()["hourly_rate"] == "99.00"

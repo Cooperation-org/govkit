@@ -70,7 +70,7 @@ class OrgViewSet(viewsets.ModelViewSet):
     def members(self, request, slug=None):
         org = self.get_object()
         qs = Membership.objects.filter(org=org).select_related("user").order_by("user__email")
-        return Response(MembershipSerializer(qs, many=True).data)
+        return Response(MembershipSerializer(qs, many=True, context={"request": request}).data)
 
     @action(detail=True, methods=["post"])
     def invite(self, request, slug=None):

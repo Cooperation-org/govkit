@@ -121,6 +121,28 @@ class MembershipSerializer(serializers.ModelSerializer):
         fields = ["id", "email", "role", "hourly_rate", "effective_rate"]
         read_only_fields = ["id", "email", "effective_rate"]
 
+    def to_representation(self, instance):
+        """L5: a member's pay rate is sensitive. Only expose hourly_rate/effective_rate to
+        the member themselves, to org admins, or to superusers — strip it for other members
+        so a colleague's rate is not readable across the org."""
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user is None or not getattr(user, "is_authenticated", False):
+            # No request context (internal/serialization-only use): do not leak by default.
+            data.pop("hourly_rate", None)
+            data.pop("effective_rate", None)
+            return data
+        if user.is_superuser or instance.user_id == user.id:
+            return data
+        is_admin = Membership.objects.filter(
+            org=instance.org, user=user, role=MembershipRole.ADMIN
+        ).exists()
+        if not is_admin:
+            data.pop("hourly_rate", None)
+            data.pop("effective_rate", None)
+        return data
+
 
 class InviteSerializer(serializers.Serializer):
     email = serializers.EmailField()
