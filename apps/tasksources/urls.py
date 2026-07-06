@@ -6,4 +6,5 @@ app_name = "tasksources"
 
 urlpatterns = [
     path("", views.index, name="index"),
+    path("sync/", views.sync_now, name="sync"),
 ]
