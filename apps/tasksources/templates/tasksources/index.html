@@ -2,8 +2,64 @@
 {% block title %}{{ page_title }} — {{ current_org.display_name }}{% endblock %}
 {% block content %}
   <h1>{{ page_title }}</h1>
-  <div class="gk-card gk-placeholder">
-    Placeholder page. The taiga agent builds tracker sync (Taiga REST, both valuation
-    modes) and the missing-value review queue here.
-  </div>
+
+  <section class="gk-card">
+    <h2>Connected sources</h2>
+    {% if sources %}
+      <table class="gk-table">
+        <thead><tr><th>Tracker</th><th>Base URL</th><th>Project(s)</th></tr></thead>
+        <tbody>
+          {% for source in sources %}
+            <tr>
+              <td>{{ source.get_adapter_type_display }}</td>
+              <td>{{ source.base_url }}</td>
+              <td>{{ source.project_selector|default:"—" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="gk-placeholder">No task sources configured yet. Add one in the admin.</p>
+    {% endif %}
+
+    {% if can_sync %}
+      <form method="post" action="{% url 'tasksources:sync' org_slug=current_org.slug %}">
+        {% csrf_token %}
+        <button type="submit" class="gk-btn">Sync now</button>
+      </form>
+    {% endif %}
+  </section>
+
+  <section class="gk-card">
+    <h2>Missing-value queue</h2>
+    <p class="gk-placeholder">
+      Done tasks with no value or hours yet — these need a value before they can drop.
+    </p>
+    {% if missing_tasks %}
+      <table class="gk-table">
+        <thead>
+          <tr><th>Task</th><th>Subject</th><th>Assignee (tracker)</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {% for task in missing_tasks %}
+            <tr>
+              <td>
+                {% if task.external_url %}
+                  <a href="{{ task.external_url }}">{{ task.external_id }}</a>
+                {% else %}{{ task.external_id }}{% endif %}
+              </td>
+              <td>{{ task.subject|default:"—" }}</td>
+              <td>
+                {% if task.assignee %}{{ task.assignee.taiga_username|default:task.assignee.taiga_user_id }}
+                {% else %}<em>unmapped</em>{% endif %}
+              </td>
+              <td>{{ task.status|default:"—" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="gk-placeholder">Nothing waiting — every done task has a value.</p>
+    {% endif %}
+  </section>
 {% endblock %}
