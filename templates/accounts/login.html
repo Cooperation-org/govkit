@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Sign in — GovKit{% endblock %}
+{% block content %}
+  <h1>Sign in</h1>
+
+  {% if error %}<p class="gk-error" style="color:#b00;">{{ error }}</p>{% endif %}
+
+  <div class="gk-card">
+    {% if linkedtrust_configured %}
+      <p>
+        <a class="gk-btn gk-btn-primary"
+           href="{% url 'accounts:linkedtrust_start' %}{% if next %}?next={{ next|urlencode }}{% endif %}">
+          Continue with LinkedTrust
+        </a>
+      </p>
+    {% else %}
+      <p class="gk-placeholder">LinkedTrust sign-in is not configured on this server.</p>
+    {% endif %}
+
+    {% if google_configured %}
+      <p>
+        <a class="gk-btn gk-btn-secondary"
+           href="{% url 'accounts:google_start' %}{% if next %}?next={{ next|urlencode }}{% endif %}">
+          Continue with Google
+        </a>
+      </p>
+    {% endif %}
+  </div>
+
+  {% if dev_login_enabled %}
+    <div class="gk-card" style="background:#fff8e1;border-color:#e0c060;">
+      <strong>Dev-only login.</strong> This email+password form exists for local
+      development and tests. It is disabled (404) unless <code>GOVKIT_DEV_LOGIN</code> is
+      set — never enable it in production.
+      <form method="post" action="{% url 'accounts:dev_login' %}" style="margin-top:.75rem;">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+        <p><label>Email<br><input type="email" name="email" required></label></p>
+        <p><label>Password<br><input type="password" name="password" required></label></p>
+        <p><button type="submit">Sign in (dev)</button></p>
+      </form>
+    </div>
+  {% endif %}
+{% endblock %}

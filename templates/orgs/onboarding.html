@@ -2,13 +2,46 @@
 {% block title %}Set up an organization — GovKit{% endblock %}
 {% block content %}
   <h1>Set up an organization</h1>
-  <div class="gk-card gk-placeholder">
-    <p>Onboarding wizard shell. The onboarding agent implements the steps:</p>
-    <ol>
-      <li>Name the org &amp; its unit of value</li>
-      <li>Choose valuation mode (hours &times; rate, or direct value tags) &amp; rules</li>
-      <li>Connect a task tracker</li>
-      <li>Invite members via OAuth</li>
-    </ol>
-  </div>
+  <p>Name your org, name your unit of value, and choose how work is valued. You'll land on
+     the dashboard as an admin.</p>
+
+  <form method="post" class="gk-card">
+    {% csrf_token %}
+
+    <fieldset>
+      <legend>Identity</legend>
+      {{ form.display_name.label_tag }} {{ form.display_name }}
+      {% for e in form.display_name.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+      {{ form.slug.label_tag }} {{ form.slug }}
+      <small>{{ form.slug.help_text }}</small>
+      {% for e in form.slug.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+      {{ form.unit_name.label_tag }} {{ form.unit_name }}
+      <small>{{ form.unit_name.help_text }}</small>
+    </fieldset>
+
+    <fieldset>
+      <legend>Valuation</legend>
+      {{ form.valuation_mode.label_tag }} {{ form.valuation_mode }}
+      {{ form.default_hourly_rate.label_tag }} {{ form.default_hourly_rate }}
+      <small>{{ form.default_hourly_rate.help_text }}</small>
+      {{ form.at_risk_multiplier_noncash.label_tag }} {{ form.at_risk_multiplier_noncash }}
+      {{ form.at_risk_multiplier_cash.label_tag }} {{ form.at_risk_multiplier_cash }}
+      {{ form.weight_window.label_tag }} {{ form.weight_window }}
+    </fieldset>
+
+    <fieldset>
+      <legend>Budget policy</legend>
+      {{ form.assignment_budget_period.label_tag }} {{ form.assignment_budget_period }}
+      {{ form.assignment_budget_amount.label_tag }} {{ form.assignment_budget_amount }}
+      <small>{{ form.assignment_budget_amount.help_text }}</small>
+      {{ form.self_assign_cap.label_tag }} {{ form.self_assign_cap }}
+      <small>{{ form.self_assign_cap.help_text }}</small>
+      {{ form.budget_enforcement.label_tag }} {{ form.budget_enforcement }}
+    </fieldset>
+
+    {% if form.non_field_errors %}
+      <p class="gk-error">{{ form.non_field_errors }}</p>
+    {% endif %}
+    <p><button type="submit">Create organization</button></p>
+  </form>
 {% endblock %}

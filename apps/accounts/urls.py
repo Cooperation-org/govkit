@@ -1,9 +1,11 @@
 """
-Auth routes — STUBBED but wired.
+Auth routes: the login page, LinkedTrust OIDC (default) + Google OAuth (secondary)
+entry/callback pairs, the gated dev-login seam, and logout.
 
-The auth agent implements the real LinkedTrust-OIDC-default + Google-secondary flow.
-For now a clearly-labelled dev-only password login keeps the app usable. The URL names
-here (login/logout) are the stable seam referenced by settings.LOGIN_URL and templates.
+`accounts:login` is the stable name referenced by settings.LOGIN_URL and templates. The
+OAuth callback paths here are what must be registered as each provider's redirect_uri:
+  LinkedTrust: <base>/accounts/linkedtrust/callback/
+  Google:      <base>/accounts/google/callback/
 """
 
 from django.urls import path
@@ -13,9 +15,14 @@ from . import views
 app_name = "accounts"
 
 urlpatterns = [
-    path("login/", views.dev_login, name="login"),
+    path("login/", views.login_page, name="login"),
     path("logout/", views.logout_view, name="logout"),
-    # Auth agent: add OAuth entry points here, e.g.
-    #   path("linkedtrust/start/", views.linkedtrust_start, name="linkedtrust_start"),
-    #   path("google/start/", views.google_start, name="google_start"),
+    # LinkedTrust OIDC (default).
+    path("linkedtrust/start/", views.linkedtrust_start, name="linkedtrust_start"),
+    path("linkedtrust/callback/", views.linkedtrust_callback, name="linkedtrust_callback"),
+    # Google OAuth (secondary).
+    path("google/start/", views.google_start, name="google_start"),
+    path("google/callback/", views.google_callback, name="google_callback"),
+    # Dev/test-only password login (404 unless GOVKIT_DEV_LOGIN is set).
+    path("dev-login/", views.dev_login, name="dev_login"),
 ]

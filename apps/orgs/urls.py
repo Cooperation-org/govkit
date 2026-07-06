@@ -1,10 +1,11 @@
 """
-orgs URL config — non-org routes (landing, onboarding) and the org dashboard.
+orgs URL config — non-org routes (landing, onboarding, invite acceptance) and the
+org-scoped dashboard + member/roles admin.
 
-The org-scoped FEATURE includes live in config/urls.py, mounted flatly under
-/o/<org_slug>/<feature>/ so each feature app owns a top-level URL namespace
-(drops, pie, votes, sortition, exports, tasksources). This keeps `{% url 'drops:index' %}`
-simple for feature agents rather than nesting namespaces.
+Org-scoped routes keep the `o/<org_slug>/` prefix so OrgContextMiddleware resolves
+request.org / request.membership (the middleware keys on the `org_slug` view kwarg). The
+org-scoped FEATURE includes (drops, pie, votes, sortition, exports, tasksources) live in
+config/urls.py; these org-management routes belong to the `orgs` namespace and stay here.
 """
 
 from django.urls import path
@@ -15,6 +16,16 @@ app_name = "orgs"
 
 urlpatterns = [
     path("", views.landing, name="landing"),
-    path("onboarding/", views.onboarding_start, name="onboarding"),
+    path("onboarding/", views.onboarding, name="onboarding"),
+    path("invite/accept/", views.accept_invite, name="accept_invite"),
+    # Org-scoped (org_slug kwarg → middleware sets request.org / request.membership).
     path("o/<slug:org_slug>/", views.dashboard, name="dashboard"),
+    path("o/<slug:org_slug>/members/", views.members, name="members"),
+    path("o/<slug:org_slug>/members/invite/", views.invite_create, name="invite_create"),
+    path("o/<slug:org_slug>/members/rate/", views.org_rate, name="org_rate"),
+    path(
+        "o/<slug:org_slug>/members/<int:membership_id>/update/",
+        views.member_update,
+        name="member_update",
+    ),
 ]

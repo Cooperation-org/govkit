@@ -8,4 +8,10 @@
       (shares), <strong>Votes</strong>, <strong>Committee</strong> (sortition).</p>
     <p class="gk-placeholder">Feature pages are placeholders until the feature agents fill them in.</p>
   </div>
+
+  {% if request.membership and request.membership.role == 'admin' or request.user.is_superuser %}
+    <div class="gk-card">
+      <p><a href="{% url 'orgs:members' org_slug=current_org.slug %}">Manage members &amp; roles &rarr;</a></p>
+    </div>
+  {% endif %}
 {% endblock %}
