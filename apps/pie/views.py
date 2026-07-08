@@ -14,43 +14,43 @@ from django.shortcuts import render
 
 from .services import compute_personal_standing, compute_pie
 
-# Accessible, offline (no CDN) categorical palette for slice colours. Cycled by index.
-SLICE_COLORS = [
-    "#3366cc",
-    "#dc3912",
-    "#ff9900",
-    "#109618",
-    "#990099",
-    "#0099c6",
-    "#dd4477",
-    "#66aa00",
-    "#b82e2e",
-    "#316395",
-]
+# Categorical identity is the six-leaf palette (pattern 6 · SIX LEAVES), defined once in
+# static/govkit.css as .gk-cat-0..5 with a validated set per color scheme. Views emit
+# only the class index; beyond six members the cycle repeats and the label carries
+# identity (color is never the only signal).
+N_LEAF_COLORS = 6
+
+# Visual-only gap between adjacent bar segments (in share-percent units of the 0–100
+# viewBox), per the mark spec: fills never touch. Applied to the drawn width only, so
+# offsets still line up with the real numbers in the ledger below.
+SEGMENT_GAP = Decimal("0.4")
 
 
-def _color_for(index):
-    return SLICE_COLORS[index % len(SLICE_COLORS)]
+def _cat_for(index):
+    return index % N_LEAF_COLORS
 
 
 def _svg_segments(pie):
     """
-    Turn the pie into a list of stacked-bar segments (percent offset + width + colour).
+    Turn the pie into a list of stacked-bar segments (percent offset + drawn width +
+    leaf-class index).
 
-    Widths use share_pct directly, so segments line up with the numbers shown in the
-    table. Members with a zero share are dropped from the bar (nothing to draw).
+    Offsets use share_pct directly, so segments line up with the numbers shown in the
+    table; drawn widths give up a hair of space to the gap (never below a visible
+    minimum). Members with a zero share are dropped from the bar (nothing to draw).
     """
     segments = []
     offset = Decimal("0")
     for i, s in enumerate(pie.slices):
         if s.share_pct <= 0:
             continue
+        drawn = max(s.share_pct - SEGMENT_GAP, Decimal("0.3"))
         segments.append(
             {
                 "label": s.member_label,
                 "x": offset,
-                "width": s.share_pct,
-                "color": _color_for(i),
+                "width": drawn,
+                "cat": _cat_for(i),
                 "share_pct": s.share_pct,
             }
         )
@@ -58,9 +58,9 @@ def _svg_segments(pie):
     return segments
 
 
-def _rows_with_color(pie):
-    """Pair each slice with its stable colour so the table swatches match the bar."""
-    return [{"slice": s, "color": _color_for(i)} for i, s in enumerate(pie.slices)]
+def _rows_with_cat(pie):
+    """Pair each slice with its stable leaf class so the table swatches match the bar."""
+    return [{"slice": s, "cat": _cat_for(i)} for i, s in enumerate(pie.slices)]
 
 
 @login_required
@@ -71,7 +71,7 @@ def index(request, org_slug):
         "page_title": "Pie",
         "org_slug": org_slug,
         "pie": pie,
-        "rows": _rows_with_color(pie),
+        "rows": _rows_with_cat(pie),
         "segments": _svg_segments(pie),
     }
     return render(request, "pie/index.html", context)

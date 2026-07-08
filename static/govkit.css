@@ -1,17 +1,529 @@
-:root { --gk-fg: #1a1a1a; --gk-muted: #666; --gk-accent: #2b6cb0; --gk-border: #e2e2e2; }
+/* ============================================================================
+   GovKit — reference implementation of the LinkedTrust pattern language.
+   docs/design/pattern-language.md is the contract; pattern numbers cited below.
+
+   One dependency-free stylesheet: tokens on :root (18 · THEMEABLE ROOTS),
+   dark mode via prefers-color-scheme + [data-theme] override, no fonts shipped,
+   no animation anywhere (4 · NOTHING MOVES — do not add transitions).
+
+   The six leaf colors are validated (CVD/contrast/lightness) for each mode —
+   re-run the dataviz palette validator before changing any of them.
+   ============================================================================ */
+
+:root {
+  /* 1 · WARM PAPER */
+  --gk-bg: #faf9f6;
+  --gk-surface: #fffefb;
+  --gk-ink: #26221c;
+  --gk-ink-2: #5d574d;
+  --gk-muted: #8a8378;
+  --gk-border: #e6e1d8;
+  --gk-border-strong: #cbc4b6;
+
+  /* accent = the cyan leaf, deepened (links, the one filled action) */
+  --gk-accent: #007fa3;
+  --gk-accent-deep: #00607c;
+  --gk-on-accent: #ffffff;
+
+  /* 6 · SIX LEAVES — categorical, fixed order, validated on paper */
+  --gk-cat-0: #007fa3;  --gk-cat-0-soft: #d7e8ea;   /* cyan  */
+  --gk-cat-1: #c94f58;  --gk-cat-1-soft: #f3e1e0;   /* coral */
+  --gk-cat-2: #5c8a27;  --gk-cat-2-soft: #e4e9d9;   /* green */
+  --gk-cat-3: #9d4270;  --gk-cat-3-soft: #eddfe3;   /* plum  */
+  --gk-cat-4: #a3780a;  --gk-cat-4-soft: #eee7d5;   /* gold  */
+  --gk-cat-5: #009b83;  --gk-cat-5-soft: #d7ece6;   /* teal  */
+
+  /* 12 · STATUS IS A WORD — tints reuse the leaf family */
+  --gk-ok: #4a7020;        --gk-ok-soft: #e4e9d9;
+  --gk-warn: #8a6508;      --gk-warn-soft: #eee7d5;
+  --gk-bad: #b03a44;       --gk-bad-soft: #f3e1e0;
+  --gk-neutral: #5d574d;   --gk-neutral-soft: #edeae3;
+
+  /* 3 · QUIET TYPE, SPOKEN HEADINGS */
+  --gk-font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --gk-font-head: Charter, "Bitstream Charter", "Iowan Old Style", Georgia, Cambria, serif;
+  --gk-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* 5 · HAIRLINE STRUCTURE */
+  --gk-radius: 6px;        /* controls */
+  --gk-radius-card: 10px;  /* cards */
+  --gk-leaf-radius: 50% 50% 50% 2px;  /* 7 · EVERY MEMBER A LEAF */
+
+  --gk-measure: 62rem;     /* 9 · THE MEAT IS THE PAGE */
+  color-scheme: light dark;
+}
+
+/* 1 · DARK BARK — selected values, not an automatic flip */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --gk-bg: #171310;
+    --gk-surface: #201b16;
+    --gk-ink: #ece7df;
+    --gk-ink-2: #b3aa9c;
+    --gk-muted: #857c6f;
+    --gk-border: #322b23;
+    --gk-border-strong: #4a4136;
+
+    --gk-accent: #2ea3c9;
+    --gk-accent-deep: #5cb8d6;
+    --gk-on-accent: #10222a;
+
+    --gk-cat-0: #2ea3c9;  --gk-cat-0-soft: #1c3339;
+    --gk-cat-1: #d8626d;  --gk-cat-1-soft: #412424;
+    --gk-cat-2: #6f9c3c;  --gk-cat-2-soft: #2a311a;
+    --gk-cat-3: #c06a94;  --gk-cat-3-soft: #3c262d;
+    --gk-cat-4: #b8892a;  --gk-cat-4-soft: #3a2d16;
+    --gk-cat-5: #25a08e;  --gk-cat-5-soft: #1a322c;
+
+    --gk-ok: #8bb35c;        --gk-ok-soft: #2a311a;
+    --gk-warn: #c99a4b;      --gk-warn-soft: #3a2d16;
+    --gk-bad: #e07f88;       --gk-bad-soft: #412424;
+    --gk-neutral: #b3aa9c;   --gk-neutral-soft: #2a251f;
+  }
+}
+[data-theme="dark"] {
+  --gk-bg: #171310;
+  --gk-surface: #201b16;
+  --gk-ink: #ece7df;
+  --gk-ink-2: #b3aa9c;
+  --gk-muted: #857c6f;
+  --gk-border: #322b23;
+  --gk-border-strong: #4a4136;
+  --gk-accent: #2ea3c9;
+  --gk-accent-deep: #5cb8d6;
+  --gk-on-accent: #10222a;
+  --gk-cat-0: #2ea3c9;  --gk-cat-0-soft: #1c3339;
+  --gk-cat-1: #d8626d;  --gk-cat-1-soft: #412424;
+  --gk-cat-2: #6f9c3c;  --gk-cat-2-soft: #2a311a;
+  --gk-cat-3: #c06a94;  --gk-cat-3-soft: #3c262d;
+  --gk-cat-4: #b8892a;  --gk-cat-4-soft: #3a2d16;
+  --gk-cat-5: #25a08e;  --gk-cat-5-soft: #1a322c;
+  --gk-ok: #8bb35c;        --gk-ok-soft: #2a311a;
+  --gk-warn: #c99a4b;      --gk-warn-soft: #3a2d16;
+  --gk-bad: #e07f88;       --gk-bad-soft: #412424;
+  --gk-neutral: #b3aa9c;   --gk-neutral-soft: #2a251f;
+}
+
+/* ---- base ------------------------------------------------------------- */
+
 * { box-sizing: border-box; }
-body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: var(--gk-fg); margin: 0; line-height: 1.5; }
+
+body {
+  margin: 0;
+  background: var(--gk-bg);
+  color: var(--gk-ink);
+  font-family: var(--gk-font-body);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 3 · SPOKEN HEADINGS — serif, book warmth, no shouting weights */
+h1, h2, h3 {
+  font-family: var(--gk-font-head);
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  line-height: 1.25;
+  margin: 0 0 0.5rem;
+}
+h1 { font-size: 1.6rem; margin-top: 0.5rem; }
+h2 { font-size: 1.15rem; margin-top: 1rem; }
+h3 { font-size: 1rem; margin-top: 0.75rem; }
+
+p { margin: 0.4rem 0 0.8rem; }
+
 a { color: var(--gk-accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
-.gk-header { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; padding: .75rem 1.25rem; border-bottom: 1px solid var(--gk-border); }
-.gk-brand { font-weight: 700; font-size: 1.15rem; }
-.gk-tabs { display: flex; gap: .25rem; }
-.gk-tab { padding: .35rem .75rem; border-radius: .4rem; }
-.gk-tab:hover { background: #f0f4f8; text-decoration: none; }
-.gk-org { color: var(--gk-muted); font-size: .9rem; }
-.gk-user { margin-left: auto; color: var(--gk-muted); font-size: .9rem; }
-.gk-main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1.25rem; }
-.gk-footer { max-width: 960px; margin: 2rem auto; padding: 1rem 1.25rem; color: var(--gk-muted); font-size: .85rem; border-top: 1px solid var(--gk-border); }
-.gk-messages { list-style: none; padding: 0; }
-.gk-card { border: 1px solid var(--gk-border); border-radius: .5rem; padding: 1rem 1.25rem; margin: .75rem 0; }
-.gk-placeholder { color: var(--gk-muted); }
+a:hover { color: var(--gk-accent-deep); text-decoration: underline; }
+
+small { color: var(--gk-ink-2); }
+
+.gk-muted, .gk-placeholder { color: var(--gk-muted); font-size: 0.9rem; }
+.gk-mono {
+  font-family: var(--gk-font-mono);
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
+}
+
+/* ---- chrome: header / footer (9 · THE MEAT IS THE PAGE) ---------------- */
+
+.gk-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 1.25rem;
+  border-bottom: 1px solid var(--gk-border);
+  background: var(--gk-surface);
+}
+.gk-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--gk-font-head);
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--gk-ink);
+}
+.gk-brand:hover { color: var(--gk-ink); text-decoration: none; }
+.gk-brand svg { display: block; }
+
+.gk-tabs { display: flex; gap: 0.15rem; flex-wrap: wrap; }
+.gk-tab {
+  padding: 0.3rem 0.65rem;
+  border-radius: var(--gk-radius);
+  color: var(--gk-ink-2);
+  font-size: 0.88rem;
+}
+.gk-tab:hover { color: var(--gk-ink); background: var(--gk-neutral-soft); text-decoration: none; }
+.gk-tab[aria-current="page"] { color: var(--gk-ink); background: var(--gk-neutral-soft); }
+
+.gk-org { color: var(--gk-muted); font-size: 0.88rem; }
+.gk-user { margin-left: auto; color: var(--gk-muted); font-size: 0.88rem; }
+
+.gk-main {
+  max-width: var(--gk-measure);
+  margin: 0 auto;
+  padding: 1.25rem 1.25rem 2rem;
+}
+
+.gk-footer {
+  max-width: var(--gk-measure);
+  margin: 2rem auto 0;
+  padding: 1rem 1.25rem 1.5rem;
+  color: var(--gk-muted);
+  font-size: 0.83rem;
+  border-top: 1px solid var(--gk-border);
+}
+
+/* 13 · ONE TRUNK PER PAGE — the h1 line, with at most one quiet cross-link */
+.gk-pagehead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* ---- cards (5 · HAIRLINE STRUCTURE: paper on paper, no shadow) ---------- */
+
+.gk-card {
+  background: var(--gk-surface);
+  border: 1px solid var(--gk-border);
+  border-radius: var(--gk-radius-card);
+  padding: 1rem 1.25rem;
+  margin: 0.75rem 0;
+}
+.gk-card > :first-child { margin-top: 0; }
+
+/* ---- buttons (10 · SMALL QUIET BUTTONS) --------------------------------- */
+
+.gk-btn, button {
+  display: inline-block;
+  padding: 0.3rem 0.8rem;
+  font-family: var(--gk-font-body);
+  font-size: 0.85rem;
+  color: var(--gk-ink);
+  background: var(--gk-surface);
+  border: 1px solid var(--gk-border-strong);
+  border-radius: var(--gk-radius);
+  cursor: pointer;
+  text-decoration: none;
+}
+.gk-btn:hover, button:hover { border-color: var(--gk-ink-2); text-decoration: none; }
+
+/* the ONE filled action a page is for — still small */
+.gk-btn-primary, button.gk-btn-primary {
+  background: var(--gk-accent);
+  border-color: var(--gk-accent);
+  color: var(--gk-on-accent);
+  font-weight: 600;
+}
+.gk-btn-primary:hover { background: var(--gk-accent-deep); border-color: var(--gk-accent-deep); }
+
+/* destructive: coral-bordered, never coral-filled */
+.gk-btn-danger { color: var(--gk-bad); border-color: var(--gk-bad); background: var(--gk-surface); }
+
+/* ---- forms -------------------------------------------------------------- */
+
+input, select, textarea {
+  font-family: var(--gk-font-body);
+  font-size: 0.9rem;
+  color: var(--gk-ink);
+  background: var(--gk-surface);
+  border: 1px solid var(--gk-border-strong);
+  border-radius: var(--gk-radius);
+  padding: 0.3rem 0.5rem;
+}
+input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--gk-accent);
+  outline-offset: 1px;
+}
+label { color: var(--gk-ink-2); font-size: 0.9rem; }
+fieldset {
+  border: 1px solid var(--gk-border);
+  border-radius: var(--gk-radius);
+  margin: 0.75rem 0;
+  padding: 0.75rem 1rem;
+}
+legend {
+  font-family: var(--gk-font-head);
+  font-weight: 600;
+  padding: 0 0.4rem;
+}
+.gk-form-row { margin: 0.5rem 0; }
+.gk-form-row label { display: inline-block; min-width: 8rem; }
+.gk-error { color: var(--gk-bad); font-size: 0.85rem; }
+
+/* ---- ledger tables (11 · LEDGER TABLES) ---------------------------------- */
+
+table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+th, td {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--gk-border);
+  vertical-align: middle;
+}
+th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gk-muted);
+  border-bottom-color: var(--gk-border-strong);
+}
+.gk-num, .gk-final, td.num, th.num {
+  text-align: right;
+  font-family: var(--gk-font-mono);
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+}
+th.gk-num, th.num { font-family: var(--gk-font-body); font-size: 0.75rem; }
+.gk-final { font-weight: 600; }
+.gk-total {
+  margin-top: 0.5rem;
+  font-weight: 600;
+  border-top: 1px solid var(--gk-border-strong);
+  padding-top: 0.4rem;
+}
+
+/* ---- status words (12 · STATUS IS A WORD, NOT A COLOR) ------------------- */
+
+.gk-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.gk-badge-open, .gk-badge-draft { background: var(--gk-warn-soft); color: var(--gk-warn); }
+.gk-badge-approved, .gk-badge-live { background: var(--gk-ok-soft); color: var(--gk-ok); }
+.gk-badge-closed { background: var(--gk-neutral-soft); color: var(--gk-neutral); }
+.gk-badge-failed { background: var(--gk-bad-soft); color: var(--gk-bad); }
+
+.gk-verify-ok { color: var(--gk-ok); font-weight: 600; }
+.gk-verify-bad { color: var(--gk-bad); font-weight: 600; }
+.gk-winner { font-weight: 600; color: var(--gk-ok); }
+
+/* quiet aside, not an alert */
+.gk-note {
+  border-left: 2px solid var(--gk-border-strong);
+  background: var(--gk-surface);
+  padding: 0.5rem 0.8rem;
+  border-radius: 0 var(--gk-radius) var(--gk-radius) 0;
+  font-size: 0.9rem;
+  color: var(--gk-ink-2);
+  margin: 0.6rem 0;
+}
+
+.gk-messages { list-style: none; padding: 0; margin: 0 0 1rem; }
+.gk-messages li {
+  border: 1px solid var(--gk-border);
+  border-left: 2px solid var(--gk-accent);
+  background: var(--gk-surface);
+  border-radius: 0 var(--gk-radius) var(--gk-radius) 0;
+  padding: 0.5rem 0.8rem;
+  margin: 0.4rem 0;
+  font-size: 0.9rem;
+}
+.gk-messages li.error { border-left-color: var(--gk-bad); }
+.gk-messages li.success { border-left-color: var(--gk-ok); }
+
+/* ---- leaves (6 + 7): categorical identity ------------------------------- */
+
+.gk-cat-0 { --gk-cat: var(--gk-cat-0); --gk-cat-soft: var(--gk-cat-0-soft); }
+.gk-cat-1 { --gk-cat: var(--gk-cat-1); --gk-cat-soft: var(--gk-cat-1-soft); }
+.gk-cat-2 { --gk-cat: var(--gk-cat-2); --gk-cat-soft: var(--gk-cat-2-soft); }
+.gk-cat-3 { --gk-cat: var(--gk-cat-3); --gk-cat-soft: var(--gk-cat-3-soft); }
+.gk-cat-4 { --gk-cat: var(--gk-cat-4); --gk-cat-soft: var(--gk-cat-4-soft); }
+.gk-cat-5 { --gk-cat: var(--gk-cat-5); --gk-cat-soft: var(--gk-cat-5-soft); }
+
+/* a member's leaf: swatch form (beside their name in a ledger) */
+.gk-leaf {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: var(--gk-leaf-radius);
+  background: var(--gk-cat, var(--gk-muted));
+  margin-right: 0.45rem;
+  vertical-align: -0.05em;
+}
+
+/* avatar form: soft leaf with the person's initial in their deep color */
+.gk-leaf-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: var(--gk-leaf-radius);
+  background: var(--gk-cat-soft, var(--gk-neutral-soft));
+  color: var(--gk-cat, var(--gk-ink-2));
+  font-size: 0.8rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+/* SVG marks (the pie's stacked bar) take the leaf color as fill */
+rect.gk-cat-0 { fill: var(--gk-cat-0); }
+rect.gk-cat-1 { fill: var(--gk-cat-1); }
+rect.gk-cat-2 { fill: var(--gk-cat-2); }
+rect.gk-cat-3 { fill: var(--gk-cat-3); }
+rect.gk-cat-4 { fill: var(--gk-cat-4); }
+rect.gk-cat-5 { fill: var(--gk-cat-5); }
+
+/* ---- bars (14 THE PIE IS A CANOPY · 15 TWO TALLIES, SAME RULER) ---------- */
+
+.gk-bar-svg {
+  width: 100%;
+  height: 2rem;
+  margin: 0.75rem 0;
+  border-radius: 4px;
+  display: block;
+  background: var(--gk-neutral-soft);
+}
+
+.gk-bar-row { margin: 0.5rem 0; }
+.gk-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.88rem;
+  gap: 0.5rem;
+}
+.gk-bar-label .gk-num { font-size: 0.82rem; }
+.gk-bar-track {
+  background: var(--gk-neutral-soft);
+  border-radius: 3px;
+  height: 0.7rem;
+  overflow: hidden;
+  margin-top: 0.15rem;
+}
+.gk-bar-fill { background: var(--gk-accent); height: 100%; min-width: 1px; }
+.gk-bar-fill.raw { background: var(--gk-muted); }
+
+/* per-row quiet bar inside a ledger */
+.gk-rowbar-track { background: var(--gk-neutral-soft); border-radius: 3px; width: 8rem; max-width: 40vw; }
+.gk-rowbar { height: 0.45rem; border-radius: 3px; min-width: 1px; background: var(--gk-cat, var(--gk-accent)); }
+
+/* ---- provenance (8 · PROVENANCE IS A BRANCH) ----------------------------- */
+
+details.gk-trace { margin: 0.25rem 0; }
+details.gk-trace summary {
+  cursor: pointer;
+  color: var(--gk-accent);
+  font-size: 0.88rem;
+}
+details.gk-trace summary:hover { color: var(--gk-accent-deep); }
+details.gk-trace[open] > *:not(summary) {
+  margin-left: 0.35rem;
+  padding-left: 0.9rem;
+  border-left: 1px solid var(--gk-border-strong);  /* the branch line */
+}
+details.gk-trace table { margin: 0.4rem 0 0.8rem; }
+details.gk-trace th, details.gk-trace td {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.88em;
+  border-bottom-color: var(--gk-border);
+}
+
+/* ---- seats at the table (16 · A DRAW YOU CAN VERIFY) --------------------- */
+
+.gk-seats { list-style: none; padding: 0; margin: 0.5rem 0; }
+.gk-seats li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--gk-border);
+  border-radius: var(--gk-radius);
+  margin-bottom: 0.4rem;
+  background: var(--gk-surface);
+}
+
+/* ---- ballots: the deliberate exception to small buttons ------------------ */
+/* Casting a vote is the page's one action and must be sure on a phone. */
+
+.gk-choices { display: flex; flex-direction: column; gap: 0.6rem; margin: 0.8rem 0; }
+.gk-choice button {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  font-size: 1rem;
+  border: 1px solid var(--gk-border-strong);
+  border-radius: var(--gk-radius-card);
+  background: var(--gk-surface);
+  color: var(--gk-ink);
+  text-align: left;
+}
+.gk-choice button:hover { border-color: var(--gk-accent); }
+.gk-choice.chosen button {
+  border-color: var(--gk-accent);
+  background: var(--gk-cat-0-soft);
+  color: var(--gk-ink);
+  font-weight: 600;
+}
+
+/* ---- misc kept from the app sheets --------------------------------------- */
+
+.gk-queue { border-left: 2px solid var(--gk-warn); }
+.gk-missing, .gk-audit { margin: 0.5rem 0 0; padding-left: 1.2rem; }
+.gk-adjust-form { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.gk-adjust-form input[type="number"] { width: 6rem; }
+.gk-adjust-form input[type="text"] { flex: 1 1 12rem; min-width: 10rem; }
+
+/* ---- stat tiles (one headline number each; no chart needed) --------------- */
+
+.gk-tiles { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1rem 0; }
+.gk-tile {
+  flex: 1 1 12rem;
+  background: var(--gk-surface);
+  border: 1px solid var(--gk-border);
+  border-radius: var(--gk-radius-card);
+  padding: 0.9rem 1rem;
+}
+.gk-tile .gk-tile-big {
+  font-family: var(--gk-font-mono);
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+.gk-tile .gk-tile-big small { font-size: 0.65em; color: var(--gk-ink-2); font-family: var(--gk-font-body); }
+.gk-tile .gk-tile-lbl {
+  color: var(--gk-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.gk-tile-issued { border-left: 2px solid var(--gk-ok); }
+.gk-tile-pending { border-left: 2px solid var(--gk-warn); }
+
+/* ---- the plain door (17) -------------------------------------------------- */
+
+.gk-door {
+  max-width: 22rem;
+  margin: 3.5rem auto;
+  text-align: center;
+}
+.gk-door h1 { font-size: 1.35rem; }
+.gk-door form { text-align: left; margin-top: 1rem; }
+.gk-door input { width: 100%; margin: 0.25rem 0 0.75rem; }
