@@ -1,47 +1,73 @@
 {% extends "base.html" %}
 {% block title %}Set up an organization — GovKit{% endblock %}
 {% block content %}
+  {# 19 · DETAILS UNFOLD — high level visible, details folded with defaults stated. #}
+  <style>
+    /* CSS-only reveal: initial valuation appears when "existing" is chosen (no JS, no motion).
+       Browsers without :has() simply always show the field — harmless. */
+    #gk-start .gk-iv { display: none; }
+    #gk-start:has(input[value="existing"]:checked) .gk-iv { display: block; }
+  </style>
   <h1>Set up an organization</h1>
-  <p>Name your org, name your unit of value, and choose how work is valued. You'll land on
-     the dashboard as an admin.</p>
+  <p class="gk-muted">
+    Name your org and your unit of value — that's all it takes. Everything else has a
+    sensible default you can open below, or change later. You'll land on the Members
+    page to invite your people.
+  </p>
 
   <form method="post" class="gk-card">
     {% csrf_token %}
 
     <fieldset>
       <legend>Identity</legend>
-      {{ form.display_name.label_tag }} {{ form.display_name }}
-      {% for e in form.display_name.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
-      {{ form.slug.label_tag }} {{ form.slug }}
-      <small>{{ form.slug.help_text }}</small>
-      {% for e in form.slug.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
-      {{ form.unit_name.label_tag }} {{ form.unit_name }}
-      <small>{{ form.unit_name.help_text }}</small>
+      <p>{{ form.display_name.label_tag }} {{ form.display_name }}
+        {% for e in form.display_name.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}</p>
+      <p>{{ form.slug.label_tag }} {{ form.slug }}
+        <small>{{ form.slug.help_text }}</small>
+        {% for e in form.slug.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}</p>
+      <p>{{ form.unit_name.label_tag }} {{ form.unit_name }}
+        <small>{{ form.unit_name.help_text }}</small></p>
     </fieldset>
 
-    <fieldset>
-      <legend>Valuation</legend>
-      {{ form.valuation_mode.label_tag }} {{ form.valuation_mode }}
-      {{ form.default_hourly_rate.label_tag }} {{ form.default_hourly_rate }}
-      <small>{{ form.default_hourly_rate.help_text }}</small>
-      {{ form.at_risk_multiplier_noncash.label_tag }} {{ form.at_risk_multiplier_noncash }}
-      {{ form.at_risk_multiplier_cash.label_tag }} {{ form.at_risk_multiplier_cash }}
-      {{ form.weight_window.label_tag }} {{ form.weight_window }}
+    <fieldset id="gk-start">
+      <legend>Starting point</legend>
+      {{ form.start_kind }}
+      <p class="gk-iv">{{ form.initial_valuation.label_tag }} {{ form.initial_valuation }}
+        <small>{{ form.initial_valuation.help_text }}</small>
+        {% for e in form.initial_valuation.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}</p>
     </fieldset>
 
-    <fieldset>
-      <legend>Budget policy</legend>
-      {{ form.assignment_budget_period.label_tag }} {{ form.assignment_budget_period }}
-      {{ form.assignment_budget_amount.label_tag }} {{ form.assignment_budget_amount }}
-      <small>{{ form.assignment_budget_amount.help_text }}</small>
-      {{ form.self_assign_cap.label_tag }} {{ form.self_assign_cap }}
-      <small>{{ form.self_assign_cap.help_text }}</small>
-      {{ form.budget_enforcement.label_tag }} {{ form.budget_enforcement }}
-    </fieldset>
+    <details class="gk-unfold"
+             {% if form.valuation_mode.errors or form.default_hourly_rate.errors or form.at_risk_multiplier_noncash.errors or form.at_risk_multiplier_cash.errors or form.weight_window.errors %}open{% endif %}>
+      <summary><strong>Valuation</strong> — how work turns into your unit
+        <span class="gk-muted">· defaults: hours × rate, multipliers 1.0, all-time window</span></summary>
+      <fieldset>
+        <p>{{ form.valuation_mode.label_tag }} {{ form.valuation_mode }}</p>
+        <p>{{ form.default_hourly_rate.label_tag }} {{ form.default_hourly_rate }}
+          <small>{{ form.default_hourly_rate.help_text }}</small></p>
+        <p>{{ form.at_risk_multiplier_noncash.label_tag }} {{ form.at_risk_multiplier_noncash }}</p>
+        <p>{{ form.at_risk_multiplier_cash.label_tag }} {{ form.at_risk_multiplier_cash }}</p>
+        <p>{{ form.weight_window.label_tag }} {{ form.weight_window }}</p>
+      </fieldset>
+    </details>
+
+    <details class="gk-unfold"
+             {% if form.assignment_budget_period.errors or form.assignment_budget_amount.errors or form.self_assign_cap.errors or form.budget_enforcement.errors %}open{% endif %}>
+      <summary><strong>Budget policy</strong> — limits on assigning value
+        <span class="gk-muted">· defaults: weekly, unlimited, soft (warn only)</span></summary>
+      <fieldset>
+        <p>{{ form.assignment_budget_period.label_tag }} {{ form.assignment_budget_period }}</p>
+        <p>{{ form.assignment_budget_amount.label_tag }} {{ form.assignment_budget_amount }}
+          <small>{{ form.assignment_budget_amount.help_text }}</small></p>
+        <p>{{ form.self_assign_cap.label_tag }} {{ form.self_assign_cap }}
+          <small>{{ form.self_assign_cap.help_text }}</small></p>
+        <p>{{ form.budget_enforcement.label_tag }} {{ form.budget_enforcement }}</p>
+      </fieldset>
+    </details>
 
     {% if form.non_field_errors %}
       <p class="gk-error">{{ form.non_field_errors }}</p>
     {% endif %}
-    <p><button type="submit">Create organization</button></p>
+    <p><button type="submit" class="gk-btn gk-btn-primary">Create organization</button></p>
   </form>
 {% endblock %}

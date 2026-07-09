@@ -1,5 +1,6 @@
 /* ============================================================================
    GovKit — reference implementation of the LinkedTrust pattern language.
+   VENDORED: canonical copy = Cooperation-org/site-linkedtrust-us design/tokens.css.
    docs/design/pattern-language.md is the contract; pattern numbers cited below.
 
    One dependency-free stylesheet: tokens on :root (18 · THEMEABLE ROOTS),
@@ -490,6 +491,34 @@ details.gk-trace th, details.gk-trace td {
 .gk-adjust-form { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 .gk-adjust-form input[type="number"] { width: 6rem; }
 .gk-adjust-form input[type="text"] { flex: 1 1 12rem; min-width: 10rem; }
+
+
+
+/* radio lists (e.g. Django RadioSelect) read as quiet choices, not machinery */
+fieldset > ul, fieldset div > ul { list-style: none; padding-left: 0; margin: 0.25rem 0 0.5rem; }
+fieldset > ul li, fieldset div > ul li { margin: 0.2rem 0; }
+fieldset > ul label, fieldset div > ul label { color: var(--gk-ink); }
+
+/* ---- unfolds (19 · DETAILS UNFOLD) ---------------------------------------- */
+/* High level visible first; detail opens in place. Summary states the concept
+   AND the defaults, so skipping it is an informed choice, not a leap. */
+
+details.gk-unfold {
+  border: 1px solid var(--gk-border);
+  border-radius: var(--gk-radius);
+  background: var(--gk-surface);
+  margin: 0.6rem 0;
+}
+details.gk-unfold > summary {
+  cursor: pointer;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.9rem;
+  color: var(--gk-ink);
+}
+details.gk-unfold > summary .gk-muted { font-size: 0.85rem; }
+details.gk-unfold[open] > summary { border-bottom: 1px solid var(--gk-border); }
+details.gk-unfold > *:not(summary) { padding: 0 0.9rem; }
+details.gk-unfold fieldset { border: none; padding: 0.25rem 0 0.75rem; margin: 0; }
 
 /* ---- stat tiles (one headline number each; no chart needed) --------------- */
 

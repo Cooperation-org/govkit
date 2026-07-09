@@ -1,20 +1,38 @@
 """Template context: expose the current org and the tab-nav definition."""
 
+from .models import MembershipRole
+
 
 def nav(request):
     """
     Adds `current_org` and `nav_tabs` to every template.
 
-    nav_tabs is a list of (label, url_name, namespace) for the org-scoped tabs.
+    nav_tabs is a list of {label, url_name, active} dicts for the org-scoped tabs.
     base.html resolves each with the current org slug so the prefix/base-path applies
-    automatically, and compares namespace to the resolved request to mark the
-    current tab (aria-current).
+    automatically; `active` marks the current tab (aria-current). Members — the people
+    the whole toolkit is about — is a first-class tab for org admins.
     """
     org = getattr(request, "org", None)
+    rm = getattr(request, "resolver_match", None)
+    namespace = getattr(rm, "namespace", "")
+    view_name = getattr(rm, "view_name", "")
+
     tabs = [
-        ("Drops", "drops:index", "drops"),
-        ("Pie", "pie:index", "pie"),
-        ("Votes", "votes:index", "votes"),
-        ("Committee", "sortition:index", "sortition"),
+        {"label": label, "url_name": url_name, "active": namespace == ns}
+        for label, url_name, ns in (
+            ("Drops", "drops:index", "drops"),
+            ("Pie", "pie:index", "pie"),
+            ("Votes", "votes:index", "votes"),
+            ("Committee", "sortition:index", "sortition"),
+        )
     ]
+    membership = getattr(request, "membership", None)
+    if membership is not None and membership.role == MembershipRole.ADMIN:
+        tabs.append(
+            {
+                "label": "Members",
+                "url_name": "orgs:members",
+                "active": view_name == "orgs:members",
+            }
+        )
     return {"current_org": org, "nav_tabs": tabs}

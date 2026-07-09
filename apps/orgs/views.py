@@ -51,13 +51,16 @@ def dashboard(request, org_slug):
 
 @login_required
 def onboarding(request):
-    """One-flow org setup: create Org + ValuationConfig + admin Membership, land on dash."""
+    """One-flow org setup: create Org + ValuationConfig + admin Membership, land on Members."""
     if request.method == "POST":
         form = OnboardingForm(request.POST)
         if form.is_valid():
             org = form.save(request.user)
-            messages.success(request, f"{org.display_name} is ready.")
-            return redirect("orgs:dashboard", org_slug=org.slug)
+            messages.success(
+                request,
+                f"{org.display_name} is ready. Now the important part: invite your members.",
+            )
+            return redirect("orgs:members", org_slug=org.slug)
     else:
         form = OnboardingForm()
     return render(request, "orgs/onboarding.html", {"form": form})

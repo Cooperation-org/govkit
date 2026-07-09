@@ -8,6 +8,8 @@ and the API share the model constraints). Onboarding creates the Org + its Valua
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from django import forms
 from django.db import transaction
 from django.utils.text import slugify
@@ -17,6 +19,7 @@ from .models import (
     BudgetPeriod,
     Membership,
     MembershipRole,
+    OpeningBalance,
     Org,
     ValuationConfig,
     ValuationMode,
@@ -25,7 +28,14 @@ from .models import (
 
 
 class OnboardingForm(forms.Form):
-    """One-flow org setup: identity + value unit + valuation mode + rules."""
+    """
+    One-flow org setup: identity + starting point visible; valuation mode + rules are
+    optional detail (every one has a sane default) shown folded in the UI
+    (pattern 19 · DETAILS UNFOLD).
+    """
+
+    START_FRESH = "fresh"
+    START_EXISTING = "existing"
 
     display_name = forms.CharField(max_length=255, label="Organization name")
     slug = forms.SlugField(
@@ -38,6 +48,31 @@ class OnboardingForm(forms.Form):
         initial="points",
         label="Value unit",
         help_text='What this org calls a unit of earned value, e.g. "COOK", "points".',
+    )
+
+    # Starting point: even an idea has some value. Optional (defaults to fresh) so the
+    # API and older clients that never send it keep working.
+    start_kind = forms.ChoiceField(
+        required=False,
+        choices=[
+            (START_FRESH, "Fresh start — the pie begins empty"),
+            (START_EXISTING, "Existing project — it already has value"),
+        ],
+        initial=START_FRESH,
+        widget=forms.RadioSelect,
+        label="Starting point",
+    )
+    initial_valuation = forms.DecimalField(
+        max_digits=16,
+        decimal_places=2,
+        required=False,
+        min_value=Decimal("0.01"),
+        label="Initial valuation",
+        help_text=(
+            "What the project is worth so far, in your value unit. Recorded as your "
+            "opening balance; you can split or adjust members' opening balances any "
+            "time from Members → import."
+        ),
     )
     default_hourly_rate = forms.DecimalField(
         max_digits=12,
@@ -87,6 +122,14 @@ class OnboardingForm(forms.Form):
             raise forms.ValidationError("That slug is already taken.")
         return slug
 
+    def clean(self):
+        data = super().clean()
+        if not data.get("start_kind"):
+            data["start_kind"] = self.START_FRESH
+        if data["start_kind"] == self.START_FRESH:
+            data["initial_valuation"] = None  # fresh pies begin empty
+        return data
+
     @transaction.atomic
     def save(self, user) -> Org:
         data = self.cleaned_data
@@ -107,7 +150,17 @@ class OnboardingForm(forms.Form):
             self_assign_cap=data.get("self_assign_cap"),
             budget_enforcement=data["budget_enforcement"],
         )
-        Membership.objects.create(org=org, user=user, role=MembershipRole.ADMIN)
+        membership = Membership.objects.create(org=org, user=user, role=MembershipRole.ADMIN)
+        if data.get("initial_valuation"):
+            OpeningBalance.objects.create(
+                org=org,
+                membership=membership,
+                value=data["initial_valuation"],
+                source_note=(
+                    "Initial valuation at setup — credited to the founder; split or "
+                    "adjust members' opening balances from Members → import."
+                ),
+            )
         return org
 
 

@@ -29,9 +29,9 @@
     GovKit</a>
   {% if current_org %}
     <nav class="gk-tabs">
-      {% for label, url_name, namespace in nav_tabs %}
-        <a class="gk-tab" href="{% url url_name org_slug=current_org.slug %}"
-           {% if request.resolver_match.namespace == namespace %}aria-current="page"{% endif %}>{{ label }}</a>
+      {% for tab in nav_tabs %}
+        <a class="gk-tab" href="{% url tab.url_name org_slug=current_org.slug %}"
+           {% if tab.active %}aria-current="page"{% endif %}>{{ tab.label }}</a>
       {% endfor %}
     </nav>
     <span class="gk-org">{{ current_org.display_name }}</span>

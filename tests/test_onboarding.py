@@ -3,7 +3,14 @@
 import pytest
 from django.urls import reverse
 
-from apps.orgs.models import Membership, MembershipRole, Org, ValuationConfig, ValuationMode
+from apps.orgs.models import (
+    Membership,
+    MembershipRole,
+    OpeningBalance,
+    Org,
+    ValuationConfig,
+    ValuationMode,
+)
 
 
 def _form_data(**over):
@@ -35,7 +42,8 @@ def test_onboarding_creates_org_config_and_admin(client, user_factory):
     org = Org.objects.get(slug="acme")
     assert org.display_name == "Acme Co"
     assert org.unit_name == "COOK"
-    assert resp["Location"] == reverse("orgs:dashboard", kwargs={"org_slug": "acme"})
+    # lands on Members — inviting people is the important next step
+    assert resp["Location"] == reverse("orgs:members", kwargs={"org_slug": "acme"})
 
     config = ValuationConfig.objects.get(org=org)
     assert config.valuation_mode == ValuationMode.HOURS_RATE
@@ -43,6 +51,32 @@ def test_onboarding_creates_org_config_and_admin(client, user_factory):
 
     membership = Membership.objects.get(org=org, user=user)
     assert membership.role == MembershipRole.ADMIN
+    # default starting point is a fresh pie — no opening balance
+    assert not OpeningBalance.objects.filter(org=org).exists()
+
+
+@pytest.mark.django_db
+def test_onboarding_existing_project_records_initial_valuation(client, user_factory):
+    """'Existing project' + initial valuation -> founder's opening balance; fresh ignores it."""
+    user = user_factory()
+    client.force_login(user)
+    resp = client.post(
+        reverse("orgs:onboarding"),
+        _form_data(start_kind="existing", initial_valuation="1200.00"),
+    )
+    assert resp.status_code == 302
+    org = Org.objects.get(slug="acme")
+    ob = OpeningBalance.objects.get(org=org)
+    assert ob.membership.user == user
+    assert str(ob.value) == "1200.00"
+    assert "Initial valuation" in ob.source_note
+
+    # fresh start ignores a stray valuation value
+    client.post(
+        reverse("orgs:onboarding"),
+        _form_data(slug="acme2", start_kind="fresh", initial_valuation="900.00"),
+    )
+    assert not OpeningBalance.objects.filter(org__slug="acme2").exists()
 
 
 @pytest.mark.django_db
