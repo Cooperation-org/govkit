@@ -1,35 +1,12 @@
 {% extends "base.html" %}
 {% block title %}{{ page_title }} — {{ current_org.display_name }}{% endblock %}
 {% block content %}
-  <style>
-    /* Pie-page styles, scoped here so the shared stylesheet stays untouched. */
-    .pie-head { display: flex; align-items: baseline; justify-content: space-between;
-      flex-wrap: wrap; gap: .5rem; }
-    .pie-bar { width: 100%; height: 2.25rem; margin: 1rem 0; border-radius: 4px;
-      overflow: hidden; background: #eee; }
-    .pie-table { width: 100%; border-collapse: collapse; }
-    .pie-table th, .pie-table td { text-align: left; padding: .4rem .6rem;
-      border-bottom: 1px solid #e2e2e2; vertical-align: top; }
-    .pie-table td.num, .pie-table th.num { text-align: right;
-      font-variant-numeric: tabular-nums; }
-    .swatch { display: inline-block; width: .8rem; height: .8rem; border-radius: 2px;
-      margin-right: .4rem; vertical-align: middle; }
-    .rowbar { height: .5rem; border-radius: 2px; min-width: 1px; }
-    .rowbar-track { background: #eee; border-radius: 2px; width: 8rem; max-width: 40vw; }
-    details.trace { margin: .25rem 0; }
-    details.trace summary { cursor: pointer; color: #316395; }
-    .trace-tbl { width: 100%; border-collapse: collapse; margin: .4rem 0 .8rem; }
-    .trace-tbl th, .trace-tbl td { padding: .25rem .5rem; border-bottom: 1px solid #eee;
-      font-size: .9em; text-align: left; }
-    .trace-tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
-    .muted { color: #777; }
-  </style>
-
-  <div class="pie-head">
+  {# 14 · THE PIE IS A CANOPY — stacked bar + ledger, every row traceable (pattern 8). #}
+  <div class="gk-pagehead">
     <h1>{{ page_title }}</h1>
-    <a class="gk-tab" href="{% url 'pie:standing' org_slug=current_org.slug %}">My standing &rarr;</a>
+    <a href="{% url 'pie:standing' org_slug=current_org.slug %}">My standing &rarr;</a>
   </div>
-  <p class="muted">
+  <p class="gk-muted">
     Live shares of <strong>{{ pie.total }} {{ pie.unit_name }}</strong> of issued equity
     across {{ pie.member_count }} member{{ pie.member_count|pluralize }}. Every slice traces
     back to the work that earned it — expand a row to see the exact drops, tasks and
@@ -38,23 +15,23 @@
 
   {% if pie.total > 0 %}
     <div class="gk-card">
-      <svg class="pie-bar" viewBox="0 0 100 10" preserveAspectRatio="none"
+      <svg class="gk-bar-svg" viewBox="0 0 100 10" preserveAspectRatio="none"
            role="img" aria-label="Stacked bar of member shares">
         {% for seg in segments %}
-          <rect x="{{ seg.x }}" y="0" width="{{ seg.width }}" height="10"
-                fill="{{ seg.color }}">
+          <rect class="gk-cat-{{ seg.cat }}" x="{{ seg.x }}" y="0"
+                width="{{ seg.width }}" height="10">
             <title>{{ seg.label }}: {{ seg.share_pct }}%</title>
           </rect>
         {% endfor %}
       </svg>
 
-      <table class="pie-table">
+      <table>
         <thead>
           <tr>
             <th>Member</th>
             <th>Role</th>
-            <th class="num">Issued ({{ pie.unit_name }})</th>
-            <th class="num">Share</th>
+            <th class="gk-num">Issued ({{ pie.unit_name }})</th>
+            <th class="gk-num">Share</th>
             <th>&nbsp;</th>
           </tr>
         </thead>
@@ -62,30 +39,30 @@
           {% for row in rows %}
             {% with s=row.slice %}
               <tr>
-                <td><span class="swatch" style="background: {{ row.color }}"></span>{{ s.member_label }}</td>
-                <td class="muted">{{ s.role }}</td>
-                <td class="num">{{ s.issued_total }}</td>
-                <td class="num">{{ s.share_pct }}%</td>
+                <td><span class="gk-leaf gk-cat-{{ row.cat }}"></span>{{ s.member_label }}</td>
+                <td class="gk-muted">{{ s.role }}</td>
+                <td class="gk-num">{{ s.issued_total }}</td>
+                <td class="gk-num">{{ s.share_pct }}%</td>
                 <td>
-                  <div class="rowbar-track">
-                    <div class="rowbar" style="width: {{ s.share_pct }}%; background: {{ row.color }}"></div>
+                  <div class="gk-rowbar-track">
+                    <div class="gk-rowbar gk-cat-{{ row.cat }}" style="width: {{ s.share_pct }}%"></div>
                   </div>
                 </td>
               </tr>
               <tr>
                 <td colspan="5">
                   {% if s.lines or s.opening_balances %}
-                    <details class="trace">
+                    <details class="gk-trace">
                       <summary>Trace {{ s.member_label }}'s {{ s.issued_total }} {{ pie.unit_name }}</summary>
                       {% if s.lines %}
-                        <table class="trace-tbl">
+                        <table>
                           <thead>
                             <tr>
                               <th>Drop line</th>
                               <th>Tasks</th>
-                              <th class="num">Computed</th>
-                              <th class="num">Adjustment</th>
-                              <th class="num">Final</th>
+                              <th class="gk-num">Computed</th>
+                              <th class="gk-num">Adjustment</th>
+                              <th class="gk-num">Final</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -97,34 +74,34 @@
                                     {% if t.external_url %}
                                       <a href="{{ t.external_url }}" target="_blank" rel="noopener">{{ t.external_id }}</a>
                                     {% else %}{{ t.external_id }}{% endif %}
-                                    {% if t.subject %}<span class="muted">— {{ t.subject }}</span>{% endif %}
+                                    {% if t.subject %}<span class="gk-muted">— {{ t.subject }}</span>{% endif %}
                                     <br>
-                                  {% empty %}<span class="muted">—</span>{% endfor %}
+                                  {% empty %}<span class="gk-muted">—</span>{% endfor %}
                                 </td>
-                                <td class="num">{{ line.computed_value }}</td>
-                                <td class="num">
+                                <td class="gk-num">{{ line.computed_value }}</td>
+                                <td class="gk-num">
                                   {{ line.adjustment }}
                                   {% if line.adjustment_reason %}
-                                    <br><span class="muted">{{ line.adjustment_reason }}</span>
+                                    <br><span class="gk-muted">{{ line.adjustment_reason }}</span>
                                   {% endif %}
                                 </td>
-                                <td class="num">{{ line.final_value }}</td>
+                                <td class="gk-num">{{ line.final_value }}</td>
                               </tr>
                             {% endfor %}
                           </tbody>
                         </table>
                       {% endif %}
                       {% if s.opening_balances %}
-                        <table class="trace-tbl">
+                        <table>
                           <thead>
-                            <tr><th>Opening balance</th><th>Source</th><th class="num">Value</th></tr>
+                            <tr><th>Opening balance</th><th>Source</th><th class="gk-num">Value</th></tr>
                           </thead>
                           <tbody>
                             {% for ob in s.opening_balances %}
                               <tr>
                                 <td>#{{ ob.opening_balance_id }}</td>
-                                <td class="muted">{{ ob.source_note|default:"—" }}</td>
-                                <td class="num">{{ ob.value }}</td>
+                                <td class="gk-muted">{{ ob.source_note|default:"—" }}</td>
+                                <td class="gk-num">{{ ob.value }}</td>
                               </tr>
                             {% endfor %}
                           </tbody>
@@ -132,7 +109,7 @@
                       {% endif %}
                     </details>
                   {% else %}
-                    <span class="muted">No issued equity yet.</span>
+                    <span class="gk-muted">No issued equity yet.</span>
                   {% endif %}
                 </td>
               </tr>
@@ -142,9 +119,6 @@
       </table>
     </div>
   {% else %}
-    <div class="gk-card gk-placeholder">
-      No issued equity yet. Shares appear here once a drop run is approved or opening
-      balances are imported.
-    </div>
+    <p class="gk-muted">No issued equity yet — approve a drop run and the pie appears here.</p>
   {% endif %}
 {% endblock %}

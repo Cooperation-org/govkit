@@ -1,18 +1,37 @@
-{% load static %}
-<!-- GovKit base layout. Uses {% templatetag openblock %} url {% templatetag closeblock %}
-     and {% templatetag openblock %} static {% templatetag closeblock %} throughout so a
+{% load static %}<!doctype html>
+<!-- GovKit base layout — reference implementation of docs/design/pattern-language.md.
+     Uses {% templatetag openblock %} url {% templatetag closeblock %} and
+     {% templatetag openblock %} static {% templatetag closeblock %} throughout so a
      BASE_PATH deploy prefix applies automatically. -->
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block title %}GovKit{% endblock %}</title>
-<link rel="stylesheet" href="{% static 'govkit.css' %}">
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}GovKit{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'govkit.css' %}">
+</head>
+<body>
 
 <header class="gk-header">
-  <a class="gk-brand" href="{% url 'orgs:landing' %}">GovKit</a>
+  <a class="gk-brand" href="{% url 'orgs:landing' %}">
+    {# the twig mark: a branching stem, leaves at the tips — quiet kin of the LinkedTrust tree #}
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <g stroke="var(--gk-ink-2)" stroke-width="1.6" stroke-linecap="round" fill="none">
+        <path d="M12 22V9"/>
+        <path d="M12 15c0-3-3.5-3.5-5-6.5"/>
+        <path d="M12 12c0-2.5 3.5-3 5-5.5"/>
+      </g>
+      <circle cx="7" cy="7" r="2.3" fill="var(--gk-cat-2)"/>
+      <circle cx="12" cy="6.5" r="2.3" fill="var(--gk-cat-0)"/>
+      <circle cx="17" cy="5" r="2.3" fill="var(--gk-cat-4)"/>
+    </svg>
+    GovKit</a>
   {% if current_org %}
     <nav class="gk-tabs">
-      {% for label, url_name in nav_tabs %}
-        <a class="gk-tab" href="{% url url_name org_slug=current_org.slug %}">{{ label }}</a>
+      {% for label, url_name, namespace in nav_tabs %}
+        <a class="gk-tab" href="{% url url_name org_slug=current_org.slug %}"
+           {% if request.resolver_match.namespace == namespace %}aria-current="page"{% endif %}>{{ label }}</a>
       {% endfor %}
     </nav>
     <span class="gk-org">{{ current_org.display_name }}</span>
@@ -37,5 +56,8 @@
 </main>
 
 <footer class="gk-footer">
-  GovKit — earned-governance toolkit. Milestone 1 (in progress).
+  GovKit — an earned-governance toolkit. Work, reviewed by peers, becomes ownership you can trace.
 </footer>
+
+</body>
+</html>

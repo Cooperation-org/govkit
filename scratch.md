@@ -229,3 +229,24 @@ can't collide. If you think a model is genuinely missing, write it here first, d
 - `python manage.py migrate && python manage.py seed_org --slug demo --name "Demo" --unit points --email you@example.com --password devpass`.
 - `pytest` / `black --check .` / `flake8 .` must stay green. Tests run with `DEBUG=true`
   (plain static storage); prod/CI run `collectstatic` for the manifest storage.
+
+## DESIGN — pattern language + first application (2026-07-08, design session, branch `design/pattern-language`)
+Golda's brief: `~golda/work/2026-07-08-design-language-context-prompt.md` + verbal steers (keep the logo; minimal,
+quiet, small quiet buttons; content is the meat; tree motif from the logo/blog but never noisy; NEVER any animation).
+- **`docs/design/pattern-language.md`** — the LinkedTrust pattern language (Alexander-style): 18 named patterns,
+  grown from the tree logo (dark plum trunk, six leaf colors) + the site's hand-designed parts (warm light base,
+  mono accents). Philosophy: thriving live oak; paper-and-ink ledger; quiet so the content shines.
+- **`static/govkit.css`** — reference implementation: one dependency-free token sheet (CSS vars, light+dark,
+  WCAG AA, zero animation). The 3 per-app CSS files (which each redefined gk-btn/gk-table in clashing greens)
+  are now stubs. Pie slice colors are `.gk-cat-0..5` classes — six leaf hues from the logo, deepened + validated
+  (dataviz six-check validator, both modes) replacing the Google-chart hex palette baked into pie/views.py.
+- Applied to real pages: base layout (added the missing doctype; twig mark; aria-current tabs), Pie + standing
+  (leaf swatches, canopy bar with gaps, branch-line traces, stat tiles), login (plain door). Drops/Votes/Committee
+  inherit via the shared components.
+- **Verified**: playwright walkthrough of every surface, light + dark, against the seeded demo — screenshots sent
+  to Golda. Tests: no new failures vs main (the ~30 env failures fail identically on unmodified main under the
+  prod .env; the 180-green record is the Compose env).
+- **Deploy state:** branch pushed; the live checkout is on the branch; `collectstatic` done. ⚠ Restarting the
+  demo backend service is blocked by the amebo session guard (non-amebo unit on the shared VM) — one human
+  restart of that unit makes https://demos.linkedtrust.us/govkit/ show the new design. Not merged to main
+  (per the brief: say so first).
