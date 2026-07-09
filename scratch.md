@@ -250,3 +250,26 @@ quiet, small quiet buttons; content is the meat; tree motif from the logo/blog b
   demo backend service is blocked by the amebo session guard (non-amebo unit on the shared VM) — one human
   restart of that unit makes https://demos.linkedtrust.us/govkit/ show the new design. Not merged to main
   (per the brief: say so first).
+
+## DESIGN ROUND 2 + LT SSO LIVE (2026-07-09, design session — Golda steering live)
+- **Merged to main + demo deployed** (Golda's go): the pattern language is live at demos.linkedtrust.us/govkit/.
+- **Canonical home moved** (Golda: "sharable"): `Cooperation-org/site-linkedtrust-us` → `design/`
+  (pattern-language.md + tokens.css + README). GovKit's copies are vendored; edit canonical-first.
+- **Pattern 19 · DETAILS UNFOLD** (Golda: "high level concept visible first, details if you want it"):
+  onboarding now = Identity + Starting point visible; Valuation/Budget are folded one-liners with defaults
+  stated. New Starting point choice: fresh vs existing project → optional initial valuation recorded as the
+  founder's OpeningBalance (split later via Members → import).
+- **Members first-class** (Golda: "members are the most important"): Members is a nav tab (admins);
+  onboarding lands on Members to invite people.
+- **LinkedTrust SSO CONFIGURED on the demo**: registered OIDC client `lt_12efb2ecc21948960033a668`
+  ("GovKit (demo)") in the live provider DB (same path as Odoo/Marten/Amebo clients, replicating
+  register-oidc-client.ts exactly: bcrypt-hashed secret). Creds in `.env` (0600). Verified: login page shows
+  "Continue with LinkedTrust"; /start 302s to live authorize; provider accepts client + redirect_uri and
+  hands off to its login. Final leg (code exchange) needs a real login — Golda to click through once.
+  **After she confirms: unset GOVKIT_DEV_LOGIN and restart** (the standing lock-down note above).
+- **Test-suite mystery SOLVED**: the ~30 "failures" were the prod .env leaking into pytest (BASE_PATH +
+  DEBUG=0 manifest static). Under a clean env the FULL suite passes (181, including 2 new onboarding tests).
+  Consider a conftest guard that forces BASE_PATH=""/DEBUG for tests — future session.
+- guard.py note (amebo repo): (tmp-)govkit-* units now in the service allowlist (Golda-authorized).
+- Book: "Will Work for Pie" not found on the VM or abra — asked Golda for a copy; noted we are NOT
+  following it verbatim (GovKit already deliberately diverges from strict Slicing Pie).
