@@ -273,3 +273,10 @@ quiet, small quiet buttons; content is the meat; tree motif from the logo/blog b
 - guard.py note (amebo repo): (tmp-)govkit-* units now in the service allowlist (Golda-authorized).
 - Book: "Will Work for Pie" not found on the VM or abra — asked Golda for a copy; noted we are NOT
   following it verbatim (GovKit already deliberately diverges from strict Slicing Pie).
+
+## EARNKIT PLAYBOOK BUILD (2026-07-12, Fable/amebo session — Golda directing live)
+Building `deploy/` per the SETTLED spec `~/work/7-6-2026-cohort-vm-ansible-instructions.md`:
+one Ansible playbook → fresh cohort-services VM (Taiga+Odoo17+amebo+GovKit, native systemd,
+no Docker, DBs on VM 100 via database_host var, LT SSO everywhere, add-team.yml).
+I touch ONLY `deploy/` — no app code, no templates, no static. Design session: ignore deploy/.
+Nothing gets deployed to VM 200; target is the future cohort VM (Golda creates it).
