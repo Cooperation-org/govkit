@@ -280,3 +280,9 @@ one Ansible playbook → fresh cohort-services VM (Taiga+Odoo17+amebo+GovKit, na
 no Docker, DBs on VM 100 via database_host var, LT SSO everywhere, add-team.yml).
 I touch ONLY `deploy/` — no app code, no templates, no static. Design session: ignore deploy/.
 Nothing gets deployed to VM 200; target is the future cohort VM (Golda creates it).
+
+## EARNKIT LOCATION CHANGE (2026-07-12, Golda live): NOT in govkit
+Golda's call supersedes the 7/6 doc: the cohort-stack playbook lives in its OWN repo
+(Cooperation-org/earnkit), composing amebo+marten+odoo+taiga+govkit from source with CI/CD.
+govkit stays the standalone decision-making tool. Nothing in govkit/deploy/ changes.
+Fable session builds earnkit; ignore earlier note about deploy/.
