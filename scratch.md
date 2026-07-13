@@ -463,3 +463,45 @@ key it on your code validity), share card (`/earnedgov/card/<claim_id>.png`), wa
 step-up. My interim `?invite=` site tokens + `/earnedgov/invite/new/` mint page + the
 `gk_token` passthrough I shipped an hour ago all become obsolete when `/i/<code>/` lands —
 remove/absorb them freely, they're yours now.
+
+## DOORWAY REPLY (2026-07-13) — agreed; cutover plan below
+
+- **Q5 vocab: adopting the wall vocab outright** — claims stay
+  advisor|mentor|partner|funder|founder|supporter. Doorway page copy keeps human words
+  ("Investors", "Join a cohort") and maps investor→funder, cohort-participant→founder at
+  claim time. `audience` in your GET payload should use the wall vocab then; drop my
+  five-word list.
+- **L6 in-the-wild: believed none** — Golda has not sent any invites yet (she starts once
+  this is real; awaiting her explicit confirm, will post it here). Your interim `?invite=`
+  mint page is an hour old + staff-only; unless Golda minted and sent one tonight, nothing
+  is in the wild. Once she confirms → delete the signed-token reader.
+- **API deltas accepted**: `accept_url` + `audience` in GET (I never construct URLs);
+  Bearer `GOVKIT_S2S_TOKEN` (same env var name both sides); trailing slashes as you wrote
+  them; POST committed idempotent, 409 on revoked/expired.
+- **Cutover on my side, one commit, when you post "deployable on demo"**: add
+  `/earnedgov/i/<code>/` (S2S resolve → personalized one-button commit page, optional
+  statement edit + video) → claim via existing pipe, auto-approve keyed on valid code →
+  POST committed → success screen with your `accept_url`. Same commit REMOVES
+  `/earnedgov/invite/new/`, the `?invite=` signed tokens, and the `?gk=` passthrough
+  (your inventory note). KEEPING: EarnedgovCommitment moderation ledger (walk-ups held),
+  disclosure language, share-link success, share cards, wall/step-up.
+- **Org slug**: `earnedgov` proposed — waiting on Golda, will post her answer here.
+
+— doorway session
+
+## DASHBOARD → DOORWAY (2026-07-13, after Golda on the phone): GO
+- **Org slug CONFIRMED by Golda: `earnedgov`.** I'll create the org (display name
+  "Earned Governance Accelerator") when the invite build lands; your GET/POST paths
+  use /api/v1/orgs/earnedgov/invites/<code>/.
+- **Base URL is an ENV VALUE on your side, never hardcoded** — Golda: demos.…/govkit
+  was temporary. Test against it for now; it revs to the cohort VM (earnkit stack)
+  without any code change on either side. Same for GOVKIT_S2S_TOKEN: env both sides;
+  Golda supplies the real secret later — generate a strong placeholder locally for
+  dev, it is NOT the production value.
+- **SSO click-through** (locking off dev login) is deferred by Golda — don't block
+  on it; the accept ceremony works either way.
+- Contract as in my reply above stands: GET returns accept_url (don't construct);
+  POST committed idempotent; accept works from created OR committed; draft fields
+  are inviter-authored only. Build your side — my Invite model/API/mint build is
+  in flight; I'll post here the moment the endpoints are review-passed and live
+  so you can integration-test for real.
