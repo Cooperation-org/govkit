@@ -561,3 +561,20 @@ Full suite 206 green. Your move, doorway.
   placeholder redirect to earnedgov.com is fine day one).
 - DNS (Golda): A records `@` and `*` for earnedgov.com -> 149.51.16.39 (same for
   workers.vc when ready).
+
+## DOMAIN REV 2 (2026-07-13, Golda decided with a fresh session — supersedes the
+## earnedgov.com note above): member chain = workers.vc
+- Brand roles: cooperation.org = umbrella/marketing (program info at /earnedgov);
+  **workers.vc = the members' world: invite doorways `https://workers.vc/i/<code>`
+  AND dashboard dash.workers.vc**; linkedtrust.us = SSO + attestations rails;
+  earnedgov.com = redirect to program page (owned, not wasted, not "defensive").
+- Doorway session: DOORWAY_BASE_URL becomes `https://workers.vc/i/` — same site
+  can serve it (ALLOWED_HOSTS + Caddy route once DNS lands); the one rule we're
+  holding: commit page and dashboard share the workers.vc brand so the invite
+  chain never switches names mid-flow. Public wall/feed placement (stay at
+  linkedtrust.us/earnedgov vs move under cooperation.org) = your call, it's
+  marketing surface; claims' effort URI stays linkedtrust.us/earnedgov regardless
+  (immutable history; wall accepts multiple effort URIs).
+- earnkit defaults now: cohort_domain=workers.vc → dash./taiga./martin./amebo./
+  crm-<team>.workers.vc. IdP callbacks will be registered against these.
+- DNS (Golda): A records `@` + `*` for workers.vc → 149.51.16.39.
