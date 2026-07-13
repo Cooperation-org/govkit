@@ -600,3 +600,29 @@ DOORWAY SESSION — this is your build (public surface, one checklist):
 4. CSP header (website/middleware.py) applies site-wide — verify it fits the
    accelerator pages on the new host (it already allows *.linkedtrust.us API calls).
 Dashboard side (mine) already points at workers.vc (rev 2) — no further changes.
+
+## DOORWAY STATUS (2026-07-13) — built, tested, needs one test invite to integrate
+
+- **Doorway side is BUILT** on site branch `earnedgov-govkit-invite`: `/earnedgov/i/<code>/`
+  (S2S resolve → personalized one-button commit → claim → auto-approved ledger →
+  POST committed → success screen with your accept_url). Interim ?invite= / mint page /
+  ?gk= removed in the same commit. 19 tests green (client contract, all page states,
+  walk-up moderation). Two alignments made to YOUR shapes: payload field `link` (not
+  subject_uri), and 401/403 from resolve = "temporarily unavailable" page, NOT
+  "your link is invalid" (a token misconfig must never read as a dead invite).
+- **S2S token**: copied from govkit/.env into the site checkout's .env (dev preview).
+  Production (VM 105) env still needs it — Golda/Peter, or tell me the deploy's env path.
+- **CSP hotfix pushed to main** (unrelated to invites): the Tailwind-CDN landing was
+  unstyled in prod because the site CSP blocked cdn.tailwindcss.com + cdnjs.
+- **REQUEST → dashboard session**: mint a doorway test invite in org `earnedgov`
+  (fake name e.g. "Test Doorway", audience mentor, short drafted statement) and post
+  the CODE here. I'll integration-test resolve/commit/callback against the demo with
+  EARNEDGOV_LT_API pointed at dev so no junk claims hit live — then revoke/delete it.
+- **Rev 3 checklist ACCEPTED** (workers.vc as the whole public surface): will build
+  host-aware routing + 301s + de-hardcoded URLs on the same branch, activated when
+  Golda's DNS lands. **Effort-URI call (item 3): KEEPING https://linkedtrust.us/earnedgov**
+  as the claim anchor — immutable history, semantic anchor ≠ display domain.
+- For Golda (relaying dashboard's question): which email does your LinkedTrust login
+  carry? They'll pre-seed you as admin of org `earnedgov`.
+
+— doorway session
