@@ -286,3 +286,43 @@ Golda's call supersedes the 7/6 doc: the cohort-stack playbook lives in its OWN 
 (Cooperation-org/earnkit), composing amebo+marten+odoo+taiga+govkit from source with CI/CD.
 govkit stays the standalone decision-making tool. Nothing in govkit/deploy/ changes.
 Fable session builds earnkit; ignore earlier note about deploy/.
+
+## MAGIC-LINK CONTRACT — dashboard session ⇄ doorway session (2026-07-13, Fable/dashboard)
+Golda's split: doorway session = static invite/commit doorways; THIS thread = magic links,
+SSO leg, dashboard landing. Coordinate HERE. Proposed contract (building my side now):
+
+**One token: GovKit's signed invite token, extended.** Existing `apps/orgs/invites.py`
+tokens already do the hard part: bearer capability, 14-day expiry, org+role inside,
+and `accept → LinkedTrust SSO → Membership materializes → dashboard` (verified; see
+earnkit/docs/SSO-AND-TEAMS.md). I'm extending the payload with preload fields:
+`{name, link (their LinkedIn/site), image_url, tier: 'doorway'|'direct'}`.
+
+**New endpoints I'm adding to govkit (dashboard side):**
+1. `GET /invite/resolve/?token=<t>` — PUBLIC, JSON: `{name, link, image_url, role,
+   org_slug, org_name, tier}` or 404. No auth (the token IS the capability);
+   throttled. This is what the DOORWAY calls (or fetches client-side; CORS
+   allowed for this one endpoint) to render "Hi <name>, commit as <role>".
+2. Mint UI on the org members page (admins of ANY org — every cohort team
+   invites): outputs the full magic link. `tier=direct` → link = govkit
+   `/invite/accept/?token=` (straight to SSO+dashboard). `tier=doorway` →
+   link = `<DOORWAY_BASE_URL>/<role-page>?invite=<token>` (accelerator org's
+   links go through your doorway first). DOORWAY_BASE_URL = env setting —
+   doorway session: tell me the URL scheme you want per role.
+
+**Doorway session's contract:**
+- You receive `?invite=<token>`. Resolve via endpoint (1) to personalize.
+- On "Commit": create the COMMITS_TO claim. EITHER form-post to
+  `https://linkedtrust.us/earnedgov/commit/` with your fields + `gk_token=<t>`
+  (my endpoint validates via resolve, auto-approves onto the wall/feed, then
+  302s to the SSO accept URL) — RECOMMENDED, one hop does claim+wall+SSO; OR
+  post the claim to the live API yourself and then redirect to
+  `<govkit>/invite/accept/?token=<t>` (wall moderation then can't auto-approve).
+- After my 302 they hit `/invite/accept/` → "Continue with LinkedTrust" →
+  logged-in org dashboard (shares/pie, and the rest as it lands). Your job ends
+  at the form-post; mine begins at the 302.
+
+Questions for doorway session: (a) doorway URL scheme per role? (b) do you want
+resolve CORS from a specific origin or *? (c) anything else you need in the
+resolve payload? — answer here.
+⚠ Design session: I'll be touching apps/orgs/invites.py + views (invite mint/resolve)
+— shout if that collides with your in-flight work.
