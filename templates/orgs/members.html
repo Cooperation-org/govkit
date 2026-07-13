@@ -50,12 +50,43 @@
     <h2>Invite a member</h2>
     <form method="post" action="{% url 'orgs:invite_create' org_slug=current_org.slug %}">
       {% csrf_token %}
+      {{ invite_form.name.label_tag }} {{ invite_form.name }}
       {{ invite_form.email.label_tag }} {{ invite_form.email }}
+      {{ invite_form.link.label_tag }} {{ invite_form.link }}
+      <small>{{ invite_form.link.help_text }}</small>
+      {{ invite_form.image_url.label_tag }} {{ invite_form.image_url }}
+      {{ invite_form.audience.label_tag }} {{ invite_form.audience }}
       {{ invite_form.role.label_tag }} {{ invite_form.role }}
-      {{ invite_form.hourly_rate.label_tag }} {{ invite_form.hourly_rate }}
-      <small>{{ invite_form.hourly_rate.help_text }}</small>
+      {{ invite_form.drafted_statement.label_tag }} {{ invite_form.drafted_statement }}
+      <small>{{ invite_form.drafted_statement.help_text }}</small>
+      {{ invite_form.drafted_social_post.label_tag }} {{ invite_form.drafted_social_post }}
+      <small>{{ invite_form.drafted_social_post.help_text }}</small>
+      {% if doorway_enabled %}
+        <label>{{ invite_form.doorway }} {{ invite_form.doorway.label }}</label>
+      {% endif %}
       <button type="submit">Generate invite link</button>
     </form>
-    <small>A signed link is generated for you to share; they join on sign-in.</small>
+    <small>A single-use link is generated for you to share; they join on sign-in.</small>
+  </div>
+
+  <div class="gk-card">
+    <h2>Invites</h2>
+    <table>
+      <thead>
+        <tr><th>Who</th><th>Audience</th><th>Status</th><th>Created</th></tr>
+      </thead>
+      <tbody>
+        {% for invite in invites %}
+          <tr>
+            <td>{{ invite.name|default:invite.email }}</td>
+            <td>{{ invite.get_audience_display }}</td>
+            <td>{{ invite.status_label }}</td>
+            <td>{{ invite.created_at|date:"Y-m-d" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4" class="gk-placeholder">No invites yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 {% endblock %}

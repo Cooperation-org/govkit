@@ -27,6 +27,8 @@ env = environ.Env(
     LINKEDTRUST_FRONTEND_CALLBACK=(str, "/oauth/callback"),
     GOOGLE_OAUTH_CLIENT_ID=(str, ""),
     GOOGLE_OAUTH_CLIENT_SECRET=(str, ""),
+    GOVKIT_S2S_TOKEN=(str, ""),
+    DOORWAY_BASE_URL=(str, "https://linkedtrust.us/earnedgov/i/"),
 )
 
 # Load a local .env if present (dev). In prod, real env vars win.
@@ -203,3 +205,13 @@ LINKEDTRUST_USER_HANDLER = "apps.accounts.auth_handlers.get_or_create_user"
 # --- Google OAuth (secondary login) ---
 GOOGLE_OAUTH_CLIENT_ID = env("GOOGLE_OAUTH_CLIENT_ID")
 GOOGLE_OAUTH_CLIENT_SECRET = env("GOOGLE_OAUTH_CLIENT_SECRET")
+
+# --- Doorway invites (magic-link contract, scratch.md) ---
+# Shared secret for the doorway's server-to-server invite API (GET invite detail,
+# POST committed). Empty (default) disables those endpoints entirely: every call 401s.
+GOVKIT_S2S_TOKEN = env("GOVKIT_S2S_TOKEN")
+
+# Base URL of the public doorway page for two-step invites; the doorway magic link is
+# f"{DOORWAY_BASE_URL}{invite.code}/". Set empty to hide the doorway option in the
+# invite mint UI (all invites then link straight to the accept page).
+DOORWAY_BASE_URL = env("DOORWAY_BASE_URL")

@@ -1,12 +1,11 @@
-"""Invites (signed-token → login → Membership) and role/rate gating (UI + API)."""
+"""Invites (magic-link code → login → Membership) and role/rate gating (UI + API)."""
 
 from decimal import Decimal
 
 import pytest
 from django.urls import reverse
 
-from apps.orgs.invites import make_invite_token
-from apps.orgs.models import Membership, MembershipRole
+from apps.orgs.models import Invite, InviteStatus, Membership, MembershipRole
 
 
 @pytest.fixture
@@ -17,6 +16,10 @@ def admin_org(org_factory, user_factory, membership_factory):
     return org, admin
 
 
+def _accept_url(invite):
+    return reverse("orgs:accept_invite", kwargs={"code": invite.code})
+
+
 # --- Invite → login → membership -------------------------------------------------------
 
 
@@ -24,13 +27,13 @@ def admin_org(org_factory, user_factory, membership_factory):
 def test_invite_link_then_login_creates_member(client, admin_org, user_factory, settings):
     settings.GOVKIT_DEV_LOGIN = True
     org, _ = admin_org
-    token = make_invite_token(org, MembershipRole.MEMBER, email="invitee@example.com")
+    invite = Invite.objects.create(org=org, role=MembershipRole.MEMBER, email="invitee@example.com")
 
-    # Anonymous visitor follows the invite link → routed to login, token stashed.
-    resp = client.get(reverse("orgs:accept_invite"), {"token": token})
+    # Anonymous visitor follows the invite link → routed to login, code stashed.
+    resp = client.get(_accept_url(invite))
     assert resp.status_code == 302
     assert resp["Location"] == reverse("accounts:login")
-    assert client.session.get("pending_invite_token") == token
+    assert client.session.get("pending_invite_code") == invite.code
 
     # They sign in (dev seam here); the pending invite is consumed on login.
     invitee = user_factory(email="invitee@example.com")
@@ -42,25 +45,29 @@ def test_invite_link_then_login_creates_member(client, admin_org, user_factory, 
     membership = Membership.objects.get(org=org, user=invitee)
     assert membership.role == MembershipRole.MEMBER
     assert resp["Location"] == reverse("orgs:dashboard", kwargs={"org_slug": org.slug})
+    invite.refresh_from_db()
+    assert invite.status == InviteStatus.ACCEPTED  # single-use: dead after the join
 
 
 @pytest.mark.django_db
 def test_invite_accept_while_authenticated_joins_immediately(client, admin_org, user_factory):
     org, _ = admin_org
-    token = make_invite_token(org, MembershipRole.STEWARD)
+    invite = Invite.objects.create(org=org, role=MembershipRole.STEWARD, name="Stew")
     user = user_factory()
     client.force_login(user)
-    resp = client.get(reverse("orgs:accept_invite"), {"token": token})
+    resp = client.get(_accept_url(invite))
     assert resp.status_code == 302
     assert Membership.objects.get(org=org, user=user).role == MembershipRole.STEWARD
+    invite.refresh_from_db()
+    assert invite.status == InviteStatus.ACCEPTED
 
 
 @pytest.mark.django_db
-def test_tampered_invite_rejected(client, admin_org, user_factory):
+def test_unknown_invite_code_rejected(client, admin_org, user_factory):
     org, _ = admin_org
     user = user_factory()
     client.force_login(user)
-    resp = client.get(reverse("orgs:accept_invite"), {"token": "not-a-real-token"})
+    resp = client.get(reverse("orgs:accept_invite", kwargs={"code": "not-a-real-code"}))
     assert resp.status_code == 302
     assert resp["Location"] == reverse("orgs:landing")
     assert not Membership.objects.filter(org=org, user=user).exists()
@@ -95,9 +102,10 @@ def test_member_cannot_invite(client, admin_org, user_factory, membership_factor
     client.force_login(member)
     resp = client.post(
         reverse("orgs:invite_create", kwargs={"org_slug": org.slug}),
-        {"email": "x@example.com", "role": MembershipRole.MEMBER},
+        {"email": "x@example.com", "role": MembershipRole.MEMBER, "audience": "supporter"},
     )
     assert resp.status_code == 403
+    assert not Invite.objects.exists()
 
 
 @pytest.mark.django_db
@@ -189,7 +197,12 @@ def test_api_admin_can_invite(client, admin_org):
         content_type="application/json",
     )
     assert resp.status_code == 201, resp.content
-    assert "invite_link" in resp.json()
+    body = resp.json()
+    assert "invite_link" in body
+    invite = Invite.objects.get(code=body["code"])
+    assert invite.org == org
+    assert invite.email == "who@example.com"
+    assert invite.status == InviteStatus.CREATED
 
 
 # --- L5: pay-rate visibility gated to admins / self ------------------------------------

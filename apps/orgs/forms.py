@@ -17,6 +17,7 @@ from django.utils.text import slugify
 from .models import (
     BudgetEnforcement,
     BudgetPeriod,
+    InviteAudience,
     Membership,
     MembershipRole,
     OpeningBalance,
@@ -165,17 +166,46 @@ class OnboardingForm(forms.Form):
 
 
 class InviteForm(forms.Form):
-    """Admin invites a person to an org by email, with a role and optional rate."""
+    """
+    Admin mints a magic-link invite: who it's for, their audience on the doorway, the
+    membership role they get at accept, and the inviter's own drafted words (both draft
+    fields start empty — they are the INVITER'S authored text, never generated).
+    """
 
-    email = forms.EmailField(label="Email to invite")
-    role = forms.ChoiceField(choices=MembershipRole.choices, initial=MembershipRole.MEMBER)
-    hourly_rate = forms.DecimalField(
-        max_digits=12,
-        decimal_places=2,
+    name = forms.CharField(max_length=255, required=False, label="Invitee name")
+    email = forms.EmailField(required=False, label="Email")
+    link = forms.URLField(
         required=False,
-        label="Hourly rate override",
-        help_text="Optional. Blank = use the org-wide default rate.",
+        assume_scheme="https",
+        label="Their link",
+        help_text="Optional. Their LinkedIn or website.",
     )
+    image_url = forms.URLField(required=False, assume_scheme="https", label="Image URL")
+    audience = forms.ChoiceField(
+        choices=InviteAudience.choices, initial=InviteAudience.SUPPORTER, label="Audience"
+    )
+    role = forms.ChoiceField(choices=MembershipRole.choices, initial=MembershipRole.MEMBER)
+    drafted_statement = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        label="Drafted commitment statement",
+        help_text="Your words, as a starting draft. The invitee edits before committing.",
+    )
+    drafted_social_post = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        label="Drafted social post",
+        help_text="Your words. Queued only with the invitee's consent.",
+    )
+    doorway = forms.BooleanField(
+        required=False, label="Doorway invite (public commitment page first)"
+    )
+
+    def clean(self):
+        data = super().clean()
+        if not data.get("name") and not data.get("email"):
+            raise forms.ValidationError("Give a name or an email so the invite is attributable.")
+        return data
 
 
 class MemberUpdateForm(forms.Form):

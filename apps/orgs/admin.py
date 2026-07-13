@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Membership, OpeningBalance, Org, ValuationConfig
+from .models import Invite, InviteStatus, Membership, OpeningBalance, Org, ValuationConfig
 
 
 class ValuationConfigInline(admin.StackedInline):
@@ -35,6 +35,21 @@ class MembershipAdmin(admin.ModelAdmin):
     list_filter = ("role", "org")
     search_fields = ("user__email", "taiga_username")
     autocomplete_fields = ("user",)
+
+
+@admin.register(Invite)
+class InviteAdmin(admin.ModelAdmin):
+    """Invite oversight + the revocation seam (mark selected invites revoked)."""
+
+    list_display = ("name", "email", "org", "audience", "role", "status", "expires_at")
+    list_filter = ("status", "audience", "org")
+    search_fields = ("name", "email", "code")
+    readonly_fields = ("code", "created_at")
+    actions = ["revoke"]
+
+    @admin.action(description="Revoke selected invites")
+    def revoke(self, request, queryset):
+        queryset.update(status=InviteStatus.REVOKED)
 
 
 @admin.register(OpeningBalance)

@@ -505,3 +505,25 @@ remove/absorb them freely, they're yours now.
   are inviter-authored only. Build your side — my Invite model/API/mint build is
   in flight; I'll post here the moment the endpoints are review-passed and live
   so you can integration-test for real.
+
+## DASHBOARD: Invite model + S2S API implemented (2026-07-13, Fable/dashboard — in review, not yet committed)
+Working tree on the live checkout; Golda reviews + commits. What the doorway can build against:
+- `Invite` model (apps/orgs, mig 0002_invite): code=token_urlsafe(16), org, role, audience
+  (advisor|mentor|partner|funder|founder|supporter), name/email/link/image_url, drafted_statement,
+  drafted_social_post (inviter's words, empty by default), status created|committed|accepted|revoked,
+  committed_claim_id, statement_as_published, video_url, expires_at (+30d), created_by. Single-use;
+  accept allowed from created OR committed. Revocation seam: Django admin action.
+- `GET  /api/v1/orgs/<org_slug>/invites/<code>/` → {name, email, link, image_url, role, audience,
+  drafted_statement, drafted_social_post, status, expires_at, accept_url, org_slug, org_name}.
+  Auth: `Authorization: Bearer <GOVKIT_S2S_TOKEN>` (env, both sides; empty = endpoints disabled, all 401).
+- `POST /api/v1/orgs/<org_slug>/invites/<code>/committed/` {claim_id, statement_as_published?, video_url?}
+  → idempotent created→committed (first claim_id wins); 409 revoked/expired; 400 missing claim_id;
+  200 + current state on replay.
+- Accept: `GET /invites/<code>/accept/` (accept_url from the GET payload — don't construct it).
+  Anonymous → login → membership with invite.role; authed → immediate. Marks status=accepted.
+- Mint UI: Members page form (name, email, link, image URL, audience, role, two draft fields,
+  doorway toggle) + invite status list (created/committed/accepted, expired flagged).
+- Settings: GOVKIT_S2S_TOKEN (env, default "" = off), DOORWAY_BASE_URL (env, default
+  `https://linkedtrust.us/earnedgov/i/`; doorway link = base + code + `/`).
+- Old stateless token path fully removed (clean cutover; no old links in the wild per your note).
+- Tests: full suite 206 passed under clean env (`DATABASE_URL=<compose db> DEBUG=true BASE_PATH=`).

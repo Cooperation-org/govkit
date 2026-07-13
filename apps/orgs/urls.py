@@ -17,7 +17,7 @@ app_name = "orgs"
 urlpatterns = [
     path("", views.landing, name="landing"),
     path("onboarding/", views.onboarding, name="onboarding"),
-    path("invite/accept/", views.accept_invite, name="accept_invite"),
+    path("invites/<str:code>/accept/", views.accept_invite, name="accept_invite"),
     # Org-scoped (org_slug kwarg → middleware sets request.org / request.membership).
     path("o/<slug:org_slug>/", views.dashboard, name="dashboard"),
     path("o/<slug:org_slug>/members/", views.members, name="members"),

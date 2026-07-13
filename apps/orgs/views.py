@@ -9,6 +9,7 @@ with `_require_admin`. Every UI action here has a matching DRF endpoint in api.p
 
 from __future__ import annotations
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
@@ -21,10 +22,9 @@ from .invites import (
     SESSION_KEY,
     InviteError,
     accept_invite_for_user,
-    make_invite_token,
-    read_invite_token,
+    get_invite_for_accept,
 )
-from .models import Membership, MembershipRole, Org
+from .models import Invite, Membership, MembershipRole, Org
 
 
 def landing(request):
@@ -94,6 +94,8 @@ def members(request, org_slug):
             "memberships": memberships,
             "roles": MembershipRole.choices,
             "invite_form": InviteForm(),
+            "invites": Invite.objects.filter(org=request.org).order_by("-created_at"),
+            "doorway_enabled": bool(settings.DOORWAY_BASE_URL),
             "rate_form": OrgRateForm(
                 initial={"default_hourly_rate": request.org.default_hourly_rate}
             ),
@@ -104,23 +106,38 @@ def members(request, org_slug):
 @login_required
 @require_POST
 def invite_create(request, org_slug):
-    """Admin generates a shareable invite link for an org (by email, with a role/rate)."""
+    """
+    Admin mints a magic-link invite. Doorway invites link to the public commitment page
+    (which resolves the code via the S2S API); direct invites link straight to accept.
+    """
     _require_admin(request)
     form = InviteForm(request.POST)
     if not form.is_valid():
         messages.error(request, "Please correct the invite details.")
         return redirect("orgs:members", org_slug=request.org.slug)
 
-    token = make_invite_token(
+    data = form.cleaned_data
+    invite = Invite.objects.create(
         org=request.org,
-        role=form.cleaned_data["role"],
-        email=form.cleaned_data["email"],
-        hourly_rate=form.cleaned_data.get("hourly_rate"),
+        role=data["role"],
+        audience=data["audience"],
+        name=data.get("name", ""),
+        email=data.get("email", ""),
+        link=data.get("link", ""),
+        image_url=data.get("image_url", ""),
+        drafted_statement=data.get("drafted_statement", ""),
+        drafted_social_post=data.get("drafted_social_post", ""),
+        created_by=request.user,
     )
-    link = request.build_absolute_uri(reverse("orgs:accept_invite") + f"?token={token}")
+    if data.get("doorway") and settings.DOORWAY_BASE_URL:
+        link = f"{settings.DOORWAY_BASE_URL}{invite.code}/"
+    else:
+        link = request.build_absolute_uri(
+            reverse("orgs:accept_invite", kwargs={"code": invite.code})
+        )
     messages.success(
         request,
-        f"Invite link for {form.cleaned_data['email']} (share it directly): {link}",
+        f"Invite link for {invite.name or invite.email} (share it directly): {link}",
     )
     return redirect("orgs:members", org_slug=request.org.slug)
 
@@ -182,26 +199,26 @@ def _has_other_admin(org, excluding):
 # --- Invite acceptance -----------------------------------------------------------------
 
 
-def accept_invite(request):
+def accept_invite(request, code):
     """
-    Land here from an invite link. If signed in, join immediately; otherwise stash the
-    token and route through login (consume_pending_invite finishes the join).
+    Land here from a magic link (directly, or via the doorway after commit). If signed
+    in, join immediately; otherwise stash the CODE in the session and route through
+    login (consume_pending_invite finishes the join right after _complete_login).
     """
-    token = request.GET.get("token", "")
     try:
-        read_invite_token(token)  # validate before doing anything
+        invite = get_invite_for_accept(code)  # validate before doing anything
     except InviteError as exc:
         messages.error(request, str(exc))
         return redirect("orgs:landing")
 
     if request.user.is_authenticated:
         try:
-            membership = accept_invite_for_user(token, request.user)
+            membership = accept_invite_for_user(invite, request.user)
         except InviteError as exc:
             messages.error(request, str(exc))
             return redirect("orgs:landing")
         messages.success(request, f"You have joined {membership.org.display_name}.")
         return redirect("orgs:dashboard", org_slug=membership.org.slug)
 
-    request.session[SESSION_KEY] = token
+    request.session[SESSION_KEY] = code
     return redirect("accounts:login")

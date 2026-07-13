@@ -13,6 +13,7 @@ from rest_framework import serializers
 from .models import (
     BudgetEnforcement,
     BudgetPeriod,
+    InviteAudience,
     Membership,
     MembershipRole,
     Org,
@@ -145,11 +146,26 @@ class MembershipSerializer(serializers.ModelSerializer):
 
 
 class InviteSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    """Mint a magic-link invite (API mirror of the members-page form)."""
+
+    name = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
+    email = serializers.EmailField(required=False, allow_blank=True, default="")
     role = serializers.ChoiceField(choices=MembershipRole.choices, default=MembershipRole.MEMBER)
-    hourly_rate = serializers.DecimalField(
-        max_digits=12, decimal_places=2, required=False, allow_null=True
+    audience = serializers.ChoiceField(
+        choices=InviteAudience.choices, default=InviteAudience.SUPPORTER
     )
+    link = serializers.URLField(required=False, allow_blank=True, default="")
+    image_url = serializers.URLField(required=False, allow_blank=True, default="")
+    drafted_statement = serializers.CharField(required=False, allow_blank=True, default="")
+    drafted_social_post = serializers.CharField(required=False, allow_blank=True, default="")
+    doorway = serializers.BooleanField(default=False)
+
+    def validate(self, data):
+        if not data.get("name") and not data.get("email"):
+            raise serializers.ValidationError(
+                "Give a name or an email so the invite is attributable."
+            )
+        return data
 
 
 class OrgRateSerializer(serializers.Serializer):

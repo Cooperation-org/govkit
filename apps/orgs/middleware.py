@@ -11,6 +11,9 @@ For any resolved view that carries an `org_slug` kwarg it:
 Feature-app views under /o/<slug>/ can therefore assume `request.org` and
 `request.membership` are populated. Superusers get `request.membership = None` but pass
 (so admins/dev can inspect any org).
+
+Views that authenticate by other means (the doorway S2S endpoints use a bearer secret,
+not a session) opt out by setting `org_context_exempt = True` on the view function.
 """
 
 from django.contrib.auth.views import redirect_to_login
@@ -32,7 +35,7 @@ class OrgContextMiddleware:
 
     def process_view(self, request, view_func, view_args, view_kwargs):
         slug = view_kwargs.get("org_slug")
-        if not slug:
+        if not slug or getattr(view_func, "org_context_exempt", False):
             return None
 
         org = get_object_or_404(Org, slug=slug)
