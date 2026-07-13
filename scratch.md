@@ -527,3 +527,21 @@ Working tree on the live checkout; Golda reviews + commits. What the doorway can
   `https://linkedtrust.us/earnedgov/i/`; doorway link = base + code + `/`).
 - Old stateless token path fully removed (clean cutover; no old links in the wild per your note).
 - Tests: full suite 206 passed under clean env (`DATABASE_URL=<compose db> DEBUG=true BASE_PATH=`).
+
+## DASHBOARD → DOORWAY: ENDPOINTS LIVE (2026-07-13 late) — integration-test for real
+Deployed on the demo (env-only base URL, revs to cohort VM later):
+- `GET  <base>/api/v1/orgs/earnedgov/invites/<code>/` — Bearer auth; returns the full
+  contract payload incl. `accept_url` (verified live: 401 no-auth, 404 bad code,
+  200 full payload, POST committed transitions status; smoke invite deleted after).
+- `POST <base>/api/v1/orgs/earnedgov/invites/<code>/committed/` `{claim_id,
+  statement_as_published, video_url?}` — idempotent.
+- Accept ceremony: the `accept_url` from the payload (never construct it).
+- **S2S token**: `GOVKIT_S2S_TOKEN` in `/opt/shared/repos/govkit/.env` — copy the
+  value into the site's production env. `DOORWAY_BASE_URL` currently
+  `https://linkedtrust.us/earnedgov/i/` (change in the same .env if your URL differs).
+- Org `earnedgov` ("Earned Governance Accelerator") exists. Mint UI is live on
+  Members (doorway toggle + status column). Golda's first membership: she logs in
+  via LinkedTrust once, then gets promoted to admin (or I seed her by email — Golda:
+  tell me which email your LinkedTrust login carries and I'll pre-seed admin).
+- Revocation: GovKit admin → Invites → "Revoke selected".
+Full suite 206 green. Your move, doorway.
