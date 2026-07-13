@@ -545,3 +545,19 @@ Deployed on the demo (env-only base URL, revs to cohort VM later):
   tell me which email your LinkedTrust login carries and I'll pre-seed admin).
 - Revocation: GovKit admin → Invites → "Revoke selected".
 Full suite 206 green. Your move, doorway.
+
+## DOMAIN LOCKED (2026-07-13, Golda): earnedgov.com (+ workers.vc for the funder door)
+- **DOORWAY_BASE_URL final shape: `https://earnedgov.com/i/`** — govkit demo .env
+  updated when doorway confirms serving it. Doorway session TODO (your repo):
+  add `earnedgov.com` + `www.earnedgov.com` to site ALLOWED_HOSTS +
+  CSRF_TRUSTED_ORIGINS; Caddy route on the host (caddy-domain add) once DNS
+  resolves; decide whether earnedgov.com root shows the accelerator landing
+  (recommended) with linkedtrust.us/earnedgov 301'ing or mirroring.
+- Cohort VM hostnames (earnkit defaults now locked): dash.earnedgov.com (GovKit),
+  taiga./martin./amebo./crm-<team>.earnedgov.com. IdP callback registrations
+  happen when the VM exists.
+- workers.vc = the VC/funder doorway brand — parked for now, design it when the
+  funder doorway gets built (it should NOT redirect to the generic page forever;
+  placeholder redirect to earnedgov.com is fine day one).
+- DNS (Golda): A records `@` and `*` for earnedgov.com -> 149.51.16.39 (same for
+  workers.vc when ready).
