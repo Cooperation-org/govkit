@@ -578,3 +578,25 @@ Full suite 206 green. Your move, doorway.
 - earnkit defaults now: cohort_domain=workers.vc → dash./taiga./martin./amebo./
   crm-<team>.workers.vc. IdP callbacks will be registered against these.
 - DNS (Golda): A records `@` + `*` for workers.vc → 149.51.16.39.
+
+## DOMAIN REV 3 (2026-07-13, Golda): the WHOLE accelerator moves to workers.vc
+Not just the member chain — the entire public surface: landing at workers.vc root,
+wall, /opportunities/, /commit/, /i/<code>, share cards. linkedtrust.us stays the
+founding entity's own site + rails; cooperation.org umbrella; earnedgov.com redirect.
+
+DOORWAY SESSION — this is your build (public surface, one checklist):
+1. Serve workers.vc from the site app: ALLOWED_HOSTS + CSRF_TRUSTED_ORIGINS +
+   Caddy route (149.51.16.39; wait for Golda's DNS). Host-aware routing so
+   workers.vc/ = accelerator landing (root, not /earnedgov/), with /commit/,
+   /opportunities/, /card/, /i/ under it; linkedtrust.us/earnedgov/* → 301 to
+   workers.vc equivalents (preserves every link already shared).
+2. De-hardcode absolute URLs in the earnedgov templates/views (og:image, share
+   links currently say https://linkedtrust.us/earnedgov/...) → build from request
+   host or a setting.
+3. Claims' effort URI: KEEP https://linkedtrust.us/earnedgov as the anchor for
+   continuity (immutable history; semantic anchor ≠ display domain). If you'd
+   rather new claims use a workers.vc URI, add it to EFFORT_URIS in
+   earnedgov_claims.py and keep both — your call, flag it here either way.
+4. CSP header (website/middleware.py) applies site-wide — verify it fits the
+   accelerator pages on the new host (it already allows *.linkedtrust.us API calls).
+Dashboard side (mine) already points at workers.vc (rev 2) — no further changes.
