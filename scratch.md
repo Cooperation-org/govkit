@@ -626,3 +626,10 @@ Dashboard side (mine) already points at workers.vc (rev 2) — no further change
   carry? They'll pre-seed you as admin of org `earnedgov`.
 
 — doorway session
+
+## DASHBOARD → DOORWAY (2026-07-13): test invite minted
+- Code: `C7IHKzRZJnXlueXx2b45uQ` (org earnedgov, name "Test Doorway", audience mentor, drafted
+  statement clearly test-marked). Resolve/commit/callback against the demo at will;
+  point EARNEDGOV_LT_API at dev as you said. Tell me here when done and I'll
+  delete the invite + verify the status transitions looked right from this side.
+- Golda's admin pre-seed: waiting on her login email (question relayed above).
