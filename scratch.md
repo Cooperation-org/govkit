@@ -650,3 +650,63 @@ Golda rejected AI-flavored copy. Before writing ANY member-facing string, load t
 profile (built from her blog posts, with her banned list: em-dashes, "honestly",
 "not X but Y", hype words, triads, exclamation points). Plain, dry, concrete,
 aphoristic. Applies to doorway pages, wall, buttons, consent lines, mint UI, cards.
+
+## COPY BRIEF FOR THE DOORWAY SESSION (2026-07-15, from Golda via dashboard session)
+## Read this whole section before writing or keeping ANY member-facing string.
+
+### The principles (Golda's, learned the hard way in this order)
+1. **Never "commitment."** This is an alpha program; people are experimenting with
+   the model. A founder with a promising startup will not publicly lock in at the
+   start, and asking them to is the opposite of what we offer. The public artifact
+   is a gift to the person: buzz for THEIR venture, affiliation they're proud of.
+   Founders share a launch. Mentors and advisors join. Funders back. Umbrella noun
+   when you need one: declaration of intent.
+2. **Write in Golda's voice, and only after reading her writing.** Required
+   reading, in full, before you touch a string:
+   - linkedtrust.us/blog/grow-like-trees-an-organic-approach-to-societal-regrowth/
+   - linkedtrust.us/blog/how-to-jump-on-a-moving-project/
+   - linkedtrust.us/blog/playing-on-an-organic-team/
+   Profile with quoted examples: `abra read golda-writing-voice`. What her voice
+   is: plain declaratives, dry openings, short imperative headings, rules of thumb
+   ("Asking the question should be more work than answering it"), concrete tools
+   named without glamour ("we track shares on a spreadsheet"), understatement as
+   confidence ("None of this is particularly complicated"). Zero exclamation
+   points. Zero hype.
+3. **Her banned list (hard, not stylistic preference):** em-dashes; "honestly";
+   "not X, but Y" constructions; seamless/empower/unlock/journey/thrilled/
+   revolutionize; triple-noun triads ("trust, transparency, and community");
+   exclamation points; marketing rhythm generally; jargon. If a sentence could
+   open a YC landing page, cut it.
+4. **No inviter names in page copy.** The invite arrives in a personal email; the
+   person knows who invited them. The page makes the ask directly ("Mentor the
+   first cohort."). Exception: data is not copy — a vouched wall card's
+   "as told to <voucher>" comes from the attestation and stays.
+5. **Consent copy is celebratory and revocable, never contractual.** We say
+   plainly: you go on the cohort page, we like to make noise, we check with you
+   before posting anywhere else, and if you change your mind it comes down.
+
+### Initial suggestions (Golda-reviewed direction, NOT final — see the task below)
+- Wall: header "Who's in" / "Every card links to a signed statement. Check it
+  yourself." / footers "in their own words", "as told to <voucher>".
+- Invite pages: "Mentor the first cohort." / "Take {venture} through the first
+  cohort." / "Back the first cohort." Body: "One click puts you on the cohort
+  page. Edit the words first if you like. A short video helps people know you.
+  Optional." Buttons: "I'm in" / "Post our launch".
+- Consent: "We list you on the cohort page, and we like to make noise when good
+  people join. We check with you before posting anywhere else. Change your mind
+  later and we take it down."
+- Success: "Done. You're on the page." / "Your link, if you want to share it." /
+  "Go to your dashboard". Walk-up hold: "Thanks. A human reads every new entry
+  before it goes up. Usually within a day."
+- Invite status column (mint UI): sent / said yes / joined.
+
+### Your actual task (Golda's instruction: think critically, don't just paste)
+Read her three posts first. Then treat the suggestions above as a first draft by
+someone who had just been corrected twice: improve them. Test every string you
+write against her posts — would this sentence be at home in "Playing on an
+Organic Team"? Watch especially for AI tells that survive one editing pass:
+balanced clause pairs, adjectives doing the work of facts, warmth that no human
+typed. Where you find a better line than the suggestion, use yours. Post the
+final string set here for Golda before shipping. Claim verbs go per-audience
+(JOINS / LAUNCHES_IN / PARTNERS_WITH / SUPPORTS; COMMITS_TO grandfathered,
+translate on display). Ticket: earned-governance-toolkit-accelerator #14.
