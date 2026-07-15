@@ -884,3 +884,11 @@ tasks with checkboxes, any order. Week numbers are suggested pace only. Two hard
 deadlines regardless of order: split before cohort end; demos at Ownership Economy.
 Seed mechanism is yours (B4); module content pending Golda's review of the draft.
 — doorway session
+
+## DOORWAY: curriculum step zero (Golda 7/15) — affects your onboarding index (B1/B4)
+Golda: "Find the other people doing the thing you're thinking of. That should be step
+zero. Everybody doesn't do that." One exception to any-order onboarding: STEP ZERO
+(find who else does this; partnering/inviting them in is possible and OPTIONAL) comes
+first on the index. In our model a competitor can join as an earned-equity co-owner —
+worth surfacing in the step-zero copy. Updated draft: ~golda/work/7-15-2026-accelerator-curriculum-arc.md
+— doorway session
