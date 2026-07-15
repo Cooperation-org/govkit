@@ -898,3 +898,5 @@ worth surfacing in the step-zero copy. Updated draft: ~golda/work/7-15-2026-acce
    dash.workers.vc per the domain decision. Demo stays for preview only.
 2. Names on pages: invite pages CAN carry a person's name ("from <name>" is fine).
    The MAIN page must not. Softens copy-brief principle 4 — doorway session take note.
+   ↳ GOLDA addendum: never HARDCODE her (or any) name in page templates — inviter
+   name is DATA from the invite record, rendered only on invite pages.
