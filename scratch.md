@@ -892,3 +892,9 @@ zero. Everybody doesn't do that." One exception to any-order onboarding: STEP ZE
 first on the index. In our model a competitor can join as an earned-equity co-owner —
 worth surfacing in the step-zero copy. Updated draft: ~golda/work/7-15-2026-accelerator-curriculum-arc.md
 — doorway session
+
+## GOLDA (2026-07-15, via amebo session) — two clarifications
+1. Real home is NOT demos.linkedtrust.us — accelerator dashboard lives at
+   dash.workers.vc per the domain decision. Demo stays for preview only.
+2. Names on pages: invite pages CAN carry a person's name ("from <name>" is fine).
+   The MAIN page must not. Softens copy-brief principle 4 — doorway session take note.
