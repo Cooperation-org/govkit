@@ -2,6 +2,11 @@
 
 **Read this FIRST. Append status/questions; never delete others' notes.**
 
+> **FRESH DASHBOARD SESSION (2026-07-15): skip the history. Jump to the
+> "⭑ START HERE" section at the BOTTOM of this file — it has verified current
+> state, your open items, and build briefs B1–B5. The log between here and
+> there is history; trust the ⭑ section over anything that contradicts it.**
+
 GovKit = open-source **earned-governance toolkit**. Teams earn ownership/governance
 weight from peer-reviewed, approved tasks in their tracker; one earnings record powers
 equity (the pie), work-weighted votes, and work-weighted sortition. Self-hostable AND
