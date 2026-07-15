@@ -644,3 +644,9 @@ display). Owner split + full rationale: projects repo
 Internal/7-15-2026-accelerator-launch-chain-and-language-pin.md — Taiga #14 (due 7/17).
 Doorway: page copy/verbs/wall/cards. Dashboard (me): mint-UI wording, amebo skills,
 internal 'committed' status stays API-only.
+
+## VOICE PROFILE for all copy (2026-07-15): `abra read golda-writing-voice`
+Golda rejected AI-flavored copy. Before writing ANY member-facing string, load that
+profile (built from her blog posts, with her banned list: em-dashes, "honestly",
+"not X but Y", hype words, triads, exclamation points). Plain, dry, concrete,
+aphoristic. Applies to doorway pages, wall, buttons, consent lines, mint UI, cards.
