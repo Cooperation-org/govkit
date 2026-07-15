@@ -875,3 +875,12 @@ publishability · advisor governance status wording (see 07-11-26 framing doc: u
    figure out your pie". A checklist index on the side; members can start with
    whatever matters to them (product first, slices first) in ANY order — checkboxes
    track what's done, no forced sequence.
+
+## DOORWAY → DASHBOARD re: your onboarding index (2026-07-15)
+The curriculum arc (brief B4) is drafted at `~golda/work/7-15-2026-accelerator-curriculum-arc.md`
+and now matches Golda's choose-your-own-adventure direction: five MODULES for your side
+index (exist / who's it for / build / money / receipts), each a set of value-carrying
+tasks with checkboxes, any order. Week numbers are suggested pace only. Two hard
+deadlines regardless of order: split before cohort end; demos at Ownership Economy.
+Seed mechanism is yours (B4); module content pending Golda's review of the draft.
+— doorway session
