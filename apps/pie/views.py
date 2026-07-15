@@ -6,7 +6,7 @@ request.org / request.membership are populated by OrgContextMiddleware (every ro
 is under /o/<org_slug>/), which also enforces membership.
 """
 
-from decimal import Decimal
+import math
 
 from django.contrib.auth.decorators import login_required
 from django.http import Http404
@@ -20,41 +20,51 @@ from .services import compute_personal_standing, compute_pie
 # identity (color is never the only signal).
 N_LEAF_COLORS = 6
 
-# Visual-only gap between adjacent bar segments (in share-percent units of the 0–100
-# viewBox), per the mark spec: fills never touch. Applied to the drawn width only, so
-# offsets still line up with the real numbers in the ledger below.
-SEGMENT_GAP = Decimal("0.4")
+# Pie geometry in the 0–100 viewBox. Wedges start at 12 o'clock and run clockwise, the
+# order of the ledger below.
+PIE_CX = 50.0
+PIE_CY = 50.0
+PIE_R = 48.0
 
 
 def _cat_for(index):
     return index % N_LEAF_COLORS
 
 
+def _pie_point(angle_deg):
+    rad = math.radians(angle_deg - 90.0)  # 0° = 12 o'clock
+    return (PIE_CX + PIE_R * math.cos(rad), PIE_CY + PIE_R * math.sin(rad))
+
+
 def _svg_segments(pie):
     """
-    Turn the pie into a list of stacked-bar segments (percent offset + drawn width +
-    leaf-class index).
-
-    Offsets use share_pct directly, so segments line up with the numbers shown in the
-    table; drawn widths give up a hair of space to the gap (never below a visible
-    minimum). Members with a zero share are dropped from the bar (nothing to draw).
+    Turn the pie into circular wedges (SVG path data + leaf-class index), one per
+    member with a positive share. A lone ~100% slice gets is_full_circle instead of a
+    path (a wedge whose two edges coincide would not render).
     """
     segments = []
-    offset = Decimal("0")
+    angle = 0.0
     for i, s in enumerate(pie.slices):
         if s.share_pct <= 0:
             continue
-        drawn = max(s.share_pct - SEGMENT_GAP, Decimal("0.3"))
-        segments.append(
-            {
-                "label": s.member_label,
-                "x": offset,
-                "width": drawn,
-                "cat": _cat_for(i),
-                "share_pct": s.share_pct,
-            }
-        )
-        offset += s.share_pct
+        sweep = float(s.share_pct) * 3.6
+        seg = {
+            "label": s.member_label,
+            "cat": _cat_for(i),
+            "share_pct": s.share_pct,
+            "is_full_circle": sweep >= 359.99,
+            "path": "",
+        }
+        if not seg["is_full_circle"]:
+            x1, y1 = _pie_point(angle)
+            x2, y2 = _pie_point(angle + sweep)
+            large = 1 if sweep > 180.0 else 0
+            seg["path"] = (
+                f"M {PIE_CX:.3f} {PIE_CY:.3f} L {x1:.3f} {y1:.3f} "
+                f"A {PIE_R:.3f} {PIE_R:.3f} 0 {large} 1 {x2:.3f} {y2:.3f} Z"
+            )
+        segments.append(seg)
+        angle += sweep
     return segments
 
 

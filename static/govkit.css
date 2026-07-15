@@ -386,13 +386,26 @@ th.gk-num, th.num { font-family: var(--gk-font-body); font-size: 0.75rem; }
   vertical-align: middle;
 }
 
-/* SVG marks (the pie's stacked bar) take the leaf color as fill */
-rect.gk-cat-0 { fill: var(--gk-cat-0); }
-rect.gk-cat-1 { fill: var(--gk-cat-1); }
-rect.gk-cat-2 { fill: var(--gk-cat-2); }
-rect.gk-cat-3 { fill: var(--gk-cat-3); }
-rect.gk-cat-4 { fill: var(--gk-cat-4); }
-rect.gk-cat-5 { fill: var(--gk-cat-5); }
+/* SVG marks (pie wedges) take the leaf color as fill */
+rect.gk-cat-0, path.gk-cat-0, circle.gk-cat-0 { fill: var(--gk-cat-0); }
+rect.gk-cat-1, path.gk-cat-1, circle.gk-cat-1 { fill: var(--gk-cat-1); }
+rect.gk-cat-2, path.gk-cat-2, circle.gk-cat-2 { fill: var(--gk-cat-2); }
+rect.gk-cat-3, path.gk-cat-3, circle.gk-cat-3 { fill: var(--gk-cat-3); }
+rect.gk-cat-4, path.gk-cat-4, circle.gk-cat-4 { fill: var(--gk-cat-4); }
+rect.gk-cat-5, path.gk-cat-5, circle.gk-cat-5 { fill: var(--gk-cat-5); }
+
+/* the pie is a pie — round chart, quiet gaps between wedges */
+.gk-pie-svg {
+  width: 13rem;
+  max-width: 60vw;
+  margin: 0.75rem auto;
+  display: block;
+}
+.gk-pie-svg path, .gk-pie-svg circle {
+  stroke: var(--gk-surface);
+  stroke-width: 1;
+  stroke-linejoin: round;
+}
 
 /* ---- bars (14 THE PIE IS A CANOPY · 15 TWO TALLIES, SAME RULER) ---------- */
 

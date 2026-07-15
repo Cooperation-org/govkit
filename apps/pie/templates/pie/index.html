@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ page_title }} — {{ current_org.display_name }}{% endblock %}
 {% block content %}
-  {# 14 · THE PIE IS A CANOPY — stacked bar + ledger, every row traceable (pattern 8). #}
+  {# 14 · THE PIE IS A PIE — circular chart + ledger, every row traceable (pattern 8). #}
   <div class="gk-pagehead">
     <h1>{{ page_title }}</h1>
     <a href="{% url 'pie:standing' org_slug=current_org.slug %}">My standing &rarr;</a>
@@ -15,13 +15,18 @@
 
   {% if pie.total > 0 %}
     <div class="gk-card">
-      <svg class="gk-bar-svg" viewBox="0 0 100 10" preserveAspectRatio="none"
-           role="img" aria-label="Stacked bar of member shares">
+      <svg class="gk-pie-svg" viewBox="0 0 100 100"
+           role="img" aria-label="Pie chart of member shares">
         {% for seg in segments %}
-          <rect class="gk-cat-{{ seg.cat }}" x="{{ seg.x }}" y="0"
-                width="{{ seg.width }}" height="10">
-            <title>{{ seg.label }}: {{ seg.share_pct }}%</title>
-          </rect>
+          {% if seg.is_full_circle %}
+            <circle class="gk-cat-{{ seg.cat }}" cx="50" cy="50" r="48">
+              <title>{{ seg.label }}: {{ seg.share_pct }}%</title>
+            </circle>
+          {% else %}
+            <path class="gk-cat-{{ seg.cat }}" d="{{ seg.path }}">
+              <title>{{ seg.label }}: {{ seg.share_pct }}%</title>
+            </path>
+          {% endif %}
         {% endfor %}
       </svg>
 
