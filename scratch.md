@@ -864,3 +864,14 @@ contribution earning accelerator equity. Task type + amebo capture, not new infr
 Start date · curriculum arc · the one "proof line" fact for invite pages · Evelyn
 publishability · advisor governance status wording (see 07-11-26 framing doc: unsettled).
 ============================================================================
+
+## GOLDA DIRECTION (2026-07-15, via amebo session — starting B1)
+1. B1 (invite → visible pie slice) is a go.
+2. **The pie must look like a pie** — circular chart, not the horizontal stacked bar.
+   (Supersedes the "pie is a canopy / stacked bar" pattern note in pie/index.html.)
+3. **Fewer questions.** Onboarding asks too much now; at launch it must ask less.
+4. **Choose-your-own-adventure onboarding with a side index.** Like her training
+   session: "already have a thing / don't have a thing / jump to go-to-market /
+   figure out your pie". A checklist index on the side; members can start with
+   whatever matters to them (product first, slices first) in ANY order — checkboxes
+   track what's done, no forced sequence.
