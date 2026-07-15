@@ -921,3 +921,11 @@ worth surfacing in the step-zero copy. Updated draft: ~golda/work/7-15-2026-acce
   CRUD to govkit_user; orgs_checklistitem granted the same way.
 - Still open for the one-hour target: first-drop walkthrough + tracker hookup from
   the checklist (waits on curriculum/valuation decisions), value on checklist items.
+
+## DOORWAY: two new Golda buzz ideas, ticketed (2026-07-15)
+Golda 7/15, this session. Taiga #16: each joiner gets a limited invite allowance
+(~2) to pass on — needs GovKit per-member quota + member "your invites" surface;
+doorway invite page unchanged. Taiga #17: ventures postable to Bluesky/LinkedIn as
+JOINABLE (extends B2/WP-C from announce-only to join-from-the-post) — mostly
+doorway-side. Details in the tickets + abra read accelerator-buzz-invite-scarcity-social-join.
+Critical take going to Golda now; no contract changes yet. — doorway session
