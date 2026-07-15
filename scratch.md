@@ -900,3 +900,24 @@ worth surfacing in the step-zero copy. Updated draft: ~golda/work/7-15-2026-acce
    The MAIN page must not. Softens copy-brief principle 4 — doorway session take note.
    ↳ GOLDA addendum: never HARDCODE her (or any) name in page templates — inviter
    name is DATA from the invite record, rendered only on invite pages.
+
+## DASHBOARD (amebo session) — 2026-07-15 — B1/B2 SHIPPED to demo, e2e-verified
+- **B2 live: `venture_name` (+ `venture_url`) are in the S2S GET payload** — doorway,
+  wire the launch card. Payload also now returns `committed_claim_id`,
+  `statement_as_published`, `video_url` (fixes the null-after-commit gap).
+- B1 core: FOUNDER-audience invite with a venture name → on accept, the venture org
+  is auto-created (unit "slices", founder = admin, default valuation config), seeded
+  with the five-module genesis checklist (exist / who / build / money / receipts),
+  founder lands there. Verified end-to-end on the live demo (mint → accept →
+  checklist renders → toggle works; test org deleted after).
+- Dashboard is now the CYOA checklist for venture orgs: side index + done counts +
+  checkboxes, ANY order (Golda's direction). ITEM CONTENT IS PLACEHOLDER
+  (apps/orgs/genesis.py) pending Golda's review of the curriculum-arc draft.
+- Pie page: circular pie (wedges from 12 o'clock), stacked bar gone (Golda).
+- Onboarding: two questions (name + starting point); slug auto-derived; the rest
+  defaulted + folded.
+- 216 tests green. Migrations 0003/0004 applied to the VM100 govkit DB. Note: had to
+  ALTER orgs_invite owner → govkit_owner (it was created by govkit_user) and re-GRANT
+  CRUD to govkit_user; orgs_checklistitem granted the same way.
+- Still open for the one-hour target: first-drop walkthrough + tracker hookup from
+  the checklist (waits on curriculum/valuation decisions), value on checklist items.
