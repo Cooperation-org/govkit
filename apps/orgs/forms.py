@@ -41,11 +41,13 @@ class OnboardingForm(forms.Form):
     display_name = forms.CharField(max_length=255, label="Organization name")
     slug = forms.SlugField(
         max_length=64,
+        required=False,
         label="URL slug",
-        help_text="Lowercase letters, numbers and hyphens. Used in every org URL.",
+        help_text="Optional — made from the name if left blank. Used in every org URL.",
     )
     unit_name = forms.CharField(
         max_length=32,
+        required=False,
         initial="points",
         label="Value unit",
         help_text='What this org calls a unit of earned value, e.g. "COOK", "points".',
@@ -83,19 +85,31 @@ class OnboardingForm(forms.Form):
         help_text="Optional. Individual members can override this.",
     )
 
+    # Everything below has a default and is never a required question (Golda: fewer
+    # questions). Absent/blank values fall back to the defaults in save().
     valuation_mode = forms.ChoiceField(
-        choices=ValuationMode.choices, initial=ValuationMode.HOURS_RATE
+        required=False, choices=ValuationMode.choices, initial=ValuationMode.HOURS_RATE
     )
     at_risk_multiplier_noncash = forms.DecimalField(
-        max_digits=6, decimal_places=3, initial="1.0", label="At-risk multiplier (non-cash)"
+        max_digits=6,
+        decimal_places=3,
+        required=False,
+        initial="1.0",
+        label="At-risk multiplier (non-cash)",
     )
     at_risk_multiplier_cash = forms.DecimalField(
-        max_digits=6, decimal_places=3, initial="1.0", label="At-risk multiplier (cash)"
+        max_digits=6,
+        decimal_places=3,
+        required=False,
+        initial="1.0",
+        label="At-risk multiplier (cash)",
     )
-    weight_window = forms.ChoiceField(choices=WeightWindow.choices, initial=WeightWindow.ALL_TIME)
+    weight_window = forms.ChoiceField(
+        required=False, choices=WeightWindow.choices, initial=WeightWindow.ALL_TIME
+    )
 
     assignment_budget_period = forms.ChoiceField(
-        choices=BudgetPeriod.choices, initial=BudgetPeriod.WEEKLY
+        required=False, choices=BudgetPeriod.choices, initial=BudgetPeriod.WEEKLY
     )
     assignment_budget_amount = forms.DecimalField(
         max_digits=14,
@@ -112,13 +126,13 @@ class OnboardingForm(forms.Form):
         help_text="Leave blank for no cap.",
     )
     budget_enforcement = forms.ChoiceField(
-        choices=BudgetEnforcement.choices, initial=BudgetEnforcement.SOFT
+        required=False, choices=BudgetEnforcement.choices, initial=BudgetEnforcement.SOFT
     )
 
     def clean_slug(self):
-        slug = slugify(self.cleaned_data["slug"])
+        slug = slugify(self.cleaned_data.get("slug", ""))
         if not slug:
-            raise forms.ValidationError("Enter a valid slug.")
+            return ""  # derived from the name in clean()
         if Org.objects.filter(slug=slug).exists():
             raise forms.ValidationError("That slug is already taken.")
         return slug
@@ -129,6 +143,15 @@ class OnboardingForm(forms.Form):
             data["start_kind"] = self.START_FRESH
         if data["start_kind"] == self.START_FRESH:
             data["initial_valuation"] = None  # fresh pies begin empty
+        if not data.get("slug") and data.get("display_name"):
+            base = slugify(data["display_name"])[:60]
+            if not base:
+                raise forms.ValidationError("Enter a name we can make a URL from.")
+            slug, n = base, 2
+            while Org.objects.filter(slug=slug).exists():
+                slug = f"{base}-{n}"
+                n += 1
+            data["slug"] = slug
         return data
 
     @transaction.atomic
@@ -137,19 +160,19 @@ class OnboardingForm(forms.Form):
         org = Org.objects.create(
             slug=data["slug"],
             display_name=data["display_name"],
-            unit_name=data["unit_name"] or "points",
+            unit_name=data.get("unit_name") or "points",
             default_hourly_rate=data.get("default_hourly_rate"),
         )
         ValuationConfig.objects.create(
             org=org,
-            valuation_mode=data["valuation_mode"],
-            at_risk_multiplier_noncash=data["at_risk_multiplier_noncash"],
-            at_risk_multiplier_cash=data["at_risk_multiplier_cash"],
-            weight_window=data["weight_window"],
-            assignment_budget_period=data["assignment_budget_period"],
+            valuation_mode=data.get("valuation_mode") or ValuationMode.HOURS_RATE,
+            at_risk_multiplier_noncash=(data.get("at_risk_multiplier_noncash") or Decimal("1.0")),
+            at_risk_multiplier_cash=data.get("at_risk_multiplier_cash") or Decimal("1.0"),
+            weight_window=data.get("weight_window") or WeightWindow.ALL_TIME,
+            assignment_budget_period=(data.get("assignment_budget_period") or BudgetPeriod.WEEKLY),
             assignment_budget_amount=data.get("assignment_budget_amount"),
             self_assign_cap=data.get("self_assign_cap"),
-            budget_enforcement=data["budget_enforcement"],
+            budget_enforcement=data.get("budget_enforcement") or BudgetEnforcement.SOFT,
         )
         membership = Membership.objects.create(org=org, user=user, role=MembershipRole.ADMIN)
         if data.get("initial_valuation"):
@@ -181,6 +204,13 @@ class InviteForm(forms.Form):
         help_text="Optional. Their LinkedIn or website.",
     )
     image_url = forms.URLField(required=False, assume_scheme="https", label="Image URL")
+    venture_name = forms.CharField(
+        max_length=255,
+        required=False,
+        label="Venture",
+        help_text="Founder invites: what they are launching. Their card centers it.",
+    )
+    venture_url = forms.URLField(required=False, assume_scheme="https", label="Venture link")
     audience = forms.ChoiceField(
         choices=InviteAudience.choices, initial=InviteAudience.SUPPORTER, label="Audience"
     )
@@ -188,8 +218,8 @@ class InviteForm(forms.Form):
     drafted_statement = forms.CharField(
         required=False,
         widget=forms.Textarea(attrs={"rows": 3}),
-        label="Drafted commitment statement",
-        help_text="Your words, as a starting draft. The invitee edits before committing.",
+        label="Drafted statement",
+        help_text="Your words, as a starting draft. The invitee edits before it goes up.",
     )
     drafted_social_post = forms.CharField(
         required=False,

@@ -13,18 +13,21 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.http import Http404
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .forms import InviteForm, MemberUpdateForm, OnboardingForm, OrgRateForm
+from .genesis import modules_for
 from .invites import (
     SESSION_KEY,
     InviteError,
     accept_invite_for_user,
     get_invite_for_accept,
 )
-from .models import Invite, Membership, MembershipRole, Org
+from .models import ChecklistItem, Invite, Membership, MembershipRole, Org
 
 
 def landing(request):
@@ -41,11 +44,39 @@ def landing(request):
 
 @login_required
 def dashboard(request, org_slug):
-    """Org home. request.org / request.membership set by OrgContextMiddleware."""
+    """
+    Org home. Venture orgs get the module checklist (side index, any order); orgs
+    without one get the plain home. request.org / request.membership set by
+    OrgContextMiddleware.
+    """
     return render(
         request,
         "orgs/dashboard.html",
-        {"member_count": Membership.objects.filter(org=request.org).count()},
+        {
+            "member_count": Membership.objects.filter(org=request.org).count(),
+            "modules": modules_for(request.org),
+        },
+    )
+
+
+@login_required
+@require_POST
+def checklist_toggle(request, org_slug, item_id):
+    """Check/uncheck a genesis item. Any member; records who and when."""
+    if request.membership is None and not request.user.is_superuser:
+        raise PermissionDenied("Only members may work the checklist.")
+    item = ChecklistItem.objects.filter(org=request.org, id=item_id).first()
+    if item is None:
+        raise Http404("No such checklist item.")
+    if item.done_at:
+        item.done_at = None
+        item.done_by = None
+    else:
+        item.done_at = timezone.now()
+        item.done_by = request.user
+    item.save(update_fields=["done_at", "done_by"])
+    return redirect(
+        f"{reverse('orgs:dashboard', kwargs={'org_slug': request.org.slug})}#module-{item.module}"
     )
 
 
@@ -125,6 +156,8 @@ def invite_create(request, org_slug):
         email=data.get("email", ""),
         link=data.get("link", ""),
         image_url=data.get("image_url", ""),
+        venture_name=data.get("venture_name", ""),
+        venture_url=data.get("venture_url", ""),
         drafted_statement=data.get("drafted_statement", ""),
         drafted_social_post=data.get("drafted_social_post", ""),
         created_by=request.user,
@@ -213,10 +246,16 @@ def accept_invite(request, code):
 
     if request.user.is_authenticated:
         try:
-            membership = accept_invite_for_user(invite, request.user)
+            membership, venture_org = accept_invite_for_user(invite, request.user)
         except InviteError as exc:
             messages.error(request, str(exc))
             return redirect("orgs:landing")
+        if venture_org is not None:
+            messages.success(
+                request,
+                f"{venture_org.display_name} is set up. Start anywhere on the checklist.",
+            )
+            return redirect("orgs:dashboard", org_slug=venture_org.slug)
         messages.success(request, f"You have joined {membership.org.display_name}.")
         return redirect("orgs:dashboard", org_slug=membership.org.slug)
 

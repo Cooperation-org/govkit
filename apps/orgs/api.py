@@ -169,11 +169,16 @@ def _invite_payload(invite: Invite, request) -> dict:
         "email": invite.email,
         "link": invite.link,
         "image_url": invite.image_url,
+        "venture_name": invite.venture_name,
+        "venture_url": invite.venture_url,
         "role": invite.role,
         "audience": invite.audience,
         "drafted_statement": invite.drafted_statement,
         "drafted_social_post": invite.drafted_social_post,
         "status": invite.status,
+        "committed_claim_id": invite.committed_claim_id,
+        "statement_as_published": invite.statement_as_published,
+        "video_url": invite.video_url,
         "expires_at": invite.expires_at.isoformat(),
         "accept_url": request.build_absolute_uri(
             reverse("orgs:accept_invite", kwargs={"code": invite.code})

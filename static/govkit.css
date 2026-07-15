@@ -440,6 +440,63 @@ rect.gk-cat-5, path.gk-cat-5, circle.gk-cat-5 { fill: var(--gk-cat-5); }
 .gk-rowbar-track { background: var(--gk-neutral-soft); border-radius: 3px; width: 8rem; max-width: 40vw; }
 .gk-rowbar { height: 0.45rem; border-radius: 3px; min-width: 1px; background: var(--gk-cat, var(--gk-accent)); }
 
+/* ---- genesis checklist (choose-your-own-adventure, any order) ------------ */
+
+.gk-cyoa { display: flex; gap: 1.25rem; align-items: flex-start; }
+.gk-cyoa-index {
+  position: sticky;
+  top: 1rem;
+  flex: 0 0 11rem;
+}
+.gk-cyoa-index ul { list-style: none; margin: 0; padding: 0; }
+.gk-cyoa-index li a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 4px;
+  color: var(--gk-ink);
+  text-decoration: none;
+}
+.gk-cyoa-index li a:hover { background: var(--gk-neutral-soft); }
+.gk-cyoa-count {
+  font-size: 0.78rem;
+  color: var(--gk-muted);
+  min-width: 2.2rem;
+  font-variant-numeric: tabular-nums;
+}
+.gk-cyoa-alldone { color: var(--gk-ok); }
+.gk-cyoa-modules { flex: 1; min-width: 0; }
+.gk-cyoa-items { list-style: none; margin: 0; padding: 0; }
+.gk-cyoa-items li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.35rem 0;
+}
+.gk-cyoa-items form { display: inline; }
+.gk-checkbox {
+  width: 1.15rem;
+  height: 1.15rem;
+  padding: 0;
+  line-height: 1;
+  font-size: 0.8rem;
+  border: 1px solid var(--gk-muted);
+  border-radius: 4px;
+  background: var(--gk-surface);
+  color: var(--gk-ok);
+  cursor: pointer;
+  vertical-align: middle;
+}
+.gk-checkbox.is-done { border-color: var(--gk-ok); }
+.gk-done-title { color: var(--gk-muted); text-decoration: line-through; }
+.gk-done-meta { font-size: 0.78rem; }
+@media (max-width: 640px) {
+  .gk-cyoa { flex-direction: column; }
+  .gk-cyoa-index { position: static; flex: none; width: 100%; }
+  .gk-cyoa-index ul { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+}
+
 /* ---- provenance (8 · PROVENANCE IS A BRANCH) ----------------------------- */
 
 details.gk-trace { margin: 0.25rem 0; }

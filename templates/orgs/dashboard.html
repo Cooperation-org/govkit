@@ -2,12 +2,57 @@
 {% block title %}{{ current_org.display_name }} — GovKit{% endblock %}
 {% block content %}
   <h1>{{ current_org.display_name }}</h1>
-  <p class="gk-placeholder">Unit: {{ current_org.unit_name }} &middot; {{ member_count }} member(s).</p>
-  <div class="gk-card">
-    <p>Use the tabs above: <strong>Drops</strong> (earnings engine), <strong>Pie</strong>
-      (shares), <strong>Votes</strong>, <strong>Committee</strong> (sortition).</p>
-    <p class="gk-placeholder">Feature pages are placeholders until the feature agents fill them in.</p>
-  </div>
+
+  {% if modules %}
+    {# Choose-your-own-adventure: side index + checkboxes, start anywhere. #}
+    <p class="gk-muted">Start wherever makes sense to you. The order is yours.</p>
+    <div class="gk-cyoa">
+      <nav class="gk-cyoa-index" aria-label="Modules">
+        <ul>
+          {% for m in modules %}
+            <li>
+              <a href="#module-{{ m.key }}">
+                <span class="gk-cyoa-count {% if m.done == m.total %}gk-cyoa-alldone{% endif %}">{{ m.done }}/{{ m.total }}</span>
+                {{ m.label }}
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </nav>
+      <div class="gk-cyoa-modules">
+        {% for m in modules %}
+          <section class="gk-card" id="module-{{ m.key }}">
+            <h2>{{ m.label }}</h2>
+            <ul class="gk-cyoa-items">
+              {% for item in m.items %}
+                <li>
+                  <form method="post"
+                        action="{% url 'orgs:checklist_toggle' org_slug=current_org.slug item_id=item.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="gk-checkbox {% if item.done_at %}is-done{% endif %}"
+                            aria-pressed="{% if item.done_at %}true{% else %}false{% endif %}"
+                            aria-label="{% if item.done_at %}Uncheck{% else %}Check{% endif %}: {{ item.title }}">
+                      {% if item.done_at %}&#10003;{% endif %}
+                    </button>
+                  </form>
+                  <span class="{% if item.done_at %}gk-done-title{% endif %}">{{ item.title }}</span>
+                  {% if item.done_at %}
+                    <span class="gk-muted gk-done-meta">{{ item.done_by.email|default:"" }} · {{ item.done_at|date:"M j" }}</span>
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          </section>
+        {% endfor %}
+      </div>
+    </div>
+  {% else %}
+    <p class="gk-placeholder">Unit: {{ current_org.unit_name }} &middot; {{ member_count }} member(s).</p>
+    <div class="gk-card">
+      <p>Use the tabs above: <strong>Drops</strong> (earnings engine), <strong>Pie</strong>
+        (shares), <strong>Votes</strong>, <strong>Committee</strong> (sortition).</p>
+    </div>
+  {% endif %}
 
   {% if request.membership and request.membership.role == 'admin' or request.user.is_superuser %}
     <div class="gk-card">

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Set up an organization — GovKit{% endblock %}
 {% block content %}
-  {# 19 · DETAILS UNFOLD — high level visible, details folded with defaults stated. #}
+  {# 19 · DETAILS UNFOLD — two questions visible, everything else folded with defaults. #}
   <style>
     /* CSS-only reveal: initial valuation appears when "existing" is chosen (no JS, no motion).
        Browsers without :has() simply always show the field — harmless. */
@@ -9,25 +9,13 @@
     #gk-start:has(input[value="existing"]:checked) .gk-iv { display: block; }
   </style>
   <h1>Set up an organization</h1>
-  <p class="gk-muted">
-    Name your org and your unit of value — that's all it takes. Everything else has a
-    sensible default you can open below, or change later. You'll land on the Members
-    page to invite your people.
-  </p>
+  <p class="gk-muted">Name it and go. Everything else has a default you can change later.</p>
 
   <form method="post" class="gk-card">
     {% csrf_token %}
 
-    <fieldset>
-      <legend>Identity</legend>
-      <p>{{ form.display_name.label_tag }} {{ form.display_name }}
-        {% for e in form.display_name.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}</p>
-      <p>{{ form.slug.label_tag }} {{ form.slug }}
-        <small>{{ form.slug.help_text }}</small>
-        {% for e in form.slug.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}</p>
-      <p>{{ form.unit_name.label_tag }} {{ form.unit_name }}
-        <small>{{ form.unit_name.help_text }}</small></p>
-    </fieldset>
+    <p>{{ form.display_name.label_tag }} {{ form.display_name }}
+      {% for e in form.display_name.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}</p>
 
     <fieldset id="gk-start">
       <legend>Starting point</legend>
@@ -38,24 +26,21 @@
     </fieldset>
 
     <details class="gk-unfold"
-             {% if form.valuation_mode.errors or form.default_hourly_rate.errors or form.at_risk_multiplier_noncash.errors or form.at_risk_multiplier_cash.errors or form.weight_window.errors %}open{% endif %}>
-      <summary><strong>Valuation</strong> — how work turns into your unit
-        <span class="gk-muted">· defaults: hours × rate, multipliers 1.0, all-time window</span></summary>
+             {% if form.slug.errors or form.unit_name.errors or form.valuation_mode.errors or form.default_hourly_rate.errors or form.at_risk_multiplier_noncash.errors or form.at_risk_multiplier_cash.errors or form.weight_window.errors or form.assignment_budget_period.errors or form.assignment_budget_amount.errors or form.self_assign_cap.errors or form.budget_enforcement.errors %}open{% endif %}>
+      <summary><strong>Details</strong>
+        <span class="gk-muted">· URL, value unit, valuation and budget rules — all defaulted</span></summary>
       <fieldset>
+        <p>{{ form.slug.label_tag }} {{ form.slug }}
+          <small>{{ form.slug.help_text }}</small>
+          {% for e in form.slug.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}</p>
+        <p>{{ form.unit_name.label_tag }} {{ form.unit_name }}
+          <small>{{ form.unit_name.help_text }}</small></p>
         <p>{{ form.valuation_mode.label_tag }} {{ form.valuation_mode }}</p>
         <p>{{ form.default_hourly_rate.label_tag }} {{ form.default_hourly_rate }}
           <small>{{ form.default_hourly_rate.help_text }}</small></p>
         <p>{{ form.at_risk_multiplier_noncash.label_tag }} {{ form.at_risk_multiplier_noncash }}</p>
         <p>{{ form.at_risk_multiplier_cash.label_tag }} {{ form.at_risk_multiplier_cash }}</p>
         <p>{{ form.weight_window.label_tag }} {{ form.weight_window }}</p>
-      </fieldset>
-    </details>
-
-    <details class="gk-unfold"
-             {% if form.assignment_budget_period.errors or form.assignment_budget_amount.errors or form.self_assign_cap.errors or form.budget_enforcement.errors %}open{% endif %}>
-      <summary><strong>Budget policy</strong> — limits on assigning value
-        <span class="gk-muted">· defaults: weekly, unlimited, soft (warn only)</span></summary>
-      <fieldset>
         <p>{{ form.assignment_budget_period.label_tag }} {{ form.assignment_budget_period }}</p>
         <p>{{ form.assignment_budget_amount.label_tag }} {{ form.assignment_budget_amount }}
           <small>{{ form.assignment_budget_amount.help_text }}</small></p>

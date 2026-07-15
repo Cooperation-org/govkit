@@ -20,6 +20,11 @@ urlpatterns = [
     path("invites/<str:code>/accept/", views.accept_invite, name="accept_invite"),
     # Org-scoped (org_slug kwarg → middleware sets request.org / request.membership).
     path("o/<slug:org_slug>/", views.dashboard, name="dashboard"),
+    path(
+        "o/<slug:org_slug>/checklist/<int:item_id>/toggle/",
+        views.checklist_toggle,
+        name="checklist_toggle",
+    ),
     path("o/<slug:org_slug>/members/", views.members, name="members"),
     path("o/<slug:org_slug>/members/invite/", views.invite_create, name="invite_create"),
     path("o/<slug:org_slug>/members/rate/", views.org_rate, name="org_rate"),

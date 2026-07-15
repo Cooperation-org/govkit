@@ -19,7 +19,18 @@ materializes the Membership.
 
 from __future__ import annotations
 
-from .models import Invite, Membership
+from django.db import transaction
+from django.utils.text import slugify
+
+from .genesis import seed_genesis
+from .models import (
+    Invite,
+    InviteAudience,
+    Membership,
+    MembershipRole,
+    Org,
+    ValuationConfig,
+)
 
 SESSION_KEY = "pending_invite_code"
 
@@ -38,10 +49,40 @@ def get_invite_for_accept(code: str) -> Invite:
     return invite
 
 
-def accept_invite_for_user(invite: Invite, user) -> Membership:
+def _unique_org_slug(base: str) -> str:
+    slug = base
+    n = 2
+    while Org.objects.filter(slug=slug).exists():
+        slug = f"{base}-{n}"
+        n += 1
+    return slug
+
+
+def create_venture_org(invite: Invite, user) -> Org:
+    """
+    A founder's venture becomes a real org the moment they accept: Org (default
+    valuation config, unit "slices") + the founder as admin + the seeded module
+    checklist. Their first hour starts here, not in a setup form.
+    """
+    base = slugify(invite.venture_name)[:60] or f"venture-{invite.code[:8].lower()}"
+    org = Org.objects.create(
+        slug=_unique_org_slug(base),
+        display_name=invite.venture_name,
+        unit_name="slices",
+    )
+    ValuationConfig.objects.create(org=org)
+    Membership.objects.create(org=org, user=user, role=MembershipRole.ADMIN)
+    seed_genesis(org)
+    return org
+
+
+@transaction.atomic
+def accept_invite_for_user(invite: Invite, user) -> tuple[Membership, Org | None]:
     """
     Materialize (or return the existing) Membership for `user` from a live invite,
-    and mark the invite accepted (single-use: accepted invites are dead).
+    and mark the invite accepted (single-use: accepted invites are dead). Founder
+    invites naming a venture also create the venture org (returned second, and the
+    right landing page for the founder).
 
     Idempotent for the user: if they already belong to the org, their existing
     membership is returned unchanged rather than duplicated or re-roled.
@@ -52,21 +93,25 @@ def accept_invite_for_user(invite: Invite, user) -> Membership:
     membership = Membership.objects.filter(org=invite.org, user=user).first()
     if membership is None:
         membership = Membership.objects.create(org=invite.org, user=user, role=invite.role)
+    venture_org = None
+    if invite.audience == InviteAudience.FOUNDER and invite.venture_name:
+        venture_org = create_venture_org(invite, user)
     invite.mark_accepted()
-    return membership
+    return membership, venture_org
 
 
 def consume_pending_invite(request):
     """
     If the session holds a pending invite code, create the Membership for the now
-    logged-in user and clear it. Returns the joined Org (for redirect) or None.
+    logged-in user and clear it. Returns the Org to land on (the founder's new
+    venture org when one was created, else the joined org) or None.
     """
     code = request.session.pop(SESSION_KEY, None)
     if not code or not request.user.is_authenticated:
         return None
     try:
         invite = get_invite_for_accept(code)
-        membership = accept_invite_for_user(invite, request.user)
+        membership, venture_org = accept_invite_for_user(invite, request.user)
     except InviteError:
         return None
-    return membership.org
+    return venture_org or membership.org

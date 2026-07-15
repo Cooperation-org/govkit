@@ -208,6 +208,11 @@ class Invite(models.Model):
     link = models.URLField(blank=True, help_text="Their LinkedIn or website.")
     image_url = models.URLField(blank=True)
 
+    # The founder's venture (founder-audience invites): names the thing they are
+    # launching, so the doorway can center THEIR venture on cards and pages.
+    venture_name = models.CharField(max_length=255, blank=True)
+    venture_url = models.URLField(blank=True)
+
     # The inviter's authored drafts (never generated); invitee edits before commit.
     drafted_statement = models.TextField(blank=True)
     drafted_social_post = models.TextField(blank=True)
@@ -273,6 +278,34 @@ class Invite(models.Model):
     def mark_accepted(self):
         self.status = InviteStatus.ACCEPTED
         self.save(update_fields=["status"])
+
+
+class ChecklistItem(models.Model):
+    """
+    One item of a venture org's genesis checklist (the any-order onboarding path).
+    Grouped into modules by apps.orgs.genesis; done is a timestamp + who, so the
+    checklist doubles as a plain record of what happened when.
+    """
+
+    org = models.ForeignKey(Org, on_delete=models.CASCADE, related_name="checklist_items")
+    module = models.CharField(max_length=32)
+    title = models.CharField(max_length=255)
+    order = models.PositiveIntegerField(default=0)
+    done_at = models.DateTimeField(null=True, blank=True)
+    done_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="checklist_items_done",
+    )
+
+    class Meta:
+        ordering = ["order", "id"]
+
+    def __str__(self):
+        state = "done" if self.done_at else "open"
+        return f"ChecklistItem({self.org.slug}/{self.module}: {self.title[:40]}, {state})"
 
 
 class OpeningBalance(models.Model):
