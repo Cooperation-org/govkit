@@ -710,3 +710,152 @@ typed. Where you find a better line than the suggestion, use yours. Post the
 final string set here for Golda before shipping. Claim verbs go per-audience
 (JOINS / LAUNCHES_IN / PARTNERS_WITH / SUPPORTS; COMMITS_TO grandfathered,
 translate on display). Ticket: earned-governance-toolkit-accelerator #14.
+
+## DOORWAY → GOLDA: final string set for review (2026-07-15, per the copy brief — NOT shipped)
+
+Read: the brief, the voice profile, and the three posts. Where I changed a suggested
+line I say why. Everything else on the four pages keeps its current factual copy.
+[AI-drafted against your voice profile; every line awaits your yes/edit.]
+
+### Wall (landing, #committed section)
+- Header: **"Who's in"** (as suggested)
+- Sub: **"Every card links to a signed statement. Check it yourself."**
+  (dropped my "The cohort is assembling" opener; yours is drier and does more)
+- Empty wall: **"Nobody here yet. Be the first."**
+- Card footer: **"in their own words · <date>"** / vouched: **"as told to <voucher> · <date>"**
+  (voucher name is data from the attestation, per principle 4's exception)
+- Card link: **"signed statement ↗"** (was "View attestation ↗")
+- Step-up line: keep **"Is this you? Say it in your own words →"**
+- Pending banner: **"Thanks. A human reads every new entry before it goes up. Usually within a day."** (as suggested)
+- Success banner: **"Done. You're on the page."** + button **"Copy your link"** + (when configured) **"Go to your dashboard"**
+- Landing CTA buttons: **"I'm in"** / keep "Adoptable opportunities →"
+- Hero link: **"See who's in ↓"**
+
+### Invite page /i/<code>/ (headline is the ask; no inviter names)
+- H1 per audience:
+  mentor **"Mentor the first cohort."** · advisor **"Advise the first cohort."**
+  partner **"Partner with the first cohort."** · funder **"Back the first cohort."**
+  founder **"Take your venture through the first cohort."** · supporter **"Support the first cohort."**
+  (greeting stays "<Name>," above the H1 with their photo)
+- Body: **"One click puts you on the cohort page. Edit the words first if you like.
+  A short video helps people know you. Optional."** (as suggested)
+- Form labels: **"Your words"** · **"Your link (LinkedIn or website)"**
+- Buttons: founder **"Post our launch"**, everyone else **"I'm in"** (as suggested)
+- Consent block (one version, used on invite + walk-up):
+  **"Your words go up as a signed public statement on LinkedTrust and you go on the
+  cohort page. We like to make noise when good people join. We check with you before
+  posting anywhere else. Change your mind later and it comes down."**
+  (merged your celebratory/revocable line with the one fact people must know: the
+  statement is public and signed)
+- Success: **"Done. You're on the page."** / primary **"Go to your dashboard"** with
+  small line **"It signs you in with LinkedTrust."** / **"Your link, if you want to
+  share it."** / **"your signed statement"** (link)
+- Dead link: **"This link isn't valid anymore. Links expire. If you were expecting
+  one, write to golda@linkedtrust.us and we'll send a fresh one."**
+- GovKit unreachable: **"We can't look up your invitation right now. Your link is
+  fine. Try again in a minute."**
+- Already accepted: **"This invitation has been used. You're already a member."** + dashboard link
+
+### Walk-up page /commit/
+- H1: **"Count me in"** (open to a better ask if you have one)
+- Lede: **"Your words go up as a signed public statement on LinkedTrust and you go
+  on the cohort page."**
+- Mode toggle: **"This is me"** / **"I'm vouching for someone"**
+- Statement label: **"In your own words"**, placeholder **"What are you doing with
+  the accelerator, and why?"**
+- Button: **"I'm in"** · errors: **"It needs words. A sentence is plenty."**
+
+### Share card PNG + og
+- og title: **"<Name> joined the Earned Governance Accelerator as a mentor"** /
+  founder **"<Name> is launching in the Earned Governance Accelerator"** / funder
+  **"<Name> is backing …"** / partner **"<Name> is partnering with …"**
+- PNG footer: **"linkedtrust.us/earnedgov · signed statement on LinkedTrust"**
+- PNG role labels: MENTOR / ADVISOR / PARTNER / BACKER / LAUNCHING / SUPPORTER
+
+### Claim verbs (confirmed per your brief — will implement with this string set)
+New claims per audience: JOINS (mentor/advisor/supporter... see Q) · LAUNCHES_IN
+(founder) · PARTNERS_WITH (partner) · SUPPORTS (funder). COMMITS_TO grandfathered,
+translated on display. **Q: supporter → JOINS or SUPPORTS?** Pin says JOINS for
+"member", SUPPORTS for "funder/supporter" — I read supporter=SUPPORTS, confirm.
+
+Shipped ahead of this review (mechanical only): removal of banned patterns already
+in prod from my earlier pass (em-dashes, "committed as", hype fragments). No new
+voice went out. The set above ships on your yes, string by string or wholesale.
+
+— doorway session
+
+## DOORWAY: PROD IS LIVE (2026-07-15) + Golda's answers relayed
+- **S2S token is in production** (GitHub Actions secret → written into VM 105's .env
+  on each deploy; deploy ran green). Verified live: linkedtrust.us resolves the test
+  invite against demo GovKit and renders the committed state with your accept_url.
+  **The invite chain works on prod. You can delete the test invite now** (my ledger
+  row for its dev claim is already cleaned up).
+- **Golda's login: Bluesky, not email.** No email to pre-seed by — pre-seed via her
+  Bluesky-backed LinkedTrust identity if your user map supports it, or she logs in
+  once and you promote her to admin of org `earnedgov`.
+- **workers.vc DNS is done (Golda); the Caddy route on the Proxmox host is NOT.**
+  Host session (or Golda on the host): `caddy-domain add workers.vc 10.0.0.15:80`
+  and `caddy-domain add www.workers.vc 10.0.0.15:80` (same backend as linkedtrust.us;
+  the site already serves the accelerator at that host's root, ALLOWED_HOSTS is in).
+  After that, flipping WORKERSVC_LIVE=true in the site env turns on the 301s from
+  linkedtrust.us/earnedgov/* — doorway will flip it when Golda says the word.
+- String set for the language rework is posted above, awaiting Golda.
+— doorway session
+
+============================================================================
+## ⭑ START HERE — fresh dashboard session (written 2026-07-15, doorway session, at Golda's direction)
+Golda is clearing the old dashboard session. This section + the pin doc are your context.
+Read first: projects repo `Internal/7-15-2026-accelerator-launch-chain-and-language-pin.md`,
+then `abra read golda-writing-voice` before writing ANY member-facing string.
+
+### What is LIVE and verified (do not rebuild)
+- Invite chain works END TO END ON PROD: GovKit mint (Members tab, org `earnedgov`)
+  → linkedtrust.us/earnedgov/i/<code>/ (personalized, one click) → claim on LinkedTrust
+  → wall instantly → POST committed back → your accept_url → LT SSO → membership.
+- S2S token: in GovKit .env AND prod site env (via GitHub Actions secret). Same value both sides.
+- Doorway language: reviewed string set shipped (Golda: "go ahead with it for now").
+  New claims use per-audience verbs JOINS / LAUNCHES_IN / PARTNERS_WITH / SUPPORTS;
+  COMMITS_TO grandfathered on display.
+- workers.vc: site serves it (root landing, /i/, /commit/, /opportunities/); DNS done;
+  MISSING: caddy route on the Proxmox host (`caddy-domain add workers.vc 10.0.0.15:80`
+  + www) — host session or Golda. Then doorway flips WORKERSVC_LIVE for 301s.
+- Old dashboard session's last open items: delete test invite C7IHKzRZJnXlueXx2b45uQ;
+  Golda logs in via BLUESKY (no email) — seed/promote her admin of org `earnedgov`
+  after her first LT login (or via her Bluesky-backed identity if the user map allows);
+  GET payload returned committed_claim_id=null after POST committed (check serializer).
+
+### Announcements in hand (Golda 7/15, cadence goal "one a day"; facts in Active/earnedgov/MAIN.md)
+15-min Ownership Economy slot · Mike Moyer picture+endorsement OK · Jefferson Richards
+puts Integral Mass in · Evelyn Ting probable (NOT publishable yet). Start date UNDECIDED
+(Aug 15 vs Sept 1 vs Sept 8); OE = demo target.
+
+### BUILD BRIEFS (Golda-endorsed direction: make the receipts visible faster)
+**B1 — The one-hour team (top priority).** Accept invite → venture exists (GovKit org +
+Taiga project + amebo in their channel) → first reviewed task converts to visible equity
+same day. The pieces exist (earnkit, GovKit drops); what's missing is the scripted path:
+org auto-creation on founder accept, a seeded "genesis" task list, and the first-drop
+walkthrough. Acceptance: a stranger with an invite link reaches "I can see my slice of
+the pie" inside one hour without a human helping.
+
+**B2 — Venture field + launch card.** Add `venture_name` (+ optional venture_url) to the
+Invite model + mint UI + GET payload. Doorway (I build my half) puts it on the share
+card / og: "Integral Mass is launching in the Earned Governance Accelerator". This is
+the founder's payoff and powers the one-a-day queue. Contract addition: field name
+`venture_name` in GET — post here when live and I wire the card.
+
+**B3 — Public pie (opt-in per venture).** Read-only page: the team's pie growing from
+reviewed tasks, each slice traceable. Demo-day artifact + the investor story (verified
+contribution history, no dead equity) with zero investor rails.
+
+**B4 — Curriculum as pre-seeded, value-carrying tasks.** Four-week arc loaded into each
+team's tracker at genesis (week 0 = prior-art/partner search per Golda's rule; mentor
+meetings tracked and valued). BLOCKED on Golda's arc decisions — prepare the seeding
+mechanism, not the content.
+
+**B5 — Mentor calendar mechanic.** A mentor's weekly slot; attendance recorded as a
+contribution earning accelerator equity. Task type + amebo capture, not new infra.
+
+### Open with Golda (do not decide for her)
+Start date · curriculum arc · the one "proof line" fact for invite pages · Evelyn
+publishability · advisor governance status wording (see 07-11-26 framing doc: unsettled).
+============================================================================
