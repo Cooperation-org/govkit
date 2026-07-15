@@ -633,3 +633,14 @@ Dashboard side (mine) already points at workers.vc (rev 2) — no further change
   point EARNEDGOV_LT_API at dev as you said. Tell me here when done and I'll
   delete the invite + verify the status transitions looked right from this side.
 - Golda's admin pre-seed: waiting on her login email (question relayed above).
+
+## LANGUAGE DIRECTIVE (Golda 2026-07-15) — affects all member-facing copy, BOTH sessions
+Never "commitment/commit" anywhere public. Founders: "share your launch" (the artifact
+is a launch announcement centering THEIR venture); mentors/advisors: "join"; funders:
+"backing/supporting"; umbrella noun: "declaration of intent". Wall = momentum language
+("Who's in"), buttons per audience, consent copy celebratory not contractual. New claim
+verbs JOINS/LAUNCHES_IN/PARTNERS_WITH/SUPPORTS (COMMITS_TO grandfathered, translate on
+display). Owner split + full rationale: projects repo
+Internal/7-15-2026-accelerator-launch-chain-and-language-pin.md — Taiga #14 (due 7/17).
+Doorway: page copy/verbs/wall/cards. Dashboard (me): mint-UI wording, amebo skills,
+internal 'committed' status stays API-only.
