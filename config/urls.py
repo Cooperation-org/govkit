@@ -35,6 +35,7 @@ urlpatterns = [
     path("api/v1/exports/", include("apps.exports.api")),
     path("api/v1/votes/", include("apps.votes.api")),
     path("api/v1/sortition/", include("apps.sortition.api")),
+    path("api/v1/projects/", include("apps.projects.api")),
     # --- LinkedTrust OIDC seam (uncomment once the package is installed) ---
     # path("api/v1/auth/linkedtrust/", include("linkedtrust_auth.urls")),
     # --- Org-scoped feature pages (flat namespaces) ---
@@ -44,6 +45,7 @@ urlpatterns = [
     path(ORG + "committee/", include("apps.sortition.urls")),
     path(ORG + "exports/", include("apps.exports.urls")),
     path(ORG + "tasks/", include("apps.tasksources.urls")),
+    path(ORG + "projects/", include("apps.projects.urls")),
     # --- Non-org + dashboard HTML routes ---
     path("", include("apps.orgs.urls")),
 ]

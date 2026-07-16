@@ -26,6 +26,18 @@ def nav(request):
             ("Committee", "sortition:index", "sortition"),
         )
     ]
+    # Projects is an optional module: the tab appears only once the org uses it.
+    if org is not None:
+        from apps.projects.models import Project
+
+        if Project.objects.for_org(org).exists():
+            tabs.append(
+                {
+                    "label": "Projects",
+                    "url_name": "projects:index",
+                    "active": namespace == "projects",
+                }
+            )
     membership = getattr(request, "membership", None)
     if membership is not None and membership.role == MembershipRole.ADMIN:
         tabs.append(

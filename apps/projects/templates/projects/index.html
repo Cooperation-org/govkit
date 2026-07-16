@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Projects — {{ current_org.display_name }}{% endblock %}
+{% block content %}
+  <h1>Projects</h1>
+  <p class="gk-muted">
+    The org's efforts in one table: what kind, where it stands, and — for paid work —
+    budget against paid-out. Details and links live on each project's page.
+  </p>
+
+  <div class="gk-card">
+    {% if rows %}
+      <table class="gk-table">
+        <thead>
+          <tr><th>Project</th><th>Kind</th><th>Status</th><th>Due</th><th>Budget</th><th>Paid out</th><th>Remaining</th></tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td><a href="{% url 'projects:detail' org_slug=org_slug slug=row.project %}">{{ row.name }}</a></td>
+              <td>{{ row.kind }}</td>
+              <td><span class="gk-badge gk-badge-{{ row.status }}">{{ row.status }}</span></td>
+              <td>{% if row.due %}{{ row.due|date:"Y-m-d" }}{% else %}&mdash;{% endif %}</td>
+              <td>{% if row.budget_total is not None %}{{ row.budget_total }} {{ row.currency }}{% else %}&mdash;{% endif %}</td>
+              <td>{% if row.paid_out_total %}{{ row.paid_out_total }}{% else %}&mdash;{% endif %}</td>
+              <td>{% if row.budget_remaining is not None %}{{ row.budget_remaining }}{% else %}&mdash;{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="gk-muted">No projects yet. Create them via the API or the admin.</p>
+    {% endif %}
+  </div>
+{% endblock %}
