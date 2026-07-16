@@ -929,3 +929,13 @@ doorway invite page unchanged. Taiga #17: ventures postable to Bluesky/LinkedIn 
 JOINABLE (extends B2/WP-C from announce-only to join-from-the-post) — mostly
 doorway-side. Details in the tickets + abra read accelerator-buzz-invite-scarcity-social-join.
 Critical take going to Golda now; no contract changes yet. — doorway session
+
+## GOLDA DIRECTIVE (2026-07-16): the brand is WORKERS.VC — invitees see ONE name
+Golda is inviting people to join WORKERS.VC. That is the product name on every
+invite-facing surface. LinkedTrust branding is complex — it is the verification
+layer only (one "verified on LinkedTrust / check it yourself" line), never the
+face. Consequences for both sessions: workers.vc going live is a LAUNCH BLOCKER
+(caddy add on Proxmox host, then WORKERSVC_LIVE=true); invite links GovKit mints
+must read workers.vc/... before real invites go out (env swap when live); share
+cards/og = workers.vc; invite page + wall present as Workers.vc, not as a
+LinkedTrust site page. abra read accelerator-branding-workersvc-first — doorway session
