@@ -29,6 +29,8 @@ env = environ.Env(
     GOOGLE_OAUTH_CLIENT_SECRET=(str, ""),
     GOVKIT_S2S_TOKEN=(str, ""),
     DOORWAY_BASE_URL=(str, "https://linkedtrust.us/earnedgov/i/"),
+    AMEBO_BASE_URL=(str, ""),
+    AMEBO_S2S_TOKEN=(str, ""),
 )
 
 # Load a local .env if present (dev). In prod, real env vars win.
@@ -215,3 +217,11 @@ GOVKIT_S2S_TOKEN = env("GOVKIT_S2S_TOKEN")
 # f"{DOORWAY_BASE_URL}{invite.code}/". Set empty to hide the doorway option in the
 # invite mint UI (all invites then link straight to the accept page).
 DOORWAY_BASE_URL = env("DOORWAY_BASE_URL")
+
+# --- Amebo team registry (server-to-server) ---
+# amebo is the operational system-of-record for teams; accepted memberships are
+# reported to POST {AMEBO_BASE_URL}/api/orgs/provision so the person gets provisioned
+# across the team's tools. Either value empty (default) disables reporting entirely
+# (apps.orgs.amebo.provision_membership becomes a no-op).
+AMEBO_BASE_URL = env("AMEBO_BASE_URL")
+AMEBO_S2S_TOKEN = env("AMEBO_S2S_TOKEN")

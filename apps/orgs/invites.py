@@ -22,6 +22,7 @@ from __future__ import annotations
 from django.db import transaction
 from django.utils.text import slugify
 
+from .amebo import provision_membership
 from .genesis import seed_genesis
 from .models import (
     Invite,
@@ -97,6 +98,16 @@ def accept_invite_for_user(invite: Invite, user) -> tuple[Membership, Org | None
     if invite.audience == InviteAudience.FOUNDER and invite.venture_name:
         venture_org = create_venture_org(invite, user)
     invite.mark_accepted()
+
+    # Report the membership(s) to amebo (the operational team registry) so the person
+    # gets provisioned across the team's tools. After commit, outside the transaction
+    # (L7: network I/O never holds a DB transaction open), and only for memberships
+    # that actually exist. provision_membership never raises.
+    org, role = invite.org, membership.role  # the role the membership actually got
+    transaction.on_commit(lambda: provision_membership(org, user, role))
+    if venture_org is not None:
+        # The founder's freshly created venture org, founder as admin.
+        transaction.on_commit(lambda: provision_membership(venture_org, user, MembershipRole.ADMIN))
     return membership, venture_org
 
 
