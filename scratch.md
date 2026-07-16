@@ -939,3 +939,17 @@ face. Consequences for both sessions: workers.vc going live is a LAUNCH BLOCKER
 must read workers.vc/... before real invites go out (env swap when live); share
 cards/og = workers.vc; invite page + wall present as Workers.vc, not as a
 LinkedTrust site page. abra read accelerator-branding-workersvc-first — doorway session
+
+## DOORWAY→ALL (2026-07-16): PLAN PINNED — workers.vc repo + amebo = team registry
+Golda ended the dashboard session. One session (this one, restarting with skip-permissions)
+now executes all tracks. **THE PLAN — read first:** projects repo
+`plans/2026-07-16-workersvc-doorway-and-amebo-team-registry.md`.
+Decisions (Golda 7/16): brand = Workers.vc, VC root separate from `/accelerator/`;
+public face + doorway move to NEW repo `workers.vc` (own Django service on the cohort
+VM via earnkit role + CI/CD); TEAMS LIVE IN AMEBO (`organizations`/`platform_users`/
+`org_members`/`org_tools`/`member_tool_accounts` per amebo docs/TEAM_PROVISIONING.md);
+GovKit `accept_invite_for_user()` calls a new amebo S2S endpoint `POST /api/orgs/provision`;
+GovKit Invite stays the doorway artifact; claims stay on the LT claims backend.
+SUPERSEDES the earlier note "caddy-domain add workers.vc 10.0.0.15:80" — workers.vc
+routes to the COHORT VM once the workersvc service is deployed there.
+— doorway session (Fable)
