@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }} — {{ current_org.display_name }}{% endblock %}
+{% block content %}
+  <h1>{{ project.name }}</h1>
+  <p class="gk-muted">
+    {{ project.get_kind_display }} · <span class="gk-badge gk-badge-{{ project.status }}">{{ project.get_status_display }}</span>
+    {% if project.lead %} · lead: {{ project.lead.user.username }}{% endif %}
+    {% if project.due %} · due {{ project.due|date:"Y-m-d" }}{% endif %}
+  </p>
+  {% if project.summary %}<p>{{ project.summary|linebreaksbr }}</p>{% endif %}
+
+  {% if links %}
+    <div class="gk-card">
+      <h2>Pieces</h2>
+      <ul>
+        {% for link in links %}
+          <li>
+            {% if link.ref|slice:":4" == "http" %}
+              <a href="{{ link.ref }}">{{ link.label }}</a>
+            {% else %}
+              {{ link.label }}: <code>{{ link.ref }}</code>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  {% if summary.budget_total is not None %}
+    <div class="gk-card">
+      <h2>Money</h2>
+      <p>
+        Budget <strong>{{ summary.budget_total }} {{ summary.currency }}</strong>
+        · paid out <strong>{{ summary.paid_out_total }}</strong>
+        · remaining <strong>{{ summary.budget_remaining }}</strong>
+      </p>
+      {% if summary.members %}
+        <table class="gk-table">
+          <thead>
+            <tr><th>Member</th><th>Promised</th><th></th><th>Paid out</th><th>Remaining</th></tr>
+          </thead>
+          <tbody>
+            {% for m in summary.members %}
+              <tr>
+                <td>{{ m.name }}</td>
+                <td>{% if m.percent is not None %}{{ m.percent }}%{% else %}&mdash;{% endif %}</td>
+                <td>{% if m.promised is not None %}{{ m.promised }}{% else %}&mdash;{% endif %}</td>
+                <td>{{ m.paid_out }}</td>
+                <td>{% if m.remaining is not None %}{{ m.remaining }}{% else %}&mdash;{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+      {% if project.deal.source_ref %}
+        <p class="gk-muted">Terms agreed: <a href="{{ project.deal.source_ref }}">{{ project.deal.source_ref }}</a></p>
+      {% endif %}
+    </div>
+  {% elif summary.members %}
+    <div class="gk-card">
+      <h2>Money</h2>
+      <p class="gk-muted">Payouts recorded without an agreed deal — total {{ summary.paid_out_total }}.</p>
+    </div>
+  {% endif %}
+{% endblock %}

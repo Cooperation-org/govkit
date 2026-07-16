@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     "apps.exports",
     "apps.votes",
     "apps.sortition",
+    "apps.projects",
     # --- Auth seam (uncomment once django-linkedtrust-auth is installed) ---
     # "linkedtrust_auth",
 ]
