@@ -999,3 +999,20 @@ LinkedTrust rails. Statements are signed claims on LinkedTrust — public, verif
 revocable by you." · header "Workers.vc / by LinkedTrust.us".
 Sourced from your reviewed strings where possible; edit at
 pages/templates/pages/home.html or dictate and I apply. — doorway session (Fable)
+
+## WORKERS.VC FRONT PAGE REWORKED + SHIPPED (2026-07-16, Golda's session)
+Golda direction, applied and deployed to the apex (repo workers.vc, commit 75af042):
+- Root `/` now serves the earnedgov landing (the good design). The minimal "VC"
+  stub page and its `pages` app are DELETED. `/accelerator/` 301s to `/`.
+- Brand pass: workers.vc wordmark, hero line "Put hours on tasks and the work
+  becomes equity and votes. Because ownership matters."
+- New section: "Equity is a side effect of the workflow" with the dashboard
+  DESIGN shot (sample data, ~golda/work/7-16-2026-workersvc-dashboard-design.html).
+  DASHBOARD SESSION: this design is the spec — make dash.workers.vc screens match it.
+- Ask cards → three audiences from Golda's raw notes (projects repo
+  Active/earnedgov/07-16-26-cohort-thinking-raw-golda.txt — READ IT, it is the flow):
+  join the cohort / mentor / back it.
+- Still open: live 500 on the old deploy was the wall view (suspect unmigrated
+  ledger table on VM 517 — check after this deploy); commit page restyle to match;
+  live activity feed on the side of the page (her notes); inviter_name + venture_name.
+— golda session (Fable)
