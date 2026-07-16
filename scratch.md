@@ -953,3 +953,49 @@ GovKit Invite stays the doorway artifact; claims stay on the LT claims backend.
 SUPERSEDES the earlier note "caddy-domain add workers.vc 10.0.0.15:80" — workers.vc
 routes to the COHORT VM once the workersvc service is deployed there.
 — doorway session (Fable)
+
+## DOORWAY→GOLDA (2026-07-16): 7/16 PLAN EXECUTED — all tracks shipped
+Plan: projects `plans/2026-07-16-workersvc-doorway-and-amebo-team-registry.md` (checklist updated there).
+**Shipped, merged to main, tests green:**
+- `Cooperation-org/workers.vc` (new, private): VC landing at `/`, accelerator wall at
+  `/accelerator/`, doorway `/i/<code>` `/commit/` `/opportunities/` `/card/` ported
+  verbatim from the site repo (22 tests). PREVIEW LIVE: demos.linkedtrust.us/workersvc/
+  (edits in /opt/shared/repos/workers.vc show on refresh; merge to main = deploy to
+  the cohort VM once secrets are set).
+- amebo: S2S `POST /api/orgs/provision` (static bearer AMEBO_S2S_TOKEN, idempotent,
+  upserts organizations/platform_users/org_members/member_tool_accounts; 735 tests).
+- govkit: accept now reports membership(s) to amebo post-commit — team org + founder's
+  venture org; no-ops without AMEBO_* env; never breaks accept (223 tests).
+- earnkit: `workersvc` role (apex nginx server block per your :80 consolidation —
+  merged cleanly with it), update-workersvc CI/CD, add-team registers the org in
+  amebo, govkit env gets AMEBO_* + DOORWAY_BASE_URL=https://<apex>/i/.
+- site: /earnedgov/* 301 map now targets workers.vc/accelerator/ for the old landing
+  (flag still OFF; deployed inert).
+
+**OPERATOR CHECKLIST (Golda — your rerun):**
+1. Pull earnkit main. New inventory vars to fill: workersvc_db_password,
+   workersvc_secret_key, govkit_s2s_token (same value the demo used if you want old
+   links to keep working), amebo_s2s_token (new secret), + the workersvc_* defaults.
+2. Rerun site.yml, then add-team as needed. 3. Caddy on the host: apex
+   `caddy-domain add workers.vc <cohortVM>:80` (your wildcard covers www/subdomains).
+4. workers.vc repo GitHub secrets COHORT_SSH_HOST / COHORT_SSH_KEY (deploy workflow
+   is in the repo). 5. Restart amebo-backend after deploy. 6. When apex serves:
+   WORKERSVC_LIVE=true on VM 105.
+
+**FLAG — needs your decision, not a workaround:** fresh cohort amebo refuses
+/api/orgs/provision until LEGACY_ENV_ORG_ID is set (the env-credential scoping guard,
+arch §5 I1). On the cohort VM every team shares the VM's env Anthropic key, so the
+"one legacy org" model doesn't map. Options: relax the guard when the organizations
+table is empty, or per-team credential manifests. amebo-arch call.
+
+**LANDING COPY FOR REVIEW (workers.vc root — AI-drafted, marked so in template):**
+H1 "Ventures owned by the people who build them." · lede "Daily work converts into
+verifiable equity and voting weight. Every contribution is recorded as a signed
+public claim, so ownership has receipts. Check it yourself." · section "First
+program / The Earned Governance Accelerator / A 4-week sprint. Teams build startups
+where the split follows the work. The first cohort is assembling." · buttons "See
+who's in" → /accelerator/, "Count me in" → /commit/ · footer "Workers.vc runs on
+LinkedTrust rails. Statements are signed claims on LinkedTrust — public, verifiable,
+revocable by you." · header "Workers.vc / by LinkedTrust.us".
+Sourced from your reviewed strings where possible; edit at
+pages/templates/pages/home.html or dictate and I apply. — doorway session (Fable)
