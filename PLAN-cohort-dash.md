@@ -188,3 +188,49 @@ credentialed fetches to `accounts/me`, `pie/…/summary`, `orgs/…/checklist`,
 `static/embed/govkit.js` mounts all five components against a real org;
 non-members get 403s and empty components. Nothing about drops/valuation
 changed.
+
+### Status (2026-07-19) — all seven items implemented
+
+1. **CORS — done** (landed separately in a066743). `django-cors-headers`:
+   `CORS_ALLOWED_ORIGINS` from env, `CORS_ALLOW_CREDENTIALS = True`,
+   `CORS_URLS_REGEX = r"^/api/"` (matches `request.path_info`, so it is
+   correct under a `BASE_PATH` prefix too). Session cookie stays
+   SameSite=Lax. `.env.sample` documents the cohort values; the deployed
+   env change rides earnkit. Regression tests in `tests/test_cors.py`.
+2. **Checklist JSON — done.** Shape as specified. `title` is the module
+   label; `week` is the module's position in the curriculum arc (pace
+   suggestion; `null` for modules retired from `genesis.MODULES`). A
+   non-venture org returns `{"org_slug": …, "modules": []}`.
+3. **Open-tasks proxy — done.** `TaigaAdapter.fetch_open_tasks()` returns
+   stories whose status has `is_closed` false; response includes `ref` and
+   `project_slug` (null when Taiga doesn't supply them) plus
+   `assignee_label` (tracker username, never a display name). Cached
+   server-side for `GOVKIT_OPEN_TASKS_CACHE_SECONDS` (env, default 60).
+   Tracker outage → 502, uncached. TrackedTask valuation pipeline untouched.
+4. **Portfolio JSON — done.** Reads were already member-level
+   (`IsStewardOrAdmin` passes SAFE_METHODS; membership itself is enforced
+   by OrgContextMiddleware) — verified, no loosening needed. `promised_pct`
+   is a one-decimal string ("100.0"); money fields are two-decimal strings;
+   top-level `currency` is the deals' shared currency or null.
+5. **Embed bundle — done.** `static/embed/govkit.js` (all five components,
+   `credentials: 'include'`, any non-200/bad payload/empty dataset →
+   render nothing + `hidden` on the host, textContent/attribute-only DOM
+   writes, pie ported from `cohort_dash.html`) + `static/embed/demo.html`
+   for manual testing. Pie/legend colors read the host page's `--s0..--s5`
+   CSS variables, falling back to a neutral palette.
+6. **Login handoff — done.** The actual start route is
+   `/accounts/linkedtrust/start/` (there is no `linkedtrust/login/`).
+   Final URL for the dash sign-in chip:
+   `https://<govkit-host>/accounts/linkedtrust/start/?next=https%3A%2F%2Fworkers.vc%2Fdash%2F<org-slug>%2F`
+   (`/accounts/login/?next=…` also carries `next` through both provider
+   buttons). An absolute `next` must be **https** and its host listed in
+   `LOGIN_NEXT_ALLOWED_HOSTS` (env; cohort value
+   `workers.vc,www.workers.vc` — rides earnkit). Relative `next` behaves
+   as before; empty allowlist rejects every absolute URL.
+7. **Mentor memberships — verified, no code.** `accounts/me` returns one
+   row per Membership across all orgs (ordered by org slug).
+
+Tests: `tests/test_cors.py` (no DB needed), `tests/test_cohort_dash.py`
+(three endpoints: member/non-member/anonymous, shapes, cache; adapter
+mocked), adapter-level open-tasks tests in `tests/test_tasksources.py`,
+`_safe_next` allowlist tests in `tests/test_auth_login.py`.
