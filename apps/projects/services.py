@@ -10,11 +10,60 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from django.db.models import Sum
 
+from .models import Project
+
 CENT = Decimal("0.01")
+TENTH = Decimal("0.1")
 
 
 def _cents(value):
     return value.quantize(CENT, rounding=ROUND_HALF_UP)
+
+
+def portfolio_summary(org):
+    """The org's whole-portfolio money picture (PLAN-cohort-dash.md item 4).
+
+    One row per project with its budget, paid-out and promised percent, plus org-wide
+    totals. All derived (deals, splits, payout rows) — nothing stored. Budget figures are
+    None for projects without a deal; the top-level currency is the deals' shared
+    currency, or None when there are no deals or they disagree.
+    """
+    projects = list(
+        Project.objects.for_org(org)
+        .select_related("deal")
+        .prefetch_related("deal__splits", "payouts")
+    )
+
+    rows = []
+    currencies = set()
+    budget_total = None
+    paid_total = Decimal("0")
+    for project in projects:
+        deal = getattr(project, "deal", None)
+        paid = sum((p.amount for p in project.payouts.all()), Decimal("0"))
+        paid_total += paid
+        if deal is not None:
+            currencies.add(deal.currency)
+            budget_total = (budget_total or Decimal("0")) + deal.budget_total
+            promised_pct = sum((s.percent for s in deal.splits.all()), Decimal("0"))
+        rows.append(
+            {
+                "id": project.id,
+                "name": project.name,
+                "kind": project.kind,
+                "status": project.status,
+                "budget_total": str(_cents(deal.budget_total)) if deal else None,
+                "paid_total": str(_cents(paid)),
+                "promised_pct": str(promised_pct.quantize(TENTH)) if deal else None,
+            }
+        )
+
+    return {
+        "currency": currencies.pop() if len(currencies) == 1 else None,
+        "budget_total": str(_cents(budget_total)) if budget_total is not None else None,
+        "paid_total": str(_cents(paid_total)),
+        "projects": rows,
+    }
 
 
 def project_summary(project):

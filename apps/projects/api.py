@@ -4,6 +4,7 @@ DRF endpoints for the projects tracker — API-first so amebo and Marten drive i
 Routes carry ``org_slug`` so OrgContextMiddleware populates ``request.org`` /
 ``request.membership`` (same tenancy + membership gate as the HTML views):
 
+    GET    /api/v1/projects/orgs/<slug>/portfolio/                whole-org money picture
     GET    /api/v1/projects/orgs/<slug>/projects/                 list projects
     POST   /api/v1/projects/orgs/<slug>/projects/                 create           (steward)
     GET    /api/v1/projects/orgs/<slug>/projects/<id>/            retrieve
@@ -15,13 +16,19 @@ Routes carry ``org_slug`` so OrgContextMiddleware populates ``request.org`` /
     DELETE /api/v1/projects/orgs/<slug>/projects/<id>/links/<lid>/ remove a link   (steward)
 
 Every queryset is scoped to request.org; write actions are gated to steward/admin.
+Reads are member-level: IsStewardOrAdmin passes SAFE_METHODS through for any member
+(OrgContextMiddleware already 403s non-members), so GETs — including portfolio — are
+readable by every org member. Verified for PLAN-cohort-dash.md item 4; no loosening
+was needed.
 """
 
 from django.db import transaction
+from django.urls import path
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.routers import DefaultRouter
+from rest_framework.views import APIView
 
 from apps.drops.api import IsStewardOrAdmin, OrgScopedMixin
 
@@ -106,9 +113,18 @@ class ProjectViewSet(OrgScopedMixin, viewsets.ModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class PortfolioView(APIView):
+    """The whole-org money picture for the dash's Money card (member-readable)."""
+
+    def get(self, request, org_slug):
+        return Response(services.portfolio_summary(request.org))
+
+
 ORG = r"orgs/(?P<org_slug>[-\w]+)"
 
 router = DefaultRouter()
 router.register(rf"{ORG}/projects", ProjectViewSet, basename="project")
 
-urlpatterns = router.urls
+urlpatterns = router.urls + [
+    path("orgs/<slug:org_slug>/portfolio/", PortfolioView.as_view(), name="project-portfolio"),
+]
