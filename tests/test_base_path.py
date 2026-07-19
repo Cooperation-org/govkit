@@ -32,6 +32,15 @@ def test_reverse_carries_script_prefix():
         set_script_prefix(old)
 
 
-@override_settings(STATIC_URL="/govkit/static/")
+@override_settings(
+    STATIC_URL="/govkit/static/",
+    # Pin plain storage: under the production manifest storage (CI runs
+    # DEBUG=false + collectstatic) static() returns hashed filenames, and this
+    # test asserts base-path propagation, not hashing.
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    },
+)
 def test_static_url_carries_base_path():
     assert static("govkit.css") == "/govkit/static/govkit.css"
