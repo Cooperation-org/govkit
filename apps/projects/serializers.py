@@ -2,8 +2,6 @@
 
 from rest_framework import serializers
 
-from apps.orgs.models import Membership
-
 from .models import Deal, Payout, Project, ProjectLink, Split
 
 
