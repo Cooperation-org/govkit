@@ -61,6 +61,10 @@ MODULES = [
 
 MODULE_LABELS = {key: label for key, label, _ in MODULES}
 
+# Curriculum pace suggestion: module N of the arc maps to week N. Purely advisory —
+# nothing enforces a sequence — but surfaced so the dash can label modules by week.
+MODULE_WEEKS = {key: index + 1 for index, (key, _label, _titles) in enumerate(MODULES)}
+
 
 def seed_genesis(org):
     """Load the module checklist into a freshly created venture org."""
@@ -97,4 +101,12 @@ def modules_for(org):
 
 def _module_entry(key, label, items):
     done = sum(1 for i in items if i.done_at)
-    return {"key": key, "label": label, "items": items, "done": done, "total": len(items)}
+    return {
+        "key": key,
+        "label": label,
+        # None for modules that are no longer part of MODULES (content edits).
+        "week": MODULE_WEEKS.get(key),
+        "items": items,
+        "done": done,
+        "total": len(items),
+    }

@@ -16,6 +16,10 @@ Endpoints:
   POST /api/v1/orgs/orgs/{slug}/rate/           admin: set org-wide default rate
   PATCH /api/v1/orgs/memberships/{id}/          admin: set a member's role / rate override
 
+Org-scoped (path carries org_slug, so OrgContextMiddleware resolves request.org and
+enforces membership — 404 unknown org, 403 authenticated non-member):
+  GET  /api/v1/orgs/{org_slug}/checklist/       genesis checklist as JSON (read-only)
+
 Doorway S2S (plain Django views, Bearer settings.GOVKIT_S2S_TOKEN — NOT session auth;
 the magic-link contract on the coordination board):
   GET  /api/v1/orgs/{org_slug}/invites/{code}/            invite detail for the doorway
@@ -37,7 +41,9 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.routers import DefaultRouter
+from rest_framework.views import APIView
 
+from .genesis import modules_for
 from .models import Invite, InviteStatus, Membership, MembershipRole, Org
 from .serializers import (
     InviteSerializer,
@@ -147,6 +153,35 @@ class MembershipViewSet(
         serializer.save()
 
 
+# --- Genesis checklist (read-only JSON for the cohort dash) ------------------------------
+
+
+class ChecklistView(APIView):
+    """The org's genesis checklist as JSON (PLAN-cohort-dash.md item 2).
+
+    Read-only by design: toggling stays in the GovKit HTML dashboard (the card's expand
+    target). Membership is enforced by OrgContextMiddleware via the org_slug kwarg.
+    An org with no checklist (not a venture org) returns {"org_slug": ..., "modules": []}.
+    """
+
+    def get(self, request, org_slug):
+        modules = [
+            {
+                "key": entry["key"],
+                "title": entry["label"],
+                "week": entry["week"],
+                "done": entry["done"],
+                "total": entry["total"],
+                "items": [
+                    {"id": item.id, "title": item.title, "done": bool(item.done_at)}
+                    for item in entry["items"]
+                ],
+            }
+            for entry in modules_for(request.org)
+        ]
+        return Response({"org_slug": request.org.slug, "modules": modules})
+
+
 # --- Doorway S2S invite endpoints --------------------------------------------------------
 #
 # Plain Django views on purpose: the caller is the doorway SERVER (shared bearer secret),
@@ -245,6 +280,7 @@ router.register(r"orgs", OrgViewSet, basename="org")
 router.register(r"memberships", MembershipViewSet, basename="membership")
 
 urlpatterns = router.urls + [
+    path("<slug:org_slug>/checklist/", ChecklistView.as_view(), name="org-checklist"),
     path("<slug:org_slug>/invites/<str:code>/", invite_detail, name="s2s_invite_detail"),
     path(
         "<slug:org_slug>/invites/<str:code>/committed/",
