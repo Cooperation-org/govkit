@@ -119,3 +119,44 @@ def test_dev_login_enabled_authenticates(client, settings):
     )
     assert resp.status_code == 302
     assert client.session.get("_auth_user_id")
+
+
+# --- post-login ?next= allowlist (cohort dash handoff, PLAN-cohort-dash.md item 6) -----
+
+
+from apps.accounts.views import _safe_next  # noqa: E402
+
+
+def test_safe_next_relative_path_always_allowed():
+    assert _safe_next("/o/acme/pie/") == "/o/acme/pie/"
+
+
+def test_safe_next_absolute_rejected_with_empty_allowlist(settings):
+    settings.LOGIN_NEXT_ALLOWED_HOSTS = []
+    assert _safe_next("https://dash.example/team/acme/") is None
+
+
+def test_safe_next_absolute_allowed_when_host_listed(settings):
+    settings.LOGIN_NEXT_ALLOWED_HOSTS = ["dash.example"]
+    assert _safe_next("https://dash.example/team/acme/") == "https://dash.example/team/acme/"
+
+
+def test_safe_next_absolute_requires_https(settings):
+    settings.LOGIN_NEXT_ALLOWED_HOSTS = ["dash.example"]
+    assert _safe_next("http://dash.example/team/acme/") is None
+
+
+def test_safe_next_unlisted_host_rejected(settings):
+    settings.LOGIN_NEXT_ALLOWED_HOSTS = ["dash.example"]
+    assert _safe_next("https://elsewhere.example/") is None
+    assert _safe_next("//elsewhere.example/") is None
+
+
+@pytest.mark.django_db
+def test_linkedtrust_start_stashes_allowlisted_absolute_next(client, configured, settings):
+    settings.LOGIN_NEXT_ALLOWED_HOSTS = ["dash.example"]
+    resp = client.get(
+        reverse("accounts:linkedtrust_start"), {"next": "https://dash.example/team/acme/"}
+    )
+    assert resp.status_code == 302  # off to the IdP
+    assert client.session["post_login_next"] == "https://dash.example/team/acme/"

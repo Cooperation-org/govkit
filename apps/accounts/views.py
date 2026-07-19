@@ -202,7 +202,20 @@ def _login_error(request, message):
 
 
 def _safe_next(url):
-    """Only allow same-host relative redirects (guards against open-redirect)."""
-    if url and url_has_allowed_host_and_scheme(url, allowed_hosts=None, require_https=False):
+    """Guard post-login ?next= against open redirects.
+
+    Relative (same-host) URLs are always allowed, as before. An ABSOLUTE next URL is
+    allowed only when it is https and its host is on settings.LOGIN_NEXT_ALLOWED_HOSTS
+    (the cohort dash handoff, PLAN-cohort-dash.md item 6) — empty allowlist (default)
+    rejects every absolute URL.
+    """
+    if not url:
+        return None
+    if url_has_allowed_host_and_scheme(url, allowed_hosts=None, require_https=False):
+        return url
+    allowed_hosts = set(settings.LOGIN_NEXT_ALLOWED_HOSTS)
+    if allowed_hosts and url_has_allowed_host_and_scheme(
+        url, allowed_hosts=allowed_hosts, require_https=True
+    ):
         return url
     return None
