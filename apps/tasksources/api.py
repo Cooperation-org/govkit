@@ -10,10 +10,16 @@ pages. No ``?org=`` query param and no manual membership check here.
 Endpoints:
   GET  /api/v1/tasksources/orgs/<org_slug>/tasks/                 tracked tasks for the org
   GET  /api/v1/tasksources/orgs/<org_slug>/tasks/missing_value/   the missing-value queue
+  GET  /api/v1/tasksources/orgs/<org_slug>/tasks/open/            live open work (proxied)
   POST /api/v1/tasksources/orgs/<org_slug>/sync/                  run a sync (steward/admin)
 """
 
+import urllib.error
+
+from django.conf import settings
+from django.core.cache import cache
 from django.urls import path
+from django.utils import timezone
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -23,7 +29,8 @@ from rest_framework.views import APIView
 
 from apps.orgs.models import MembershipRole
 
-from .models import TrackedTask
+from .adapters import get_adapter
+from .models import TaskSourceConfig, TrackedTask
 from .services import missing_value_tasks, sync_org
 
 _STEWARD_ROLES = {MembershipRole.ADMIN, MembershipRole.STEWARD}
@@ -78,6 +85,51 @@ class TrackedTaskViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(self.get_serializer(tasks, many=True).data)
 
 
+class OpenTasksView(APIView):
+    """Live open work for the org, proxied through its tracker adapter(s).
+
+    PLAN-cohort-dash.md item 3: read-only, member-gated (OrgContextMiddleware),
+    cached server-side for settings.GOVKIT_OPEN_TASKS_CACHE_SECONDS. Entirely
+    separate from the TrackedTask valuation pipeline — nothing is persisted.
+    A tracker outage returns 502 so callers can distinguish "no work" from "no answer".
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, org_slug=None):
+        cache_key = f"tasksources:open_tasks:{request.org.pk}"
+        payload = cache.get(cache_key)
+        if payload is None:
+            tasks = []
+            try:
+                for source in TaskSourceConfig.objects.for_org(request.org):
+                    tasks.extend(get_adapter(source).fetch_open_tasks())
+            except NotImplementedError:
+                pass  # adapter type without open-task support: report what we have
+            except (urllib.error.URLError, OSError, ValueError) as exc:
+                return Response(
+                    {"detail": f"Task tracker unavailable: {exc}"},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+            payload = {
+                "tasks": [
+                    {
+                        "external_id": t.external_id,
+                        "ref": t.ref,
+                        "subject": t.subject,
+                        "assignee_label": t.assignee_label,
+                        "status": t.status,
+                        "external_url": t.external_url,
+                        "project_slug": t.project_slug,
+                    }
+                    for t in tasks
+                ],
+                "fetched_at": timezone.now().isoformat(),
+            }
+            cache.set(cache_key, payload, settings.GOVKIT_OPEN_TASKS_CACHE_SECONDS)
+        return Response(payload)
+
+
 class SyncView(APIView):
     """Trigger a sync of every task source for the org (steward/admin only)."""
 
@@ -117,6 +169,11 @@ urlpatterns = [
         "orgs/<slug:org_slug>/tasks/missing_value/",
         TrackedTaskViewSet.as_view({"get": "missing_value"}),
         name="trackedtask-missing-value",
+    ),
+    path(
+        "orgs/<slug:org_slug>/tasks/open/",
+        OpenTasksView.as_view(),
+        name="trackedtask-open",
     ),
     path(
         "orgs/<slug:org_slug>/sync/",

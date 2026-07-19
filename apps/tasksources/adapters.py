@@ -68,6 +68,24 @@ class TaskDTO:
     cash: Optional[Decimal] = None
 
 
+@dataclass
+class OpenTaskDTO:
+    """An OPEN (not-closed) tracker task, normalized for the read-only open-work view.
+
+    Separate from TaskDTO on purpose: this feeds the cohort dash's "tasks to do" card
+    and carries deep-link fields (story ref, project slug) instead of valuation inputs.
+    It never enters the TrackedTask valuation pipeline.
+    """
+
+    external_id: str
+    subject: str = ""
+    status: str = ""  # human-readable status name (e.g. "In progress")
+    external_url: str = ""
+    assignee_label: Optional[str] = None  # stable tracker username, never a display name
+    ref: Optional[int] = None  # tracker story ref (Taiga's #NN), for board deep links
+    project_slug: Optional[str] = None  # tracker project slug, for board deep links
+
+
 class TaskSourceAdapter(abc.ABC):
     """Base class for tracker adapters (Taiga first; GitHub Issues / Linear can follow)."""
 
@@ -82,6 +100,14 @@ class TaskSourceAdapter(abc.ABC):
         does not persist anything — the sync service upserts TrackedTask rows.
         """
         raise NotImplementedError
+
+    def fetch_open_tasks(self) -> list[OpenTaskDTO]:
+        """Return the tracker's OPEN (not-closed) tasks as OpenTaskDTOs.
+
+        Optional capability: adapters that cannot report open work raise
+        NotImplementedError. Read-only — nothing is persisted.
+        """
+        raise NotImplementedError(f"{type(self).__name__} does not report open tasks")
 
 
 class TaigaAdapter(TaskSourceAdapter):
@@ -143,8 +169,12 @@ class TaigaAdapter(TaskSourceAdapter):
 
     def _status_slugs(self, project_id: str) -> dict:
         """Map ``userstory status id -> slug`` for a project (stories carry only the id)."""
+        return {sid: row.get("slug", "") for sid, row in self._statuses(project_id).items()}
+
+    def _statuses(self, project_id: str) -> dict:
+        """Map ``userstory status id -> full status row`` (slug, name, is_closed, ...)."""
         data, _ = self._get("/api/v1/userstory-statuses", {"project": project_id})
-        return {str(row["id"]): row.get("slug", "") for row in (data or [])}
+        return {str(row["id"]): row for row in (data or [])}
 
     def _custom_attr_ids(self, project_id: str) -> dict:
         """Map ``custom-attribute name (lowercased) -> id`` for a project."""
@@ -253,6 +283,36 @@ class TaigaAdapter(TaskSourceAdapter):
                         assignee_user_id=story.get("assigned_to"),
                         hours=self._resolve_hours(story, attr_ids),
                         cash=self._resolve_cash(story, attr_ids),
+                    )
+                )
+        return results
+
+    def fetch_open_tasks(self) -> list[OpenTaskDTO]:
+        """Open work: every story whose status is not closed (``is_closed`` false).
+
+        Uses the status row's ``is_closed`` flag (not ``done_statuses``, which describes
+        valuation eligibility) so "open" matches what the tracker's board shows. A story
+        whose status row is unknown is treated as open — never hide work by accident.
+        """
+        results: list[OpenTaskDTO] = []
+        for project_id in self._project_ids():
+            statuses = self._statuses(project_id)
+            for story in self._iter_stories(project_id):
+                status_row = statuses.get(str(story.get("status"))) or {}
+                if status_row.get("is_closed", False):
+                    continue
+                extra = story.get("assigned_to_extra_info") or {}
+                project_extra = story.get("project_extra_info") or {}
+                ref = story.get("ref")
+                results.append(
+                    OpenTaskDTO(
+                        external_id=str(story["id"]),
+                        subject=story.get("subject", "") or "",
+                        status=status_row.get("name") or status_row.get("slug", "") or "",
+                        external_url=story.get("permalink", "") or "",
+                        assignee_label=extra.get("username") or None,
+                        ref=ref if isinstance(ref, int) else None,
+                        project_slug=project_extra.get("slug") or None,
                     )
                 )
         return results

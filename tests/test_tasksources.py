@@ -497,3 +497,53 @@ def test_encrypted_field_returns_none_on_decrypt_failure(settings, org_factory, 
 
     assert value is None  # fail safe: never the ciphertext, never the plaintext
     assert any("could not be decrypted" in r.message for r in caplog.records)
+
+
+# --- adapter: open (not-closed) tasks -------------------------------------------------
+
+
+def _open_routes(stories):
+    """Routes whose status rows carry name + is_closed (what fetch_open_tasks reads)."""
+    return [
+        ("/api/v1/projects/by_slug", {"id": 7}, None),
+        (
+            "/api/v1/userstory-statuses",
+            [
+                {"id": DONE, "slug": "done", "name": "Done", "is_closed": True},
+                {"id": NEW, "slug": "in-progress", "name": "In progress", "is_closed": False},
+            ],
+            None,
+        ),
+        ("/api/v1/userstories?project=7", stories, None),
+    ]
+
+
+def test_fetch_open_tasks_filters_closed_and_carries_deeplink_fields(taiga_source):
+    src = taiga_source()
+    open_story = dict(
+        _story(201, NEW, username="alpha"),
+        ref=45,
+        project_extra_info={"slug": "proj"},
+    )
+    closed_story = _story(202, DONE)
+    with mock_taiga(_open_routes([open_story, closed_story])):
+        tasks = adapters.get_adapter(src).fetch_open_tasks()
+
+    assert [t.external_id for t in tasks] == ["201"]
+    task = tasks[0]
+    assert task.subject == "Story 201"
+    assert task.status == "In progress"  # human-readable name, not the slug
+    assert task.assignee_label == "alpha"
+    assert task.external_url == "https://taiga.example/us/201"
+    assert task.ref == 45
+    assert task.project_slug == "proj"
+
+
+def test_fetch_open_tasks_unknown_status_counts_as_open(taiga_source):
+    """A story whose status row is missing must not be hidden by accident."""
+    src = taiga_source()
+    with mock_taiga(_open_routes([_story(301, 99)])):
+        tasks = adapters.get_adapter(src).fetch_open_tasks()
+    assert [t.external_id for t in tasks] == ["301"]
+    assert tasks[0].ref is None
+    assert tasks[0].project_slug is None
