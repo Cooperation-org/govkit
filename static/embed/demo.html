@@ -1,0 +1,96 @@
+<!doctype html>
+<!--
+  Manual test page for the GovKit embed bundle (static/embed/govkit.js).
+
+  Serve it from a running GovKit (e.g. /static/embed/demo.html), sign in as a member
+  of the org you test with, enter the org slug and mount. No data is baked in: every
+  card comes from the live API with your own session; components you're not allowed
+  to see simply stay hidden (the dash contract).
+
+  To exercise the CORS path, open this file from a different origin that is on
+  GovKit's CORS_ALLOWED_ORIGINS and point "GovKit base URL" at GovKit.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GovKit embed components — manual test</title>
+<style>
+  :root { --s0:#4e79a7; --s1:#f28e2b; --s2:#59a14f; --s3:#e15759; --s4:#b07aa1; --s5:#76b7b2; }
+  body { font-family: system-ui, sans-serif; margin: 0 auto; max-width: 900px; padding: 24px; }
+  form { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; margin-bottom: 24px; }
+  label { display: grid; gap: 2px; font-size: 12px; }
+  input { padding: 6px 8px; font: inherit; min-width: 220px; }
+  button { padding: 7px 14px; font: inherit; cursor: pointer; }
+  .card { border: 1px solid #ccc; border-radius: 10px; padding: 16px 20px; margin-bottom: 16px; }
+  .card h2 { font-size: 14px; margin: 0 0 10px; }
+  .card[hidden] { display: none; }
+</style>
+</head>
+<body>
+<h1>GovKit embed components</h1>
+
+<form id="mount-form">
+  <label>GovKit base URL (data-up)
+    <input id="f-up" type="url" required>
+  </label>
+  <label>Org slug (data-org)
+    <input id="f-org" type="text" required placeholder="my-org">
+  </label>
+  <label>Tasks app (data-tasks-app, optional)
+    <input id="f-tasks-app" type="url" placeholder="board deep-link base">
+  </label>
+  <button type="submit">Mount components</button>
+</form>
+
+<div id="cards"></div>
+
+<script src="./govkit.js"></script>
+<script>
+  (function () {
+    'use strict';
+    // Default data-up: the origin (+ any base path) this page was served from —
+    // /static/embed/demo.html is two path segments under the GovKit root.
+    var here = new URL('.', window.location.href);
+    var basePath = here.pathname.replace(/\/static\/embed\/$/, '');
+    document.getElementById('f-up').value = here.origin + basePath;
+
+    var SPECS = [
+      ['The pie', 'govkit-pie', {}],
+      ['Earned on tasks', 'govkit-feed', { 'data-limit': '8' }],
+      ['Checklist', 'govkit-checklist', {}],
+      ['Tasks to do', 'govkit-tasks', { 'data-limit': '6' }],
+      ['Money', 'govkit-money', {}],
+    ];
+
+    document.getElementById('mount-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var up = document.getElementById('f-up').value.replace(/\/+$/, '');
+      var org = document.getElementById('f-org').value.trim();
+      var tasksApp = document.getElementById('f-tasks-app').value.replace(/\/+$/, '');
+      var cards = document.getElementById('cards');
+      cards.replaceChildren();
+      SPECS.forEach(function (spec) {
+        var card = document.createElement('div');
+        card.className = 'card';
+        var h2 = document.createElement('h2');
+        h2.textContent = spec[0];
+        card.appendChild(h2);
+        var comp = document.createElement(spec[1]);
+        comp.setAttribute('data-up', up);
+        comp.setAttribute('data-org', org);
+        Object.keys(spec[2]).forEach(function (k) { comp.setAttribute(k, spec[2][k]); });
+        if (spec[1] === 'govkit-tasks' && tasksApp) {
+          comp.setAttribute('data-tasks-app', tasksApp);
+        }
+        card.appendChild(comp);
+        cards.appendChild(card);
+        // Hide the wrapper card whenever the component hides itself.
+        new MutationObserver(function () { card.hidden = comp.hidden; })
+          .observe(comp, { attributes: true, attributeFilter: ['hidden'] });
+      });
+    });
+  })();
+</script>
+</body>
+</html>
