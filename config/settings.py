@@ -32,6 +32,8 @@ env = environ.Env(
     AMEBO_BASE_URL=(str, ""),
     AMEBO_S2S_TOKEN=(str, ""),
     CORS_ALLOWED_ORIGINS=(list, []),
+    LOGIN_NEXT_ALLOWED_HOSTS=(list, []),
+    GOVKIT_OPEN_TASKS_CACHE_SECONDS=(int, 60),
 )
 
 # Load a local .env if present (dev). In prod, real env vars win.
@@ -207,6 +209,15 @@ GOVKIT_SECRET_KEY = env("GOVKIT_SECRET_KEY")
 
 # Dev-only password login seam. Clearly not for production.
 GOVKIT_DEV_LOGIN = env("GOVKIT_DEV_LOGIN")
+
+# Server-side cache TTL (seconds) for the open-tasks proxy
+# (GET /api/v1/tasksources/orgs/<slug>/tasks/open/ — a live Taiga fetch).
+GOVKIT_OPEN_TASKS_CACHE_SECONDS = env("GOVKIT_OPEN_TASKS_CACHE_SECONDS")
+
+# Hosts (hostnames, not origins) that a post-login ?next= redirect may point at as an
+# absolute https URL — e.g. the cohort dash on workers.vc. Relative-path next values are
+# always allowed; empty (default) rejects every absolute next (the pre-existing behavior).
+LOGIN_NEXT_ALLOWED_HOSTS = env("LOGIN_NEXT_ALLOWED_HOSTS")
 
 # --- LinkedTrust OIDC (default login) — read by django-linkedtrust-auth ---
 LINKEDTRUST_URL = env("LINKEDTRUST_URL")
