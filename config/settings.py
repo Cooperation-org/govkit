@@ -31,6 +31,7 @@ env = environ.Env(
     DOORWAY_BASE_URL=(str, "https://linkedtrust.us/earnedgov/i/"),
     AMEBO_BASE_URL=(str, ""),
     AMEBO_S2S_TOKEN=(str, ""),
+    CORS_ALLOWED_ORIGINS=(list, []),
 )
 
 # Load a local .env if present (dev). In prod, real env vars win.
@@ -44,6 +45,15 @@ SECRET_KEY = env("SECRET_KEY", default=_INSECURE_SECRET_KEY_DEFAULT)
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
+
+# --- CORS (cohort dash) ---
+# The workers.vc dash reads the JSON API from the browser with the member's own
+# session cookie (same-site under one registrable domain, so SameSite=Lax cookies
+# ride along; only these response headers are needed). API paths only — HTML
+# pages are never served cross-origin.
+CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
+CORS_ALLOW_CREDENTIALS = True
+CORS_URLS_REGEX = r"^/api/"
 
 # H1: never run production on the insecure dev default. Invite tokens are signed with
 # SECRET_KEY (django.core.signing), so a forgotten prod key = forgeable admin invites.
@@ -65,6 +75,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "corsheaders",
     # GovKit apps
     "apps.accounts",
     "apps.orgs",
@@ -82,6 +93,8 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    # CORS must run before CommonMiddleware so preflights short-circuit.
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
