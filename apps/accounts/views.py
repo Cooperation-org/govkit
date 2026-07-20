@@ -22,7 +22,7 @@ from django.shortcuts import redirect, render, resolve_url
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 
-from apps.orgs.invites import consume_pending_invite
+from apps.orgs.invites import cohort_front_door_url, consume_pending_invite
 
 from . import google_oauth, oidc
 from .auth_handlers import UserUpsertError, upsert_oauth_user
@@ -182,7 +182,12 @@ def _complete_login(request, user, next_url=None):
     if destination:
         return redirect(destination)
     if joined_org is not None:
-        return redirect(resolve_url("orgs:dashboard", org_slug=joined_org.slug))
+        # Cohort deployment: a join finishing after login lands on the dash's connect
+        # route, same as the signed-in accept path. Unset -> GovKit's org dashboard.
+        return redirect(
+            cohort_front_door_url(joined_org)
+            or resolve_url("orgs:dashboard", org_slug=joined_org.slug)
+        )
     return redirect("orgs:landing")
 
 

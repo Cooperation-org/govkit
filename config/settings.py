@@ -35,6 +35,7 @@ env = environ.Env(
     LOGIN_NEXT_ALLOWED_HOSTS=(list, []),
     GOVKIT_OPEN_TASKS_CACHE_SECONDS=(int, 60),
     COHORT_NAV_SRC=(str, ""),
+    COHORT_FRONT_DOOR=(str, ""),
 )
 
 # Load a local .env if present (dev). In prod, real env vars win.
@@ -223,6 +224,30 @@ GOVKIT_OPEN_TASKS_CACHE_SECONDS = env("GOVKIT_OPEN_TASKS_CACHE_SECONDS")
 # absolute https URL — e.g. the cohort dash on workers.vc. Relative-path next values are
 # always allowed; empty (default) rejects every absolute next (the pre-existing behavior).
 LOGIN_NEXT_ALLOWED_HOSTS = env("LOGIN_NEXT_ALLOWED_HOSTS")
+
+# The cohort dash is THE front door for members (workers.vc apex); GovKit's own dashboard
+# is a menu item there. When set, completing an invite join lands the new member on this
+# URL template with {org_slug} substituted, instead of GovKit's org dashboard. Unset
+# (default) keeps today's behavior. Validated here so a typo fails at startup, not as a
+# broken redirect. Cohort value: https://workers.vc/dash/{org_slug}/connect/
+COHORT_FRONT_DOOR = env("COHORT_FRONT_DOOR")
+if COHORT_FRONT_DOOR:
+    from django.core.exceptions import ImproperlyConfigured
+
+    try:
+        _front_door_probe = COHORT_FRONT_DOOR.format(org_slug="probe")
+    except (KeyError, IndexError, ValueError):
+        _front_door_probe = None  # stray placeholder or unbalanced braces
+    if (
+        _front_door_probe is None
+        or "{org_slug}" not in COHORT_FRONT_DOOR
+        or not COHORT_FRONT_DOOR.startswith("https://")
+    ):
+        raise ImproperlyConfigured(
+            "COHORT_FRONT_DOOR must be an https URL template containing {org_slug} "
+            "(e.g. https://workers.vc/dash/{org_slug}/connect/); got "
+            f"{COHORT_FRONT_DOOR!r}."
+        )
 
 # --- LinkedTrust OIDC (default login) — read by django-linkedtrust-auth ---
 LINKEDTRUST_URL = env("LINKEDTRUST_URL")

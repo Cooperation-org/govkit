@@ -25,6 +25,7 @@ from .invites import (
     SESSION_KEY,
     InviteError,
     accept_invite_for_user,
+    cohort_front_door_url,
     get_invite_for_accept,
 )
 from .models import ChecklistItem, Invite, InviteStatus, Membership, MembershipRole, Org
@@ -194,7 +195,9 @@ def invite_revoke(request, org_slug, invite_id):
         messages.error(request, "That invite was already accepted — remove the member instead.")
     else:
         invite.mark_revoked()
-        messages.success(request, f"Invite for {invite.name or invite.email or invite.code} revoked.")
+        messages.success(
+            request, f"Invite for {invite.name or invite.email or invite.code} revoked."
+        )
     return redirect("orgs:members", org_slug=request.org.slug)
 
 
@@ -263,6 +266,11 @@ def _finish_accept(request, invite, user):
         messages.error(request, str(exc))
         return redirect("orgs:landing")
     request.session.pop(SESSION_KEY, None)
+    front_door = cohort_front_door_url(venture_org or membership.org)
+    if front_door:
+        # Cohort deployment: land on the dash's connect route. No django message —
+        # it would only render on a later GovKit page, out of context.
+        return redirect(front_door)
     if venture_org is not None:
         messages.success(
             request,

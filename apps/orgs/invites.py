@@ -19,6 +19,7 @@ materializes the Membership.
 
 from __future__ import annotations
 
+from django.conf import settings
 from django.db import transaction
 from django.utils.text import slugify
 
@@ -34,6 +35,18 @@ from .models import (
 )
 
 SESSION_KEY = "pending_invite_code"
+
+
+def cohort_front_door_url(org):
+    """The cohort dash landing for a freshly joined member of `org`, or None.
+
+    On a cohort deployment (settings.COHORT_FRONT_DOOR, validated at startup) the dash
+    on the workers.vc apex is THE front door — GovKit's own dashboard is a menu item
+    there — so every path that completes an invite join redirects here instead of
+    orgs:dashboard. Unset (the default) returns None: callers keep today's behavior.
+    """
+    template = settings.COHORT_FRONT_DOOR
+    return template.format(org_slug=org.slug) if template else None
 
 
 class InviteError(Exception):
