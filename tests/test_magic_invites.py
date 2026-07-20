@@ -382,6 +382,21 @@ def test_members_page_lists_invite_statuses(client, admin_org, invite):
     )
 
 
+@pytest.mark.django_db
+def test_s2s_accept_url_uses_public_base(client, admin_org, invite, settings):
+    """The doorway relays accept_url to the invitee's browser: it must carry the
+    public host even though the S2S call arrives over loopback."""
+    settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
+    settings.PUBLIC_BASE_URL = "https://dash.workers.vc"
+    org, _ = admin_org
+    resp = client.get(
+        f"/api/v1/orgs/{org.slug}/invites/{invite.code}/",
+        HTTP_AUTHORIZATION=f"Bearer {S2S_TOKEN}",
+    )
+    assert resp.status_code == 200
+    assert resp.json()["accept_url"] == (f"https://dash.workers.vc/invites/{invite.code}/accept/")
+
+
 # --- The door (anonymous zero-friction accept) ----------------------------------------------
 
 

@@ -269,8 +269,14 @@ def _invite_payload(invite: Invite, request) -> dict:
         "statement_as_published": invite.statement_as_published,
         "video_url": invite.video_url,
         "expires_at": invite.expires_at.isoformat(),
-        "accept_url": request.build_absolute_uri(
-            reverse("orgs:accept_invite", kwargs={"code": invite.code})
+        # Relayed to the INVITEE's browser by the doorway — must be the public
+        # host, never this S2S request's loopback host.
+        "accept_url": (
+            settings.PUBLIC_BASE_URL + reverse("orgs:accept_invite", kwargs={"code": invite.code})
+            if settings.PUBLIC_BASE_URL
+            else request.build_absolute_uri(
+                reverse("orgs:accept_invite", kwargs={"code": invite.code})
+            )
         ),
         "org_slug": invite.org.slug,
         "org_name": invite.org.display_name,

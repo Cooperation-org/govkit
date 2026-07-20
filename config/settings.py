@@ -36,6 +36,7 @@ env = environ.Env(
     GOVKIT_OPEN_TASKS_CACHE_SECONDS=(int, 60),
     COHORT_NAV_SRC=(str, ""),
     COHORT_FRONT_DOOR=(str, ""),
+    PUBLIC_BASE_URL=(str, ""),
 )
 
 # Load a local .env if present (dev). In prod, real env vars win.
@@ -60,6 +61,11 @@ CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 # The cohort's thin cross-app menu (a <cohort-nav> script the doorway serves);
 # empty (default) mounts nothing — self-hosted GovKit stays standalone.
 COHORT_NAV_SRC = env("COHORT_NAV_SRC")
+
+# Browser-facing base for URLs handed to OTHER SERVERS to relay (S2S invite
+# payloads): loopback callers must never leak http://127.0.0.1 links to real
+# invitees. Empty falls back to the request host (fine for browser requests).
+PUBLIC_BASE_URL = env("PUBLIC_BASE_URL").rstrip("/")
 CORS_ALLOW_CREDENTIALS = True
 CORS_URLS_REGEX = r"^/api/"
 # The dash's one write (checklist toggle) authenticates with the session cookie
