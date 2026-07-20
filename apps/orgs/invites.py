@@ -28,6 +28,7 @@ from .genesis import seed_genesis
 from .models import (
     Invite,
     InviteAudience,
+    InviteKind,
     Membership,
     MembershipRole,
     Org,
@@ -91,12 +92,18 @@ def create_venture_org(invite: Invite, user) -> Org:
 
 
 @transaction.atomic
-def accept_invite_for_user(invite: Invite, user) -> tuple[Membership, Org | None]:
+def accept_invite_for_user(invite: Invite, user) -> tuple[Membership | None, Org | None]:
     """
     Materialize (or return the existing) Membership for `user` from a live invite,
     and mark the invite accepted (single-use: accepted invites are dead). Founder
     invites naming a venture also create the venture org (returned second, and the
     right landing page for the founder).
+
+    POOL invites (InviteKind.POOL) never create a Membership: accepting one records
+    the person in the applicant pool (the accepted invite row, accepted_by set) and
+    returns (None, None). No membership, no slices, no org — orgs are never
+    auto-created for pool people; they come only from a deliberate founder invite
+    naming a real venture, or an operator/kickoff add-team run (Golda, 2026-07-20).
 
     Idempotent for the user: if they already belong to the org, their existing
     membership is returned unchanged — and the invite is NOT consumed (an existing
@@ -112,11 +119,14 @@ def accept_invite_for_user(invite: Invite, user) -> tuple[Membership, Org | None
         # never re-role them, never spawn the venture. The invite stays live for the
         # person it was minted for.
         return membership, None
+    if invite.kind == InviteKind.POOL:
+        invite.mark_accepted(by=user)
+        return None, None
     membership = Membership.objects.create(org=invite.org, user=user, role=invite.role)
     venture_org = None
     if invite.audience == InviteAudience.FOUNDER and invite.venture_name:
         venture_org = create_venture_org(invite, user)
-    invite.mark_accepted()
+    invite.mark_accepted(by=user)
 
     # Report the membership(s) to amebo (the operational team registry) so the person
     # gets provisioned across the team's tools. After commit, outside the transaction
@@ -134,7 +144,8 @@ def consume_pending_invite(request):
     """
     If the session holds a pending invite code, create the Membership for the now
     logged-in user and clear it. Returns the Org to land on (the founder's new
-    venture org when one was created, else the joined org) or None.
+    venture org when one was created, else the joined org) or None. Pool invites
+    join no org (accept is recorded, None returned — caller lands them normally).
     """
     code = request.session.pop(SESSION_KEY, None)
     if not code or not request.user.is_authenticated:
@@ -144,4 +155,6 @@ def consume_pending_invite(request):
         membership, venture_org = accept_invite_for_user(invite, request.user)
     except InviteError:
         return None
+    if membership is None:
+        return venture_org
     return venture_org or membership.org

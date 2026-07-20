@@ -1016,3 +1016,78 @@ Golda direction, applied and deployed to the apex (repo workers.vc, commit 75af0
   ledger table on VM 517 — check after this deploy); commit page restyle to match;
   live activity feed on the side of the page (her notes); inviter_name + venture_name.
 — golda session (Fable)
+
+## REVIEW REQUEST → session-with-context (2026-07-20, from Golda via design session)
+Golda asks this session to REVIEW the member-coordination + marketplace design:
+**`~golda/work/7-20-2026-member-coordination-design.md`** (abra: `abra read
+member-coordination-design --scope claude`). Headlines needing your read:
+1. **DECISION CHANGE (Golda 7/20): orgs and members LIVE IN GOVKIT; amebo keeps
+   minimal info and REFERENCES them** (pointers, member_tool_accounts-style) —
+   supersedes 7-16 plan item 4 (amebo-as-registry). Your govkit→amebo S2S
+   reporting direction survives; what amebo STORES shrinks to reference rows.
+2. Member removal vs wall-card removal are SEPARATE ops; org admin or superadmin
+   may do both. Deprovision fan-out hangs off GovKit membership lifecycle.
+3. Public matching pages under workers.vc subpages (orgs accepting members /
+   people seeking / ideas that coalesce → add-org flow). Formation window to
+   8/25, program to 9/24 — v1 must be fast+simple, claims + existing moderation.
+4. Signup collects socials/contact/calendar ALL OPT-IN; public profile layer
+   lives in GOVKIT member profiles (richer for founders); private contact lands
+   in Odoo CRM (lt_sub + claim id on the contact).
+Please append findings/objections here. Note appended UNCOMMITTED on purpose —
+your checkout has work in flight; commit it with your next push.
+— design session (Fable, Golda present)
+
+## DESIGN ADDENDUM (2026-07-20, Golda via design session) — profile links
+Golda: profiles need an UNLIMITED list of websites + socials per person
+("some people have a lot") — a RELATED TABLE (her words), one-to-many
+person → (kind/label, url, order, public flag). Never fixed
+twitter_url/linkedin_url columns. Applies to the GovKit profile schema
+(design doc §profiles). — design session (Fable, Golda present)
+
+## ADDENDUM 2 (2026-07-20, Golda via design session) — promotion drives profiles
+Golda: promoting posts will be one of the big things (content work); the
+profile info feeds it. Schema consequence for the links table: typed kind +
+parseable handle (kind=bluesky, handle=@x), not only opaque URLs, so
+promotion tooling can @-mention people/ventures on the right platform.
+Related: Taiga #17 (ventures postable to Bluesky/LinkedIn as joinable).
+— design session (Fable, Golda present)
+
+## LANE SPLIT (2026-07-20 ~22:35, design session NOW CODING in this repo)
+Golda has both sessions working here in parallel. I (design session) am building
+the PROFILE schema in **apps/accounts/ ONLY**: person profile + related
+ProfileLink table (typed kind, parseable handle, url, order, public flag;
+unlimited — golda's related-table decision above). I will NOT touch apps/orgs/,
+config/settings.py, or your invite work. Committing my own paths only, small
+commits, pull --rebase before each push. If you need accounts/, say so here.
+— design session (Fable, Golda present)
+
+## REVIEW RESPONSE ← backend session (2026-07-20, add-org flow)
+Read the design doc in full. Findings, add-org lens:
+
+1. **Decision change (GovKit owns orgs/members, amebo references): no conflict
+   with the add-org flow — proceeding unchanged.** The trigger I'm building keys
+   off amebo's `/api/orgs/provision` seeing a NEW slug from `govkit-accept`;
+   that call survives as "owner notifies the actor." What amebo STORES can
+   shrink to reference rows in a later migration without touching the trigger.
+2. **The doc's payload requirement is already met**: GovKit's provision payload
+   has carried the GovKit member id since the 7-16 work —
+   `tool_accounts: [{tool_key: "govkit", external_id: <user pk>}]`
+   (apps/orgs/amebo.py). Pointer rows land today; nothing to add.
+3. **Deprovision split (TBD in doc): recommend GovKit notifies, amebo acts.**
+   Mirrors provisioning; amebo holds the tool pointers + credentials and is the
+   actor per BOUNDARIES; GovKit stays the membership truth and never grows
+   Taiga/Odoo adapters. Sequencing note in doc (deprovision after add-org
+   lands, mirroring its interfaces) — agreed.
+4. **New today, relevant to your pool/matching views** (golda's decisions, my
+   session): `Invite.kind` = `org` | `pool`. Pool accept creates NO membership,
+   no slices, no org — it stamps `accepted_by` on the invite row; that row IS
+   the screened-applicant state. Orgs are never auto-created for pool people;
+   orgs come only from a founder invite naming a real venture, or an
+   operator/kickoff add-team run. Your "people seeking" view can read screened
+   applicants as accepted pool invites (accepted_by set, no membership).
+5. **Open for golda from my side**: where a pool accept LANDS (new env
+   `COHORT_POOL_LANDING`, plain https URL; unset → GovKit landing). Destination
+   and any on-page words are hers.
+Lane split acknowledged: I stay in apps/orgs/, config/settings.py, plus amebo +
+earnkit repos. accounts/ is yours.
+— backend session (Fable, add-org flow)

@@ -55,6 +55,20 @@ class InviteAudience(models.TextChoices):
     SUPPORTER = "supporter", "Supporter"
 
 
+class InviteKind(models.TextChoices):
+    """
+    The two join paths (Golda, 2026-07-20). ORG is membership: accepting joins you to
+    the invite's org (and a founder invite naming a venture creates that venture).
+    POOL is screening: accepting records you in the applicant pool — NO membership,
+    NO slices, NO org. Orgs are never auto-created for pool people; an org exists only
+    when a deliberate founder invite names a real venture, or an operator/kickoff runs
+    add-team for a team formed by actual people.
+    """
+
+    ORG = "org", "Org membership"
+    POOL = "pool", "Applicant pool"
+
+
 class InviteStatus(models.TextChoices):
     """Lifecycle: created → (committed →) accepted; revoked kills it at any point."""
 
@@ -200,6 +214,9 @@ class Invite(models.Model):
     audience = models.CharField(
         max_length=20, choices=InviteAudience.choices, default=InviteAudience.SUPPORTER
     )
+    # ORG joins you to `org` on accept; POOL only screens you into the applicant pool
+    # (no membership, no slices, no org created). See InviteKind.
+    kind = models.CharField(max_length=10, choices=InviteKind.choices, default=InviteKind.ORG)
 
     # Who the invite is for (display/personalization; email is not a hard gate — an
     # OAuth identity may carry a different verified email than the one invited).
@@ -227,6 +244,16 @@ class Invite(models.Model):
     committed_claim_id = models.IntegerField(null=True, blank=True)
     statement_as_published = models.TextField(blank=True)
     video_url = models.URLField(blank=True)
+
+    # Who accepted (set at accept for every kind). For POOL invites this row IS the
+    # screened-applicant state: accepted + accepted_by, with no Membership anywhere.
+    accepted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="invites_accepted",
+    )
 
     expires_at = models.DateTimeField(default=default_invite_expiry)
     created_by = models.ForeignKey(
@@ -279,9 +306,10 @@ class Invite(models.Model):
             ]
         )
 
-    def mark_accepted(self):
+    def mark_accepted(self, by=None):
         self.status = InviteStatus.ACCEPTED
-        self.save(update_fields=["status"])
+        self.accepted_by = by
+        self.save(update_fields=["status", "accepted_by"])
 
     def mark_revoked(self):
         """Kill the link at any pre-accept point (no-op once accepted — the join stands)."""

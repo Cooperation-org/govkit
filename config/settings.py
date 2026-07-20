@@ -36,6 +36,7 @@ env = environ.Env(
     GOVKIT_OPEN_TASKS_CACHE_SECONDS=(int, 60),
     COHORT_NAV_SRC=(str, ""),
     COHORT_FRONT_DOOR=(str, ""),
+    COHORT_POOL_LANDING=(str, ""),
     PUBLIC_BASE_URL=(str, ""),
 )
 
@@ -259,6 +260,17 @@ if COHORT_FRONT_DOOR:
             "(e.g. https://workers.vc/dash/{org_slug}/connect/); got "
             f"{COHORT_FRONT_DOOR!r}."
         )
+
+# Where a POOL-invite accept lands (the person joined no org, so neither org
+# dashboard nor COHORT_FRONT_DOOR applies). A plain https URL, no template. Unset
+# (default) falls back to GovKit's own landing page.
+COHORT_POOL_LANDING = env("COHORT_POOL_LANDING")
+if COHORT_POOL_LANDING and not COHORT_POOL_LANDING.startswith("https://"):
+    from django.core.exceptions import ImproperlyConfigured
+
+    raise ImproperlyConfigured(
+        f"COHORT_POOL_LANDING must be an https URL; got {COHORT_POOL_LANDING!r}."
+    )
 
 # --- LinkedTrust OIDC (default login) — read by django-linkedtrust-auth ---
 LINKEDTRUST_URL = env("LINKEDTRUST_URL")

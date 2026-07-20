@@ -261,9 +261,7 @@ def member_remove(request, org_slug, membership_id):
     if membership is None:
         messages.error(request, "That member was not found.")
         return redirect("orgs:members", org_slug=request.org.slug)
-    if membership.role == MembershipRole.ADMIN and not _has_other_admin(
-        request.org, membership
-    ):
+    if membership.role == MembershipRole.ADMIN and not _has_other_admin(request.org, membership):
         messages.error(request, "An organization must keep at least one admin.")
         return redirect("orgs:members", org_slug=request.org.slug)
 
@@ -319,6 +317,10 @@ def _finish_accept(request, invite, user):
         messages.error(request, str(exc))
         return redirect("orgs:landing")
     request.session.pop(SESSION_KEY, None)
+    if membership is None:
+        # Pool invite: screened into the applicant pool, no org joined. Land on the
+        # cohort's pool landing when configured, else GovKit's own landing.
+        return redirect(settings.COHORT_POOL_LANDING or "orgs:landing")
     front_door = cohort_front_door_url(venture_org or membership.org)
     if front_door:
         # Cohort deployment: land on the dash's connect route. No django message —
