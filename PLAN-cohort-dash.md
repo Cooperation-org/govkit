@@ -234,3 +234,27 @@ Tests: `tests/test_cors.py` (no DB needed), `tests/test_cohort_dash.py`
 (three endpoints: member/non-member/anonymous, shapes, cache; adapter
 mocked), adapter-level open-tasks tests in `tests/test_tasksources.py`,
 `_safe_next` allowlist tests in `tests/test_auth_login.py`.
+
+### Addendum (2026-07-20) — front door on invite acceptance
+
+Decision: the cohort dash on the workers.vc apex is THE front door for
+members; GovKit's own dashboard becomes a menu item there. New env
+setting **`COHORT_FRONT_DOOR`** — an **https URL template containing
+`{org_slug}`**; cohort value:
+
+    COHORT_FRONT_DOOR=https://workers.vc/dash/{org_slug}/connect/
+
+Contract: when set, EVERY path that completes an invite join 302s to the
+template with the joined org's slug substituted — the signed-in
+`accept_invite` branch (plain membership AND founder invites, which land
+on the freshly created **venture** org's slug), the anonymous door's
+one-button account creation, and the post-login `consume_pending_invite`
+path (`_complete_login`; an explicit `?next=` still wins there, as
+before). Unset → exactly the old behavior (redirect to `orgs:dashboard`).
+The template is validated at startup (https, `{org_slug}` present, no
+stray placeholders) so a typo fails loudly at boot, never as a broken
+redirect. Django success messages are skipped on the front-door path —
+they could only render out-of-context on a later GovKit page. Shared
+helper: `apps.orgs.invites.cohort_front_door_url(org)`. Tests:
+`tests/test_cohort_front_door.py` (startup validation is subprocess-based
+and needs no DB).
