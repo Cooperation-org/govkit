@@ -248,6 +248,55 @@ def member_update(request, org_slug, membership_id):
 
 @login_required
 @require_POST
+def member_remove(request, org_slug, membership_id):
+    """
+    Admin removes a member from the org. Hard delete of the Membership only —
+    the user account survives. Earning history is sacred: drop lines, project
+    splits and payouts PROTECT the row, so a member who ever earned cannot be
+    hard-removed (that path needs deactivation, not deletion), and ballots
+    are checked explicitly because their CASCADE would silently rewrite vote
+    history. Same last-admin rule as role changes.
+    """
+    from django.db.models import ProtectedError
+
+    _require_admin(request)
+    membership = Membership.objects.filter(org=request.org, id=membership_id).first()
+    if membership is None:
+        messages.error(request, "That member was not found.")
+        return redirect("orgs:members", org_slug=request.org.slug)
+
+    if membership.role == MembershipRole.ADMIN and not _has_other_admin(
+        request.org, membership
+    ):
+        messages.error(request, "An organization must keep at least one admin.")
+        return redirect("orgs:members", org_slug=request.org.slug)
+
+    email = membership.user.email
+    if membership.ballots.exists():
+        messages.error(
+            request,
+            f"{email} has cast votes; removing them would erase that history. "
+            "They need deactivation instead — not built yet.",
+        )
+        return redirect("orgs:members", org_slug=request.org.slug)
+
+    try:
+        membership.delete()
+    except ProtectedError:
+        messages.error(
+            request,
+            f"{email} has earning history (drops, splits, or payouts) and "
+            "can't be removed outright. They need deactivation instead — "
+            "not built yet.",
+        )
+        return redirect("orgs:members", org_slug=request.org.slug)
+
+    messages.success(request, f"{email} removed from {request.org.display_name}.")
+    return redirect("orgs:members", org_slug=request.org.slug)
+
+
+@login_required
+@require_POST
 def org_rate(request, org_slug):
     """Admin sets the org-wide default hourly rate."""
     _require_admin(request)

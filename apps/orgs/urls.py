@@ -43,4 +43,9 @@ urlpatterns = [
         views.member_update,
         name="member_update",
     ),
+    path(
+        "o/<slug:org_slug>/members/<int:membership_id>/remove/",
+        views.member_remove,
+        name="member_remove",
+    ),
 ]
