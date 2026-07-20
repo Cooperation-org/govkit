@@ -174,15 +174,25 @@
     var C = 100, R = 92, a0 = -Math.PI / 2;
     slices.forEach(function (s, i) {
       var frac = num(s.share_pct) / 100;
-      var a1 = a0 + frac * 2 * Math.PI;
-      var large = (a1 - a0) > Math.PI ? 1 : 0;
-      var p = 'M ' + C + ' ' + C +
-        ' L ' + (C + R * Math.cos(a0)) + ' ' + (C + R * Math.sin(a0)) +
-        ' A ' + R + ' ' + R + ' 0 ' + large + ' 1 ' +
-        (C + R * Math.cos(a1)) + ' ' + (C + R * Math.sin(a1)) + ' Z';
-      a0 = a1;
-      var path = document.createElementNS(SVG_NS, 'path');
-      path.setAttribute('d', p);
+      var path;
+      if (frac >= 0.9995) {
+        // A whole-pie slice: the arc's endpoints coincide and the path
+        // collapses to nothing — draw the circle it actually is.
+        path = document.createElementNS(SVG_NS, 'circle');
+        path.setAttribute('cx', C);
+        path.setAttribute('cy', C);
+        path.setAttribute('r', R);
+      } else {
+        var a1 = a0 + frac * 2 * Math.PI;
+        var large = (a1 - a0) > Math.PI ? 1 : 0;
+        var p = 'M ' + C + ' ' + C +
+          ' L ' + (C + R * Math.cos(a0)) + ' ' + (C + R * Math.sin(a0)) +
+          ' A ' + R + ' ' + R + ' 0 ' + large + ' 1 ' +
+          (C + R * Math.cos(a1)) + ' ' + (C + R * Math.sin(a1)) + ' Z';
+        a0 = a1;
+        path = document.createElementNS(SVG_NS, 'path');
+        path.setAttribute('d', p);
+      }
       path.setAttribute('fill', sliceColor(i));
       path.setAttribute('stroke', 'currentColor');
       path.setAttribute('stroke-opacity', '0.15');
