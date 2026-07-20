@@ -4,27 +4,17 @@
   <h1>Members — {{ current_org.display_name }}</h1>
 
   <div class="gk-card">
-    <h2>Org-wide default hourly rate</h2>
-    <form method="post" action="{% url 'orgs:org_rate' org_slug=current_org.slug %}">
-      {% csrf_token %}
-      {{ rate_form.default_hourly_rate.label_tag }} {{ rate_form.default_hourly_rate }}
-      <button type="submit">Save default rate</button>
-    </form>
-    <small>Members without an override use this rate.</small>
-  </div>
-
-  <div class="gk-card">
     <h2>Members &amp; roles</h2>
     <table>
       <thead>
-        <tr><th>Email</th><th>Role</th><th>Hourly rate override</th><th>Effective</th><th></th></tr>
+        <tr><th>Member</th><th>Role</th><th>Hourly rate override</th><th>Effective</th><th></th></tr>
       </thead>
       <tbody>
         {% for m in memberships %}
           <tr>
-            <td>{{ m.user.email }}</td>
+            <td><span class="gk-leaf gk-cat-{% cycle '0' '1' '2' '3' '4' '5' %}"></span>{{ m.user.email }}</td>
             <td colspan="3">
-              <form method="post"
+              <form method="post" class="gk-member-row"
                     action="{% url 'orgs:member_update' org_slug=current_org.slug membership_id=m.id %}">
                 {% csrf_token %}
                 <select name="role">
@@ -44,52 +34,162 @@
         {% endfor %}
       </tbody>
     </table>
+    <form method="post" action="{% url 'orgs:org_rate' org_slug=current_org.slug %}" class="gk-rate-line">
+      {% csrf_token %}
+      <label for="{{ rate_form.default_hourly_rate.id_for_label }}">Org-wide default rate:</label>
+      {{ rate_form.default_hourly_rate }}
+      <button type="submit">Save default</button>
+      <small>Members without an override use it.</small>
+    </form>
   </div>
 
   <div class="gk-card">
-    <h2>Invite a member</h2>
+    <h2>Invite someone</h2>
+    <p class="gk-muted gk-invite-lede">A single-use link is minted for you to share any way
+      you like; they join the moment they say yes.</p>
+
     <form method="post" action="{% url 'orgs:invite_create' org_slug=current_org.slug %}">
       {% csrf_token %}
-      {{ invite_form.name.label_tag }} {{ invite_form.name }}
-      {{ invite_form.email.label_tag }} {{ invite_form.email }}
-      {{ invite_form.link.label_tag }} {{ invite_form.link }}
-      <small>{{ invite_form.link.help_text }}</small>
-      {{ invite_form.image_url.label_tag }} {{ invite_form.image_url }}
-      {{ invite_form.venture_name.label_tag }} {{ invite_form.venture_name }}
-      <small>{{ invite_form.venture_name.help_text }}</small>
-      {{ invite_form.venture_url.label_tag }} {{ invite_form.venture_url }}
-      {{ invite_form.audience.label_tag }} {{ invite_form.audience }}
-      {{ invite_form.role.label_tag }} {{ invite_form.role }}
-      {{ invite_form.drafted_statement.label_tag }} {{ invite_form.drafted_statement }}
-      <small>{{ invite_form.drafted_statement.help_text }}</small>
-      {{ invite_form.drafted_social_post.label_tag }} {{ invite_form.drafted_social_post }}
-      <small>{{ invite_form.drafted_social_post.help_text }}</small>
-      {% if doorway_enabled %}
-        <label>{{ invite_form.doorway }} {{ invite_form.doorway.label }}</label>
-      {% endif %}
-      <button type="submit">Generate invite link</button>
+
+      <div class="gk-fieldgroup">
+        <h3>Who</h3>
+        <div class="gk-form-grid">
+          <div class="gk-field">
+            <label for="{{ invite_form.name.id_for_label }}">Name</label>
+            {{ invite_form.name }}
+          </div>
+          <div class="gk-field">
+            <label for="{{ invite_form.email.id_for_label }}">Email <small>optional — without
+              it, they type theirs when they accept</small></label>
+            {{ invite_form.email }}
+          </div>
+          <div class="gk-field">
+            <label for="{{ invite_form.link.id_for_label }}">Their link <small>LinkedIn or
+              website, optional</small></label>
+            {{ invite_form.link }}
+          </div>
+          <div class="gk-field">
+            <label for="{{ invite_form.image_url.id_for_label }}">Photo URL <small>optional —
+              their card shows it</small></label>
+            {{ invite_form.image_url }}
+          </div>
+        </div>
+      </div>
+
+      <div class="gk-fieldgroup">
+        <h3>How they arrive</h3>
+        <div class="gk-form-grid">
+          <div class="gk-field">
+            <label for="{{ invite_form.audience.id_for_label }}">Audience <small>the door
+              they see</small></label>
+            {{ invite_form.audience }}
+          </div>
+          <div class="gk-field">
+            <label for="{{ invite_form.role.id_for_label }}">Membership role <small>what they
+              can do once in</small></label>
+            {{ invite_form.role }}
+          </div>
+          {% if doorway_enabled %}
+            <div class="gk-field gk-span-2">
+              <small>Their link opens the public commitment page: their words go on the
+                wall, then they land in the org. Mentors are asked for their booking
+                calendar there.</small>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="gk-fieldgroup" id="gk-founder-fields" hidden>
+        <h3>The venture</h3>
+        <div class="gk-form-grid">
+          <div class="gk-field">
+            <label for="{{ invite_form.venture_name.id_for_label }}">Venture <small>what they
+              are launching — accepting creates its org, with them as admin</small></label>
+            {{ invite_form.venture_name }}
+          </div>
+          <div class="gk-field">
+            <label for="{{ invite_form.venture_url.id_for_label }}">Venture link</label>
+            {{ invite_form.venture_url }}
+          </div>
+        </div>
+      </div>
+
+      <div class="gk-fieldgroup">
+        <h3>Your words</h3>
+        <div class="gk-form-grid">
+          <div class="gk-field">
+            <label for="{{ invite_form.drafted_statement.id_for_label }}">Drafted statement
+              <small>a starting draft — they edit it before it goes up</small></label>
+            {{ invite_form.drafted_statement }}
+          </div>
+          <div class="gk-field">
+            <label for="{{ invite_form.drafted_social_post.id_for_label }}">Drafted social post
+              <small>queued only with their consent</small></label>
+            {{ invite_form.drafted_social_post }}
+          </div>
+        </div>
+      </div>
+
+      <p class="gk-mint-row"><button type="submit" class="gk-btn-primary">Mint invite link</button></p>
     </form>
-    <small>A single-use link is generated for you to share; they join on sign-in.</small>
   </div>
 
   <div class="gk-card">
     <h2>Invites</h2>
     <table>
       <thead>
-        <tr><th>Who</th><th>Audience</th><th>Status</th><th>Created</th></tr>
+        <tr><th>Who</th><th>Audience</th><th>Status</th><th>Created</th><th>Link</th><th></th></tr>
       </thead>
       <tbody>
         {% for invite in invites %}
           <tr>
             <td>{{ invite.name|default:invite.email }}</td>
             <td>{{ invite.get_audience_display }}</td>
-            <td>{{ invite.status_label }}</td>
-            <td>{{ invite.created_at|date:"Y-m-d" }}</td>
+            <td><span class="gk-badge {% if invite.status == 'accepted' %}gk-badge-approved{% elif invite.status == 'revoked' %}gk-badge-closed{% else %}gk-badge-draft{% endif %}">{{ invite.status_label|lower }}</span></td>
+            <td class="gk-muted">{{ invite.created_at|date:"Y-m-d" }}</td>
+            <td>
+              {% if invite.share_link %}
+                <div class="gk-sharelink">
+                  <input readonly value="{{ invite.share_link }}" aria-label="Invite link for {{ invite.name|default:invite.email }}">
+                  <button type="button" class="gk-copy" data-link="{{ invite.share_link }}">Copy</button>
+                </div>
+              {% else %}<span class="gk-muted">—</span>{% endif %}
+            </td>
+            <td>
+              {% if invite.can_accept %}
+                <form method="post"
+                      action="{% url 'orgs:invite_revoke' org_slug=current_org.slug invite_id=invite.id %}">
+                  {% csrf_token %}
+                  <button type="submit" class="gk-btn-danger">Revoke</button>
+                </form>
+              {% endif %}
+            </td>
           </tr>
         {% empty %}
-          <tr><td colspan="4" class="gk-placeholder">No invites yet.</td></tr>
+          <tr><td colspan="6" class="gk-placeholder">No invites yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+
+  <script>
+    (function () {
+      // The venture group belongs to founder invites only.
+      var audience = document.getElementById("{{ invite_form.audience.id_for_label }}");
+      var founderFields = document.getElementById("gk-founder-fields");
+      function syncFounder() { founderFields.hidden = audience.value !== "founder"; }
+      audience.addEventListener("change", syncFounder);
+      syncFounder();
+
+      // Copy buttons on the invites ledger.
+      document.querySelectorAll(".gk-copy").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          navigator.clipboard.writeText(btn.dataset.link).then(function () {
+            btn.textContent = "Copied";
+            setTimeout(function () { btn.textContent = "Copy"; }, 1500);
+          });
+        });
+      });
+    })();
+  </script>
 {% endblock %}

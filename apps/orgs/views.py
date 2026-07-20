@@ -27,7 +27,7 @@ from .invites import (
     accept_invite_for_user,
     get_invite_for_accept,
 )
-from .models import ChecklistItem, Invite, Membership, MembershipRole, Org
+from .models import ChecklistItem, Invite, InviteStatus, Membership, MembershipRole, Org
 
 
 def landing(request):
@@ -109,6 +109,13 @@ def _require_admin(request):
         raise PermissionDenied("Only organization admins may manage members.")
 
 
+def _invite_share_link(request, invite):
+    """The one shareable URL for an invite — doorway page or direct accept."""
+    if invite.doorway and settings.DOORWAY_BASE_URL:
+        return f"{settings.DOORWAY_BASE_URL}{invite.code}/"
+    return request.build_absolute_uri(reverse("orgs:accept_invite", kwargs={"code": invite.code}))
+
+
 @login_required
 def members(request, org_slug):
     """Admin UI: list members with role + rate controls, org-wide rate, and an invite form."""
@@ -118,6 +125,10 @@ def members(request, org_slug):
         .select_related("user", "org")
         .order_by("user__email")
     )
+    invites = list(Invite.objects.filter(org=request.org).order_by("-created_at"))
+    for invite in invites:
+        # Live links stay copyable from the ledger; dead ones show none.
+        invite.share_link = _invite_share_link(request, invite) if invite.can_accept else ""
     return render(
         request,
         "orgs/members.html",
@@ -125,7 +136,7 @@ def members(request, org_slug):
             "memberships": memberships,
             "roles": MembershipRole.choices,
             "invite_form": InviteForm(),
-            "invites": Invite.objects.filter(org=request.org).order_by("-created_at"),
+            "invites": invites,
             "doorway_enabled": bool(settings.DOORWAY_BASE_URL),
             "rate_form": OrgRateForm(
                 initial={"default_hourly_rate": request.org.default_hourly_rate}
@@ -160,18 +171,30 @@ def invite_create(request, org_slug):
         venture_url=data.get("venture_url", ""),
         drafted_statement=data.get("drafted_statement", ""),
         drafted_social_post=data.get("drafted_social_post", ""),
+        doorway=bool(settings.DOORWAY_BASE_URL),  # one flow: doorway whenever configured
         created_by=request.user,
     )
-    if data.get("doorway") and settings.DOORWAY_BASE_URL:
-        link = f"{settings.DOORWAY_BASE_URL}{invite.code}/"
-    else:
-        link = request.build_absolute_uri(
-            reverse("orgs:accept_invite", kwargs={"code": invite.code})
-        )
     messages.success(
         request,
-        f"Invite link for {invite.name or invite.email} (share it directly): {link}",
+        f"Invite minted for {invite.name or invite.email or 'your invitee'} — "
+        "copy the link from the invites list below.",
     )
+    return redirect("orgs:members", org_slug=request.org.slug)
+
+
+@login_required
+@require_POST
+def invite_revoke(request, org_slug, invite_id):
+    """Admin kills a live invite link. Accepted invites are past revoking."""
+    _require_admin(request)
+    invite = Invite.objects.filter(org=request.org, id=invite_id).first()
+    if invite is None:
+        messages.error(request, "That invite was not found.")
+    elif invite.status == InviteStatus.ACCEPTED:
+        messages.error(request, "That invite was already accepted — remove the member instead.")
+    else:
+        invite.mark_revoked()
+        messages.success(request, f"Invite for {invite.name or invite.email or invite.code} revoked.")
     return redirect("orgs:members", org_slug=request.org.slug)
 
 
@@ -232,12 +255,37 @@ def _has_other_admin(org, excluding):
 # --- Invite acceptance -----------------------------------------------------------------
 
 
+def _finish_accept(request, invite, user):
+    """Join + land: the shared tail of every accept path."""
+    try:
+        membership, venture_org = accept_invite_for_user(invite, user)
+    except InviteError as exc:
+        messages.error(request, str(exc))
+        return redirect("orgs:landing")
+    request.session.pop(SESSION_KEY, None)
+    if venture_org is not None:
+        messages.success(
+            request,
+            f"{venture_org.display_name} is set up. Start anywhere on the checklist.",
+        )
+        return redirect("orgs:dashboard", org_slug=venture_org.slug)
+    messages.success(request, f"You have joined {membership.org.display_name}.")
+    return redirect("orgs:dashboard", org_slug=membership.org.slug)
+
+
 def accept_invite(request, code):
     """
-    Land here from a magic link (directly, or via the doorway after commit). If signed
-    in, join immediately; otherwise stash the CODE in the session and route through
-    login (consume_pending_invite finishes the join right after _complete_login).
+    Land here from a magic link (directly, or via the doorway after commit). Signed-in
+    visitors join immediately. Anonymous visitors get the door: the invite code is a
+    bearer capability (see apps/orgs/invites.py), so one button creates their account
+    and membership — zero friction, we trust the inviter. Existing sign-ins remain a
+    side path (code stashed in session; consume_pending_invite finishes after login).
+    The one hard rule: link possession never signs you into an EXISTING account.
     """
+    from django.contrib.auth import get_user_model, login
+    from django.core.exceptions import ValidationError
+    from django.core.validators import validate_email
+
     try:
         invite = get_invite_for_accept(code)  # validate before doing anything
     except InviteError as exc:
@@ -245,19 +293,43 @@ def accept_invite(request, code):
         return redirect("orgs:landing")
 
     if request.user.is_authenticated:
-        try:
-            membership, venture_org = accept_invite_for_user(invite, request.user)
-        except InviteError as exc:
-            messages.error(request, str(exc))
-            return redirect("orgs:landing")
-        if venture_org is not None:
-            messages.success(
-                request,
-                f"{venture_org.display_name} is set up. Start anywhere on the checklist.",
-            )
-            return redirect("orgs:dashboard", org_slug=venture_org.slug)
-        messages.success(request, f"You have joined {membership.org.display_name}.")
-        return redirect("orgs:dashboard", org_slug=membership.org.slug)
+        return _finish_accept(request, invite, request.user)
 
+    # Anonymous: stash the code so the "use my existing sign-in" side door (or any
+    # OAuth button) completes the join right after login.
     request.session[SESSION_KEY] = code
-    return redirect("accounts:login")
+    door_context = {
+        "invite": invite,
+        "org": invite.org,
+        "needs_email": not invite.email,
+        "linkedtrust_configured": bool(settings.LINKEDTRUST_CLIENT_ID),
+        "google_configured": bool(settings.GOOGLE_OAUTH_CLIENT_ID),
+    }
+
+    if request.method == "POST":
+        User = get_user_model()
+        email = (invite.email or request.POST.get("email", "")).strip()
+        if not email:
+            door_context["error"] = "Enter your email — it becomes your sign-in here."
+            return render(request, "orgs/invite_door.html", door_context, status=400)
+        try:
+            validate_email(email)
+        except ValidationError:
+            door_context["error"] = "That email doesn't look right."
+            door_context["email_value"] = email
+            return render(request, "orgs/invite_door.html", door_context, status=400)
+
+        existing = User.objects.filter(email__iexact=email).first()
+        if existing is not None:
+            # Possession of the link must never unlock an account that already exists.
+            messages.info(
+                request,
+                "That email already has an account here — sign in and you're in.",
+            )
+            return redirect("accounts:login")
+
+        user = User.objects.create_user(email=email, display_name=invite.name)
+        login(request, user)  # sole backend: ModelBackend
+        return _finish_accept(request, invite, user)
+
+    return render(request, "orgs/invite_door.html", door_context)

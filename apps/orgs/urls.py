@@ -27,6 +27,11 @@ urlpatterns = [
     ),
     path("o/<slug:org_slug>/members/", views.members, name="members"),
     path("o/<slug:org_slug>/members/invite/", views.invite_create, name="invite_create"),
+    path(
+        "o/<slug:org_slug>/members/invites/<int:invite_id>/revoke/",
+        views.invite_revoke,
+        name="invite_revoke",
+    ),
     path("o/<slug:org_slug>/members/rate/", views.org_rate, name="org_rate"),
     path(
         "o/<slug:org_slug>/members/<int:membership_id>/update/",

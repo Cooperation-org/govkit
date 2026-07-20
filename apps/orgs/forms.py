@@ -227,9 +227,9 @@ class InviteForm(forms.Form):
         label="Drafted social post",
         help_text="Your words. Queued only with the invitee's consent.",
     )
-    doorway = forms.BooleanField(
-        required=False, label="Doorway invite (public commitment page first)"
-    )
+    # ONE invite flow: every invite routes through the public commitment page whenever
+    # a doorway is configured (DOORWAY_BASE_URL). No per-invite choice — two entrances
+    # for one job is the UX failure this replaces.
 
     def clean(self):
         data = super().clean()

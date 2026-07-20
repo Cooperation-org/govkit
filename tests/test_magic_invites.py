@@ -269,8 +269,9 @@ def test_accepted_invite_is_single_use(client, invite, user_factory):
 
 
 @pytest.mark.django_db
-def test_existing_member_reaccept_keeps_role(client, invite, user_factory, membership_factory):
-    """Re-accepting into an org you already belong to never re-roles you."""
+def test_existing_member_preview_keeps_role_and_invite(client, invite, user_factory, membership_factory):
+    """An existing member on an invite link (the inviter previewing) is never
+    re-roled AND never burns the single-use code — it stays live for the invitee."""
     user = user_factory()
     membership_factory(org=invite.org, user=user, role=MembershipRole.ADMIN)
     invite.role = MembershipRole.MEMBER
@@ -279,7 +280,7 @@ def test_existing_member_reaccept_keeps_role(client, invite, user_factory, membe
     client.get(_accept_url(invite))
     assert Membership.objects.get(org=invite.org, user=user).role == MembershipRole.ADMIN
     invite.refresh_from_db()
-    assert invite.status == InviteStatus.ACCEPTED
+    assert invite.status == InviteStatus.CREATED  # still live for the real invitee
 
 
 @pytest.mark.django_db
@@ -320,7 +321,9 @@ def _mint_data(**overrides):
 
 
 @pytest.mark.django_db
-def test_mint_direct_invite(client, admin_org):
+def test_mint_invite_routes_through_doorway(client, admin_org, settings):
+    """ONE flow: every invite is a doorway invite whenever a doorway is configured."""
+    settings.DOORWAY_BASE_URL = "https://doorway.example/i/"
     org, admin = admin_org
     client.force_login(admin)
     resp = client.post(_mint_url(org), _mint_data(), follow=True)
@@ -330,31 +333,23 @@ def test_mint_direct_invite(client, admin_org):
     assert invite.audience == "mentor"
     assert invite.drafted_statement == "My drafted words."
     assert invite.created_by == admin
-    message = str(list(resp.context["messages"])[0])
-    assert _accept_url(invite) in message  # direct link → the accept URL
+    assert invite.doorway is True
+    content = resp.content.decode()
+    # The link lives in the invites ledger (copyable any time), not a flash message.
+    assert f"https://doorway.example/i/{invite.code}/" in content
+    assert _accept_url(invite) not in content
 
 
 @pytest.mark.django_db
-def test_mint_doorway_invite_builds_doorway_link(client, admin_org, settings):
-    settings.DOORWAY_BASE_URL = "https://doorway.example/i/"
-    org, admin = admin_org
-    client.force_login(admin)
-    resp = client.post(_mint_url(org), _mint_data(doorway="on"), follow=True)
-    invite = Invite.objects.get(org=org)
-    message = str(list(resp.context["messages"])[0])
-    assert f"https://doorway.example/i/{invite.code}/" in message
-    assert _accept_url(invite) not in message
-
-
-@pytest.mark.django_db
-def test_mint_doorway_falls_back_to_direct_when_unconfigured(client, admin_org, settings):
+def test_mint_without_doorway_links_straight_to_accept(client, admin_org, settings):
+    """Self-hosters with no doorway still get a working link — the accept door."""
     settings.DOORWAY_BASE_URL = ""
     org, admin = admin_org
     client.force_login(admin)
-    resp = client.post(_mint_url(org), _mint_data(doorway="on"), follow=True)
+    resp = client.post(_mint_url(org), _mint_data(), follow=True)
     invite = Invite.objects.get(org=org)
-    message = str(list(resp.context["messages"])[0])
-    assert _accept_url(invite) in message
+    assert invite.doorway is False
+    assert _accept_url(invite) in resp.content.decode()
 
 
 @pytest.mark.django_db
@@ -376,4 +371,140 @@ def test_members_page_lists_invite_statuses(client, admin_org, invite):
     assert resp.status_code == 200
     content = resp.content.decode()
     assert "Jane Doe" in content
-    assert "Committed" in content
+    assert "committed" in content
+    # Live invites keep a copyable link and a revoke control in the ledger.
+    assert _accept_url(invite) in content
+    assert reverse(
+        "orgs:invite_revoke", kwargs={"org_slug": org.slug, "invite_id": invite.id}
+    ) in content
+
+
+# --- The door (anonymous zero-friction accept) ----------------------------------------------
+
+
+@pytest.mark.django_db
+def test_door_renders_for_anonymous(client, invite):
+    """A magic link with no session opens the door, not a login bounce."""
+    resp = client.get(_accept_url(invite))
+    assert resp.status_code == 200
+    content = resp.content.decode()
+    assert "Jane Doe, you're invited" in content
+    assert invite.org.display_name in content
+    assert invite.drafted_statement in content
+    assert 'name="email"' not in content  # inviter supplied the email already
+    assert client.session.get("pending_invite_code") == invite.code
+
+
+@pytest.mark.django_db
+def test_door_accept_creates_account_and_membership(client, invite):
+    """One button: account minted from the invite email, membership materialized."""
+    from django.contrib.auth import get_user_model
+
+    resp = client.post(_accept_url(invite))
+    assert resp.status_code == 302
+    assert resp["Location"] == reverse("orgs:dashboard", kwargs={"org_slug": invite.org.slug})
+    user = get_user_model().objects.get(email="jane@example.com")
+    assert user.display_name == "Jane Doe"
+    assert not user.has_usable_password()
+    assert Membership.objects.filter(org=invite.org, user=user).exists()
+    invite.refresh_from_db()
+    assert invite.status == InviteStatus.ACCEPTED
+    # And they are signed in — the org dashboard actually loads.
+    assert client.get(resp["Location"]).status_code == 200
+
+
+@pytest.mark.django_db
+def test_door_prompts_for_email_when_invite_has_none(client, admin_org):
+    org, _ = admin_org
+    invite = Invite.objects.create(org=org, role=MembershipRole.MEMBER, name="No Email")
+    resp = client.get(_accept_url(invite))
+    assert 'name="email"' in resp.content.decode()
+
+    resp = client.post(_accept_url(invite))  # no email typed
+    assert resp.status_code == 400
+    assert not Membership.objects.filter(org=org).exclude(user__email="admin@example.com").exists()
+
+    resp = client.post(_accept_url(invite), {"email": "typed@example.com"})
+    assert resp.status_code == 302
+    assert Membership.objects.filter(org=org, user__email="typed@example.com").exists()
+
+
+@pytest.mark.django_db
+def test_door_never_signs_into_existing_account(client, invite, user_factory):
+    """Link possession must not unlock an account that already exists."""
+    user_factory(email="jane@example.com")
+    resp = client.post(_accept_url(invite))
+    assert resp.status_code == 302
+    assert resp["Location"] == reverse("accounts:login")
+    assert not Membership.objects.filter(org=invite.org, user__email="jane@example.com").exists()
+    invite.refresh_from_db()
+    assert invite.status == InviteStatus.CREATED  # still live; they accept after signing in
+
+
+@pytest.mark.django_db
+def test_door_founder_accept_creates_venture_org(client, admin_org):
+    from apps.orgs.models import Org
+
+    org, _ = admin_org
+    invite = Invite.objects.create(
+        org=org,
+        role=MembershipRole.MEMBER,
+        audience="founder",
+        name="Fay Founder",
+        email="fay@example.com",
+        venture_name="Wayfern",
+    )
+    resp = client.post(_accept_url(invite))
+    venture = Org.objects.get(display_name="Wayfern")
+    assert resp["Location"] == reverse("orgs:dashboard", kwargs={"org_slug": venture.slug})
+    assert Membership.objects.filter(
+        org=venture, user__email="fay@example.com", role=MembershipRole.ADMIN
+    ).exists()
+
+
+# --- Revoke ---------------------------------------------------------------------------------
+
+
+def _revoke_url(invite):
+    return reverse(
+        "orgs:invite_revoke", kwargs={"org_slug": invite.org.slug, "invite_id": invite.id}
+    )
+
+
+@pytest.mark.django_db
+def test_admin_revokes_live_invite(client, admin_org, invite):
+    org, admin = admin_org
+    client.force_login(admin)
+    resp = client.post(_revoke_url(invite))
+    assert resp.status_code == 302
+    invite.refresh_from_db()
+    assert invite.status == InviteStatus.REVOKED
+    # The dead link bounces at the door.
+    client.logout()
+    resp = client.get(_accept_url(invite))
+    assert resp["Location"] == reverse("orgs:landing")
+
+
+@pytest.mark.django_db
+def test_accepted_invite_cannot_be_revoked(client, admin_org, invite, user_factory):
+    org, admin = admin_org
+    user = user_factory()
+    client.force_login(user)
+    client.get(_accept_url(invite))  # accept
+    client.logout()
+    client.force_login(admin)
+    client.post(_revoke_url(invite))
+    invite.refresh_from_db()
+    assert invite.status == InviteStatus.ACCEPTED  # the join stands
+
+
+@pytest.mark.django_db
+def test_revoke_is_admin_only(client, admin_org, invite, user_factory, membership_factory):
+    org, _ = admin_org
+    member = user_factory()
+    membership_factory(org=org, user=member, role=MembershipRole.MEMBER)
+    client.force_login(member)
+    resp = client.post(_revoke_url(invite))
+    assert resp.status_code == 403
+    invite.refresh_from_db()
+    assert invite.status == InviteStatus.CREATED

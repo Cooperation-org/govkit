@@ -86,14 +86,20 @@ def accept_invite_for_user(invite: Invite, user) -> tuple[Membership, Org | None
     right landing page for the founder).
 
     Idempotent for the user: if they already belong to the org, their existing
-    membership is returned unchanged rather than duplicated or re-roled.
+    membership is returned unchanged — and the invite is NOT consumed (an existing
+    member on an invite link is previewing it, not joining).
     """
     if not invite.can_accept:
         raise InviteError("This invite is no longer active.")
 
     membership = Membership.objects.filter(org=invite.org, user=user).first()
-    if membership is None:
-        membership = Membership.objects.create(org=invite.org, user=user, role=invite.role)
+    if membership is not None:
+        # An existing member touching an invite link is previewing it (typically the
+        # inviter checking their own mint) — never burn the single-use code on them,
+        # never re-role them, never spawn the venture. The invite stays live for the
+        # person it was minted for.
+        return membership, None
+    membership = Membership.objects.create(org=invite.org, user=user, role=invite.role)
     venture_org = None
     if invite.audience == InviteAudience.FOUNDER and invite.venture_name:
         venture_org = create_venture_org(invite, user)

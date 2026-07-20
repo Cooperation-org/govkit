@@ -29,10 +29,10 @@ def test_invite_link_then_login_creates_member(client, admin_org, user_factory, 
     org, _ = admin_org
     invite = Invite.objects.create(org=org, role=MembershipRole.MEMBER, email="invitee@example.com")
 
-    # Anonymous visitor follows the invite link → routed to login, code stashed.
+    # Anonymous visitor follows the invite link → the door renders, code stashed.
+    # (The "sign in instead" side path below still finishes the join after login.)
     resp = client.get(_accept_url(invite))
-    assert resp.status_code == 302
-    assert resp["Location"] == reverse("accounts:login")
+    assert resp.status_code == 200
     assert client.session.get("pending_invite_code") == invite.code
 
     # They sign in (dev seam here); the pending invite is consumed on login.

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}You're invited — {{ org.display_name }} — GovKit{% endblock %}
+{% block content %}
+  {% comment %}
+    17 · THE DOOR IS PLAIN — who invited you, as what, one way in. The invite code
+    is a bearer capability (apps/orgs/invites.py): the primary action needs no
+    sign-in. Existing accounts take the quiet side door through login.
+  {% endcomment %}
+  <div class="gk-door">
+    <svg width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
+      <g stroke="var(--gk-ink-2)" stroke-width="1.6" stroke-linecap="round" fill="none">
+        <path d="M12 22V9"/>
+        <path d="M12 15c0-3-3.5-3.5-5-6.5"/>
+        <path d="M12 12c0-2.5 3.5-3 5-5.5"/>
+      </g>
+      <circle cx="7" cy="7" r="2.3" fill="var(--gk-cat-2)"/>
+      <circle cx="12" cy="6.5" r="2.3" fill="var(--gk-cat-0)"/>
+      <circle cx="17" cy="5" r="2.3" fill="var(--gk-cat-4)"/>
+    </svg>
+
+    <h1>{% if invite.name %}{{ invite.name }}, you're invited{% else %}You're invited{% endif %}</h1>
+    <p class="gk-muted">
+      {{ org.display_name }} invited you to join as
+      {% if invite.audience == 'advisor' %}an advisor{% else %}a {{ invite.get_audience_display|lower }}{% endif %}.
+      {% if invite.venture_name %}Saying yes sets up {{ invite.venture_name }} — yours to run.{% endif %}
+    </p>
+
+    {% if invite.drafted_statement and invite.status == 'created' %}
+      {# Post-wall arrivals already wrote their own words — no need to replay the draft. #}
+      <div class="gk-invite-words">
+        <p class="gk-invite-words-from">From your inviter</p>
+        <p>{{ invite.drafted_statement }}</p>
+      </div>
+    {% endif %}
+
+    {% if error %}<p class="gk-error">{{ error }}</p>{% endif %}
+
+    <form method="post" class="gk-ways">
+      {% csrf_token %}
+      {% if needs_email %}
+        <label for="door-email">Your email <small>— it becomes your sign-in here</small></label>
+        <input id="door-email" type="email" name="email" required
+               value="{{ email_value|default:'' }}" autocomplete="email">
+      {% endif %}
+      <button type="submit" class="gk-btn gk-btn-primary">Count me in</button>
+    </form>
+
+    <p class="gk-muted gk-door-fine">
+      {% if linkedtrust_configured %}
+        Already have an account here?
+        <a href="{% url 'accounts:login' %}">Sign in instead</a> — the invite follows you through.
+      {% endif %}
+    </p>
+    <p class="gk-muted gk-door-fine">This link is yours alone and works once.</p>
+  </div>
+{% endblock %}

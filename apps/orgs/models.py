@@ -217,6 +217,10 @@ class Invite(models.Model):
     drafted_statement = models.TextField(blank=True)
     drafted_social_post = models.TextField(blank=True)
 
+    # Doorway invites route through the public commitment page first; direct invites
+    # go straight to accept. Persisted so the share link can be rebuilt any time.
+    doorway = models.BooleanField(default=False)
+
     status = models.CharField(
         max_length=20, choices=InviteStatus.choices, default=InviteStatus.CREATED
     )
@@ -277,6 +281,13 @@ class Invite(models.Model):
 
     def mark_accepted(self):
         self.status = InviteStatus.ACCEPTED
+        self.save(update_fields=["status"])
+
+    def mark_revoked(self):
+        """Kill the link at any pre-accept point (no-op once accepted — the join stands)."""
+        if self.status == InviteStatus.ACCEPTED:
+            return
+        self.status = InviteStatus.REVOKED
         self.save(update_fields=["status"])
 
 
