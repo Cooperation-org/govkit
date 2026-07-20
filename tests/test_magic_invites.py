@@ -566,3 +566,111 @@ def test_mint_invite_command_unknown_org_fails(settings):
 
     with pytest.raises(CommandError):
         call_command("mint_invite", "nope", "--name", "X")
+
+
+# --- Pool invites (kind=pool: screened applicants, never members) --------------------
+
+
+def _pool_invite(org, **kwargs):
+    from apps.orgs.models import InviteKind
+
+    defaults = dict(
+        org=org,
+        kind=InviteKind.POOL,
+        audience="supporter",
+        name="Walk Up",
+        email="walkup@example.com",
+    )
+    defaults.update(kwargs)
+    return Invite.objects.create(**defaults)
+
+
+@pytest.mark.django_db
+def test_pool_accept_joins_no_org_and_creates_none(client, admin_org, user_factory, monkeypatch):
+    """The applicant-pool contract (golda 2026-07-20): accepting a pool invite
+    records the person (accepted + accepted_by) and NOTHING else — no
+    membership, no org, and no provisioning report to amebo."""
+    from apps.orgs import invites as invites_module
+    from apps.orgs.models import Org
+
+    reported = []
+    monkeypatch.setattr(invites_module, "provision_membership", lambda *a, **k: reported.append(a))
+    org, _ = admin_org
+    invite = _pool_invite(org)
+    orgs_before = Org.objects.count()
+    user = user_factory(email="walkup@example.com")
+    client.force_login(user)
+
+    resp = client.get(_accept_url(invite))
+
+    assert resp.status_code == 302
+    assert resp["Location"] == reverse("orgs:landing")  # no COHORT_POOL_LANDING set
+    assert not Membership.objects.filter(user=user).exists()
+    assert Org.objects.count() == orgs_before
+    assert reported == []
+    invite.refresh_from_db()
+    assert invite.status == InviteStatus.ACCEPTED
+    assert invite.accepted_by == user
+
+
+@pytest.mark.django_db
+def test_pool_accept_lands_on_cohort_pool_landing(client, admin_org, user_factory, settings):
+    settings.COHORT_POOL_LANDING = "https://workers.vc/pool/"
+    org, _ = admin_org
+    invite = _pool_invite(org)
+    user = user_factory()
+    client.force_login(user)
+    resp = client.get(_accept_url(invite))
+    assert resp.status_code == 302
+    assert resp["Location"] == "https://workers.vc/pool/"
+
+
+@pytest.mark.django_db
+def test_pool_invite_is_single_use(client, admin_org, user_factory):
+    org, _ = admin_org
+    invite = _pool_invite(org)
+    first = user_factory()
+    client.force_login(first)
+    client.get(_accept_url(invite))
+
+    client.logout()
+    second = user_factory()
+    client.force_login(second)
+    resp = client.get(_accept_url(invite))
+    assert resp["Location"] == reverse("orgs:landing")
+    invite.refresh_from_db()
+    assert invite.accepted_by == first
+
+
+@pytest.mark.django_db
+def test_pool_invite_preview_by_existing_member_does_not_burn(client, admin_org):
+    """The inviter checking their own pool link is previewing, not applying."""
+    org, admin = admin_org
+    invite = _pool_invite(org)
+    client.force_login(admin)
+    client.get(_accept_url(invite))
+    invite.refresh_from_db()
+    assert invite.status == InviteStatus.CREATED
+    assert invite.accepted_by is None
+
+
+@pytest.mark.django_db
+def test_mint_invite_command_pool_flag(org_factory, capsys):
+    from django.core.management import call_command
+
+    from apps.orgs.models import InviteKind
+
+    org = org_factory(slug="vc")
+    call_command("mint_invite", "vc", "--name", "Walk Up", "--pool")
+    invite = Invite.objects.get(org=org)
+    assert invite.kind == InviteKind.POOL
+
+
+@pytest.mark.django_db
+def test_mint_invite_command_pool_refuses_venture(org_factory):
+    from django.core.management import call_command
+    from django.core.management.base import CommandError
+
+    org_factory(slug="vc")
+    with pytest.raises(CommandError):
+        call_command("mint_invite", "vc", "--name", "X", "--pool", "--venture-name", "Y")
