@@ -52,6 +52,16 @@
       <p>Use the tabs above: <strong>Drops</strong> (earnings engine), <strong>Pie</strong>
         (shares), <strong>Votes</strong>, <strong>Committee</strong> (sortition).</p>
     </div>
+    {% if request.membership.role == 'admin' or request.user.is_superuser %}
+      <div class="gk-card">
+        <form method="post" action="{% url 'orgs:checklist_seed' org_slug=current_org.slug %}">
+          {% csrf_token %}
+          <button type="submit" class="gk-btn-primary">Start the path</button>
+          <small>Seed the module checklist — exists, who it's for, build, money,
+            receipts. It shows here and on the team dash.</small>
+        </form>
+      </div>
+    {% endif %}
   {% endif %}
 
   {% if request.membership and request.membership.role == 'admin' or request.user.is_superuser %}

@@ -82,6 +82,20 @@ def checklist_toggle(request, org_slug, item_id):
 
 
 @login_required
+@require_POST
+def checklist_seed(request, org_slug):
+    """Admin starts the path for an org that has no checklist yet (only
+    founder-created ventures get one automatically)."""
+    _require_admin(request)
+    if not ChecklistItem.objects.filter(org=request.org).exists():
+        from .genesis import seed_genesis
+
+        seed_genesis(request.org)
+        messages.success(request, "The path is ready. Start anywhere.")
+    return redirect("orgs:dashboard", org_slug=request.org.slug)
+
+
+@login_required
 def onboarding(request):
     """One-flow org setup: create Org + ValuationConfig + admin Membership, land on Members."""
     if request.method == "POST":

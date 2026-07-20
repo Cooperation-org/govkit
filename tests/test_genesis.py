@@ -189,3 +189,34 @@ def test_onboarding_two_answers_is_enough(client, user_factory, db):
     org = Org.objects.get(slug="my-venture")
     assert org.unit_name == "points"
     assert org.valuation_config.valuation_mode == "hours_rate"
+
+
+@pytest.mark.django_db
+def test_admin_seeds_path_for_existing_org(client, org_factory, user_factory, membership_factory):
+    """Orgs that predate their checklist get a one-click start (admin only)."""
+    from apps.orgs.models import ChecklistItem, MembershipRole
+
+    org = org_factory()
+    admin = user_factory()
+    membership_factory(org=org, user=admin, role=MembershipRole.ADMIN)
+    client.force_login(admin)
+    resp = client.post(f"/o/{org.slug}/checklist/seed/")
+    assert resp.status_code == 302
+    assert ChecklistItem.objects.filter(org=org).count() > 0
+    # Idempotent: seeding again never duplicates.
+    n = ChecklistItem.objects.filter(org=org).count()
+    client.post(f"/o/{org.slug}/checklist/seed/")
+    assert ChecklistItem.objects.filter(org=org).count() == n
+
+
+@pytest.mark.django_db
+def test_member_cannot_seed_path(client, org_factory, user_factory, membership_factory):
+    from apps.orgs.models import ChecklistItem, MembershipRole
+
+    org = org_factory()
+    member = user_factory()
+    membership_factory(org=org, user=member, role=MembershipRole.MEMBER)
+    client.force_login(member)
+    resp = client.post(f"/o/{org.slug}/checklist/seed/")
+    assert resp.status_code == 403
+    assert not ChecklistItem.objects.filter(org=org).exists()
