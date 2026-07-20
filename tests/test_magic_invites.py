@@ -269,7 +269,9 @@ def test_accepted_invite_is_single_use(client, invite, user_factory):
 
 
 @pytest.mark.django_db
-def test_existing_member_preview_keeps_role_and_invite(client, invite, user_factory, membership_factory):
+def test_existing_member_preview_keeps_role_and_invite(
+    client, invite, user_factory, membership_factory
+):
     """An existing member on an invite link (the inviter previewing) is never
     re-roled AND never burns the single-use code — it stays live for the invitee."""
     user = user_factory()
@@ -374,9 +376,10 @@ def test_members_page_lists_invite_statuses(client, admin_org, invite):
     assert "committed" in content
     # Live invites keep a copyable link and a revoke control in the ledger.
     assert _accept_url(invite) in content
-    assert reverse(
-        "orgs:invite_revoke", kwargs={"org_slug": org.slug, "invite_id": invite.id}
-    ) in content
+    assert (
+        reverse("orgs:invite_revoke", kwargs={"org_slug": org.slug, "invite_id": invite.id})
+        in content
+    )
 
 
 # --- The door (anonymous zero-friction accept) ----------------------------------------------
