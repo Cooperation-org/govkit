@@ -320,9 +320,7 @@ def test_admin_can_remove_self_when_another_admin_remains(
 
 
 @pytest.mark.django_db
-def test_member_with_earned_lines_is_protected(
-    client, admin_org, user_factory, membership_factory
-):
+def test_member_with_earned_lines_is_protected(client, admin_org, user_factory, membership_factory):
     from apps.drops.models import DropLine, DropRun
 
     org, admin = admin_org
