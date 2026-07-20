@@ -13,6 +13,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.db.models import ProtectedError
 from django.http import Http404
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -243,6 +244,44 @@ def member_update(request, org_slug, membership_id):
     membership.hourly_rate = form.cleaned_data.get("hourly_rate")
     membership.save(update_fields=["role", "hourly_rate"])
     messages.success(request, "Member updated.")
+    return redirect("orgs:members", org_slug=request.org.slug)
+
+
+@login_required
+@require_POST
+def member_remove(request, org_slug, membership_id):
+    """
+    Admin removes a member from the org. The user account survives (it is
+    global); only the membership goes. Ballots cascade; issued drop lines and
+    project splits/payouts PROTECT the membership — earned history is
+    immutable, so those members cannot be deleted, only (one day) deactivated.
+    """
+    _require_admin(request)
+    membership = Membership.objects.filter(org=request.org, id=membership_id).first()
+    if membership is None:
+        messages.error(request, "That member was not found.")
+        return redirect("orgs:members", org_slug=request.org.slug)
+    if membership.role == MembershipRole.ADMIN and not _has_other_admin(
+        request.org, membership
+    ):
+        messages.error(request, "An organization must keep at least one admin.")
+        return redirect("orgs:members", org_slug=request.org.slug)
+
+    removing_self = membership.user_id == request.user.id
+    email = membership.user.email
+    try:
+        membership.delete()
+    except ProtectedError:
+        messages.error(
+            request,
+            f"{email} has earned equity or payouts on the record, so their "
+            "membership cannot be deleted — the earnings record is immutable.",
+        )
+        return redirect("orgs:members", org_slug=request.org.slug)
+
+    messages.success(request, f"{email} removed from {request.org.display_name}.")
+    if removing_self and not request.user.is_superuser:
+        return redirect("orgs:landing")
     return redirect("orgs:members", org_slug=request.org.slug)
 
 

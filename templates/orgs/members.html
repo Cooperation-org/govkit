@@ -28,6 +28,14 @@
                 <button type="submit">Save</button>
               </form>
             </td>
+            <td>
+              <form method="post" class="gk-member-remove"
+                    action="{% url 'orgs:member_remove' org_slug=current_org.slug membership_id=m.id %}"
+                    onsubmit="return confirm('Remove {{ m.user.email|escapejs }} from {{ current_org.display_name|escapejs }}? Their account and any earned record stay.')">
+                {% csrf_token %}
+                <button type="submit" class="gk-btn-danger">Remove</button>
+              </form>
+            </td>
           </tr>
         {% empty %}
           <tr><td colspan="5" class="gk-placeholder">No members yet.</td></tr>

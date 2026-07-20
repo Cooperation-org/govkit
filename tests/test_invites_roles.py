@@ -262,3 +262,76 @@ def test_admin_can_read_member_rate(client, admin_org, user_factory, membership_
     resp = client.get(f"/api/v1/orgs/memberships/{cm.id}/")
     assert resp.status_code == 200, resp.content
     assert resp.json()["hourly_rate"] == "99.00"
+
+
+# --- Member removal --------------------------------------------------------------------
+
+
+def _remove_url(org, m):
+    return reverse("orgs:member_remove", kwargs={"org_slug": org.slug, "membership_id": m.id})
+
+
+@pytest.mark.django_db
+def test_admin_removes_member(client, admin_org, user_factory, membership_factory):
+    org, admin = admin_org
+    member = user_factory(email="gone@example.com")
+    m = membership_factory(org=org, user=member, role=MembershipRole.MEMBER)
+    client.force_login(admin)
+    resp = client.post(_remove_url(org, m))
+    assert resp.status_code == 302
+    assert not Membership.objects.filter(id=m.id).exists()
+    member.refresh_from_db()  # the account itself survives
+
+
+@pytest.mark.django_db
+def test_member_cannot_remove(client, admin_org, user_factory, membership_factory):
+    org, _ = admin_org
+    member = user_factory()
+    m = membership_factory(org=org, user=member, role=MembershipRole.MEMBER)
+    client.force_login(member)
+    resp = client.post(_remove_url(org, m))
+    assert resp.status_code == 403
+    assert Membership.objects.filter(id=m.id).exists()
+
+
+@pytest.mark.django_db
+def test_cannot_remove_last_admin(client, admin_org):
+    org, admin = admin_org
+    m = Membership.objects.get(org=org, user=admin)
+    client.force_login(admin)
+    resp = client.post(_remove_url(org, m))
+    assert resp.status_code == 302
+    assert Membership.objects.filter(id=m.id).exists()
+
+
+@pytest.mark.django_db
+def test_admin_can_remove_self_when_another_admin_remains(
+    client, admin_org, user_factory, membership_factory
+):
+    org, admin = admin_org
+    other = user_factory(email="other-admin@example.com")
+    membership_factory(org=org, user=other, role=MembershipRole.ADMIN)
+    m = Membership.objects.get(org=org, user=admin)
+    client.force_login(admin)
+    resp = client.post(_remove_url(org, m))
+    assert resp.status_code == 302
+    assert resp["Location"] == reverse("orgs:landing")
+    assert not Membership.objects.filter(id=m.id).exists()
+
+
+@pytest.mark.django_db
+def test_member_with_earned_lines_is_protected(
+    client, admin_org, user_factory, membership_factory
+):
+    from apps.drops.models import DropLine, DropRun
+
+    org, admin = admin_org
+    member = user_factory(email="earned@example.com")
+    m = membership_factory(org=org, user=member, role=MembershipRole.MEMBER)
+    run = DropRun.objects.create(org=org)
+    DropLine.objects.create(org=org, run=run, membership=m)
+
+    client.force_login(admin)
+    resp = client.post(_remove_url(org, m))
+    assert resp.status_code == 302
+    assert Membership.objects.filter(id=m.id).exists()  # refused, not deleted
