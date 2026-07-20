@@ -49,6 +49,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     display_name = models.CharField(max_length=255, blank=True)
     avatar_url = models.URLField(blank=True)
+    bio = models.TextField(blank=True, help_text="Public profile bio, in the person's own words.")
 
     # External identity (OAuth/OIDC). Explicit, never inferred.
     auth_provider = models.CharField(
@@ -90,3 +91,60 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def get_short_name(self):
         return self.display_name or self.email.split("@")[0]
+
+
+class ProfileLinkKind(models.TextChoices):
+    WEBSITE = "website", "Website"
+    BLUESKY = "bluesky", "Bluesky"
+    LINKEDIN = "linkedin", "LinkedIn"
+    X = "x", "X / Twitter"
+    GITHUB = "github", "GitHub"
+    MASTODON = "mastodon", "Mastodon"
+    INSTAGRAM = "instagram", "Instagram"
+    YOUTUBE = "youtube", "YouTube"
+    CALENDAR = "calendar", "Calendar / booking"
+    RESUME = "resume", "Resume / CV"
+    OTHER = "other", "Other"
+
+
+class ProfileLink(models.Model):
+    """One website/social/calendar link on a person's profile — unlimited per user.
+
+    `kind` is typed and `handle` parseable (e.g. "@name.bsky.social") so promotion
+    tooling can @-mention people on the right platform, not just render a URL.
+    Every link is opt-in to the public profile via `is_public`; private links stay
+    visible to the person and org admins only.
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="profile_links")
+    kind = models.CharField(
+        max_length=20, choices=ProfileLinkKind.choices, default=ProfileLinkKind.WEBSITE
+    )
+    label = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Display label; useful for kind=other or multiple sites.",
+    )
+    handle = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Platform handle, e.g. '@name.bsky.social'. Parseable, no URL.",
+    )
+    url = models.URLField(blank=True)
+    order = models.PositiveSmallIntegerField(default=0)
+    is_public = models.BooleanField(
+        default=False, help_text="Person's opt-in: show this link on their public profile."
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["order", "id"]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(url__gt="") | models.Q(handle__gt=""),
+                name="profilelink_url_or_handle",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email}: {self.kind} {self.handle or self.url}"
