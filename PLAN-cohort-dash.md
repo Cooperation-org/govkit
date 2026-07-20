@@ -53,7 +53,7 @@ component attribute there).
 | The pie | GovKit | `<govkit-pie>` | `dash.workers.vc/o/<org>/pie/` |
 | Earned on tasks (hours feed) | GovKit | `<govkit-feed>` | `dash.workers.vc/o/<org>/pie/` |
 | Curriculum tracker | GovKit (genesis checklist) | `<govkit-checklist>` | `dash.workers.vc/o/<org>/` |
-| Tasks to do | GovKit (tasksources → Taiga) | `<govkit-tasks>` | `martin.workers.vc/p/<org>/board` |
+| Tasks to do | GovKit (tasksources → Taiga) | `<govkit-tasks>` | `marten.workers.vc/p/<org>/board` |
 | Money | GovKit (projects app) | `<govkit-money>` | `dash.workers.vc/o/<org>/projects/` |
 | Reach out (CRM) | crm-outreach-runner (Odoo) | `<crm-reachout>` | `crm-<org>.workers.vc` Outreach Runner |
 | Ask amebo | amebo (exists) | `<amebo-ask>` | `amebo.workers.vc` |
@@ -138,7 +138,7 @@ Everything the dash needs mostly exists, session-authed and org-gated by
    ```
    Include the story `ref` and project slug if the adapter can supply
    them so the dash can deep-link
-   `martin.workers.vc/p/<slug>/board?story=<ref>`.
+   `marten.workers.vc/p/<slug>/board?story=<ref>`.
 
 4. **Portfolio JSON** — `GET /api/v1/projects/orgs/<slug>/portfolio/`
    (session; **member**-readable — reads are not steward-only; verify and
@@ -163,7 +163,7 @@ Everything the dash needs mostly exists, session-authed and org-gated by
      slices→lines→tasks rows: member, task subject, final_value, unit.
    - `<govkit-checklist>` — modules with done/total + item ticks, from
      item 2.
-   - `<govkit-tasks data-limit="6" data-tasks-app="https://martin.workers.vc">`
+   - `<govkit-tasks data-limit="6" data-tasks-app="https://marten.workers.vc">`
      — open tasks from item 3; row links prefer the marten deep link,
      falling back to `external_url`.
    - `<govkit-money>` — portfolio rows + signed/received totals from

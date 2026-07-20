@@ -14,7 +14,7 @@
 //   - Every component takes data-up (GovKit origin, e.g. https://dash.workers.vc —
 //     include the base path if GovKit is deployed under one) and data-org (org slug).
 //   - <govkit-feed data-limit="8">; <govkit-tasks data-limit="6"
-//     data-tasks-app="https://martin.workers.vc"> (row links prefer the tasks-app
+//     data-tasks-app="https://marten.workers.vc"> (row links prefer the tasks-app
 //     board deep link, falling back to the tracker's own URL).
 //   - Every fetch carries credentials: 'include' (the member's own GovKit session;
 //     cross-origin needs GovKit's CORS allowlist — see PLAN-cohort-dash.md).
