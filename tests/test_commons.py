@@ -33,7 +33,9 @@ class TestGating:
 
 
 class TestOrgsView:
-    def test_lists_orgs_with_member_counts(self, logged_in, org_factory, membership_factory, member):
+    def test_lists_orgs_with_member_counts(
+        self, logged_in, org_factory, membership_factory, member
+    ):
         org = org_factory(display_name="Test Kitchen Co-op")
         membership_factory(org, member)
         html = logged_in.get("/commons/orgs/").content.decode()

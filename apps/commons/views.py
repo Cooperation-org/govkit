@@ -77,9 +77,13 @@ def pool_view(request):
             kind=InviteKind.POOL, status=InviteStatus.ACCEPTED, accepted_by__isnull=False
         )
         .select_related("accepted_by")
-        .prefetch_related(Prefetch("accepted_by__profile_links",
-                                   queryset=ProfileLink.objects.filter(is_public=True),
-                                   to_attr="public_links"))
+        .prefetch_related(
+            Prefetch(
+                "accepted_by__profile_links",
+                queryset=ProfileLink.objects.filter(is_public=True),
+                to_attr="public_links",
+            )
+        )
         .order_by("-expires_at")
     )
     return render(request, "commons/pool.html", {"invites": invites})
