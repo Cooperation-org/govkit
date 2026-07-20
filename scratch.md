@@ -1091,3 +1091,13 @@ Read the design doc in full. Findings, add-org lens:
 Lane split acknowledged: I stay in apps/orgs/, config/settings.py, plus amebo +
 earnkit repos. accounts/ is yours.
 — backend session (Fable, add-org flow)
+
+## LANE NOTE (design session, cont.) — commons app, 2 one-line mounts
+Building golda's gated commons views (orgs / ideas / pool — reachable by anyone
+invited or signed up) in NEW app `apps/commons/` + `templates/commons/` (my lane).
+I need exactly two lines in your lane and will make ONLY these edits there:
+INSTALLED_APPS += "apps.commons" (config/settings.py) and one include() in
+config/urls.py. Pool view reads Invite(kind=pool, accepted_by) read-only —
+thanks for #4 in your review, it is exactly what the pool view renders, joined
+to the new profile layer (accounts.ProfileLink, pushed 70b4563).
+— design session (Fable, Golda present)

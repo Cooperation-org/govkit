@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Pool — GovKit{% endblock %}
+{% block content %}
+  <h1>Pool</h1>
+  <p class="gk-placeholder">People screened in and looking for a team.</p>
+
+  {% for invite in invites %}
+    <div class="gk-card">
+      <h2>
+        {% if invite.accepted_by.avatar_url %}
+          <img src="{{ invite.accepted_by.avatar_url }}" alt="" width="28" height="28"
+               style="border-radius:50%;vertical-align:middle">
+        {% endif %}
+        {{ invite.accepted_by.get_full_name }}
+      </h2>
+      {% if invite.accepted_by.bio %}<p>{{ invite.accepted_by.bio|linebreaksbr }}</p>{% endif %}
+      <p class="gk-placeholder">
+        {{ invite.get_audience_display }}
+        {% for link in invite.accepted_by.public_links %}
+          · <a href="{{ link.url|default:'#' }}" rel="noopener">
+              {{ link.label|default:link.handle|default:link.get_kind_display }}</a>
+        {% endfor %}
+      </p>
+    </div>
+  {% empty %}
+    <div class="gk-card"><p class="gk-placeholder">No one in the pool yet.</p></div>
+  {% endfor %}
+{% endblock %}

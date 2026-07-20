@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Ideas — GovKit{% endblock %}
+{% block content %}
+  <h1>Ideas</h1>
+
+  {% for idea in ideas %}
+    <div class="gk-card">
+      <h2>{{ idea.title }}</h2>
+      <p>{{ idea.pitch|linebreaksbr }}</p>
+      <p class="gk-placeholder">
+        {{ idea.created_by.get_full_name }} · {{ idea.created_at|date:"M j, Y" }}
+        · {{ idea.support_count }} support{{ idea.support_count|pluralize }}
+        · {{ idea.build_count }} want{{ idea.build_count|pluralize:"s," }} to build
+      </p>
+      <form method="post" action="{% url 'commons:idea_interest' slug=idea.slug %}">
+        {% csrf_token %}
+        <button type="submit" name="kind" value="support"
+                {% if idea.my_kind == 'support' %}aria-pressed="true"{% endif %}>
+          {% if idea.my_kind == 'support' %}Supporting ✓ (undo){% else %}Support{% endif %}
+        </button>
+        <button type="submit" name="kind" value="build"
+                {% if idea.my_kind == 'build' %}aria-pressed="true"{% endif %}>
+          {% if idea.my_kind == 'build' %}Building ✓ (undo){% else %}I want to build this{% endif %}
+        </button>
+      </form>
+    </div>
+  {% empty %}
+    <div class="gk-card"><p class="gk-placeholder">No ideas yet. Post the first one.</p></div>
+  {% endfor %}
+
+  <div class="gk-card">
+    <h2>Post an idea</h2>
+    <form method="post" action="{% url 'commons:idea_create' %}">
+      {% csrf_token %}
+      <p><input type="text" name="title" maxlength="255" required placeholder="Title"></p>
+      <p><textarea name="pitch" rows="4" required
+                   placeholder="Your own words: what it is, who it is for."></textarea></p>
+      <button type="submit">Post idea</button>
+      <small class="gk-placeholder">Visible to everyone signed in.</small>
+    </form>
+  </div>
+{% endblock %}

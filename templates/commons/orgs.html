@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Orgs — GovKit{% endblock %}
+{% block content %}
+  <h1>Orgs</h1>
+
+  <div class="gk-card">
+    <table>
+      <thead>
+        <tr><th>Org</th><th>Members</th><th>Since</th></tr>
+      </thead>
+      <tbody>
+        {% for org in orgs %}
+          <tr>
+            <td><span class="gk-leaf gk-cat-{% cycle '0' '1' '2' '3' '4' '5' %}"></span>{{ org.display_name }}</td>
+            <td>{{ org.member_count }}</td>
+            <td>{{ org.created_at|date:"M j, Y" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="3" class="gk-placeholder">No orgs yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

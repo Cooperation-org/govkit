@@ -46,6 +46,8 @@ urlpatterns = [
     path(ORG + "exports/", include("apps.exports.urls")),
     path(ORG + "tasks/", include("apps.tasksources.urls")),
     path(ORG + "projects/", include("apps.projects.urls")),
+    # --- Commons: orgs / ideas / pool, for anyone invited or signed up ---
+    path("commons/", include("apps.commons.urls")),
     # --- Non-org + dashboard HTML routes ---
     path("", include("apps.orgs.urls")),
 ]
