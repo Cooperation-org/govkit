@@ -40,11 +40,12 @@ from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.routers import DefaultRouter
 from rest_framework.views import APIView
 
 from .genesis import modules_for
-from .models import Invite, InviteStatus, Membership, MembershipRole, Org
+from .models import ChecklistItem, Invite, InviteStatus, Membership, MembershipRole, Org
 from .serializers import (
     InviteSerializer,
     MembershipSerializer,
@@ -159,9 +160,10 @@ class MembershipViewSet(
 class ChecklistView(APIView):
     """The org's genesis checklist as JSON (PLAN-cohort-dash.md item 2).
 
-    Read-only by design: toggling stays in the GovKit HTML dashboard (the card's expand
-    target). Membership is enforced by OrgContextMiddleware via the org_slug kwarg.
-    An org with no checklist (not a venture org) returns {"org_slug": ..., "modules": []}.
+    Membership is enforced by OrgContextMiddleware via the org_slug kwarg. An org
+    with no checklist (not a venture org) returns {"org_slug": ..., "modules": []}.
+    Toggling happens at the sibling toggle endpoint — the curriculum is worked
+    directly on the dash (Golda 2026-07-19).
     """
 
     def get(self, request, org_slug):
@@ -180,6 +182,58 @@ class ChecklistView(APIView):
             for entry in modules_for(request.org)
         ]
         return Response({"org_slug": request.org.slug, "modules": modules})
+
+
+class EmbedSessionAuthentication(SessionAuthentication):
+    """Session auth for cross-origin embed writes.
+
+    Django's CSRF token never leaves the GovKit origin, so the dash cannot echo
+    it. The replacement is the standard preflight gate: the request must carry a
+    custom header (X-Govkit-Embed), which browsers only send cross-origin after
+    a CORS preflight our allowlist answers — a forged form on a random site can
+    neither set the header nor pass preflight. Cookies stay SameSite=Lax.
+    """
+
+    def enforce_csrf(self, request):
+        if not request.headers.get("X-Govkit-Embed"):
+            from rest_framework.exceptions import PermissionDenied as DrfPermissionDenied
+
+            raise DrfPermissionDenied("Missing embed header.")
+
+
+class ChecklistToggleView(APIView):
+    """POST: flip one genesis item, exactly like the HTML dashboard toggle — any
+    member; records who and when. Returns the item + its module's new count."""
+
+    authentication_classes = [EmbedSessionAuthentication]
+
+    def post(self, request, org_slug, item_id):
+        if request.membership is None and not request.user.is_superuser:
+            raise PermissionDenied("Only members may work the checklist.")
+        item = ChecklistItem.objects.filter(org=request.org, id=item_id).first()
+        if item is None:
+            return Response({"error": "no such item"}, status=status.HTTP_404_NOT_FOUND)
+        if item.done_at:
+            item.done_at = None
+            item.done_by = None
+        else:
+            from django.utils import timezone
+
+            item.done_at = timezone.now()
+            item.done_by = request.user
+        item.save(update_fields=["done_at", "done_by"])
+        module = next((e for e in modules_for(request.org) if e["key"] == item.module), None)
+        return Response(
+            {
+                "id": item.id,
+                "done": bool(item.done_at),
+                "module": (
+                    {"key": module["key"], "done": module["done"], "total": module["total"]}
+                    if module
+                    else None
+                ),
+            }
+        )
 
 
 # --- Doorway S2S invite endpoints --------------------------------------------------------
@@ -281,6 +335,11 @@ router.register(r"memberships", MembershipViewSet, basename="membership")
 
 urlpatterns = router.urls + [
     path("<slug:org_slug>/checklist/", ChecklistView.as_view(), name="org-checklist"),
+    path(
+        "<slug:org_slug>/checklist/<int:item_id>/toggle/",
+        ChecklistToggleView.as_view(),
+        name="org-checklist-toggle",
+    ),
     path("<slug:org_slug>/invites/<str:code>/", invite_detail, name="s2s_invite_detail"),
     path(
         "<slug:org_slug>/invites/<str:code>/committed/",

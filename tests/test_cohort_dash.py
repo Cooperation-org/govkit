@@ -49,6 +49,62 @@ def outsider(user_factory):
 # --------------------------------------------------------------------------- checklist
 
 
+def _toggle(client, org, item, **extra):
+    return client.post(
+        f"/api/v1/orgs/{org.slug}/checklist/{item.id}/toggle/",
+        HTTP_X_GOVKIT_EMBED="1",
+        **extra,
+    )
+
+
+def test_member_toggles_item_from_the_dash(client, team):
+    """The curriculum is worked directly on the dash: session + embed header."""
+    org, user, _ = team
+    seed_genesis(org)
+    item = ChecklistItem.objects.filter(org=org).order_by("id").first()
+    client.force_login(user)
+
+    resp = _toggle(client, org, item)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["done"] is True
+    assert body["module"]["done"] >= 1
+    item.refresh_from_db()
+    assert item.done_by == user
+
+    resp = _toggle(client, org, item)
+    assert resp.json()["done"] is False
+    item.refresh_from_db()
+    assert item.done_at is None and item.done_by is None
+
+
+def test_toggle_requires_embed_header(client, team):
+    """No header -> no preflight protection -> refuse (the CSRF stand-in)."""
+    org, user, _ = team
+    seed_genesis(org)
+    item = ChecklistItem.objects.filter(org=org).first()
+    client.force_login(user)
+    resp = client.post(f"/api/v1/orgs/{org.slug}/checklist/{item.id}/toggle/")
+    assert resp.status_code == 403
+    item.refresh_from_db()
+    assert item.done_at is None
+
+
+def test_toggle_forbidden_for_non_member(client, team, outsider):
+    org, _, _ = team
+    seed_genesis(org)
+    item = ChecklistItem.objects.filter(org=org).first()
+    client.force_login(outsider)
+    assert _toggle(client, org, item).status_code == 403
+
+
+def test_toggle_unknown_item_404s(client, team):
+    org, user, _ = team
+    client.force_login(user)
+    resp = client.post(f"/api/v1/orgs/{org.slug}/checklist/99999/toggle/", HTTP_X_GOVKIT_EMBED="1")
+    assert resp.status_code == 404
+
+
 def test_checklist_shape_for_member(client, team):
     org, user, _ = team
     seed_genesis(org)

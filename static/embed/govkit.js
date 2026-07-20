@@ -67,7 +67,8 @@
       'govkit-checklist .module-head .count { margin-left: auto; font-size: 12px; opacity: 0.65; font-variant-numeric: tabular-nums; }',
       'govkit-checklist ul { list-style: none; margin: 4px 0 0; padding: 0; }',
       'govkit-checklist li { display: flex; gap: 8px; padding: 3px 0; font-size: 13px; align-items: baseline; }',
-      'govkit-checklist li .tick { flex: none; width: 1.1em; text-align: center; }',
+      'govkit-checklist li .tick { flex: none; width: 1.4em; text-align: center; background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0; border-radius: 4px; }',
+      'govkit-checklist li .tick:hover { background: rgba(127,127,127,0.15); }',
       'govkit-checklist li.done { opacity: 0.6; }',
       'govkit-checklist li.done .item-title { text-decoration: line-through; }',
       'govkit-tasks .status { font-size: 12px; opacity: 0.65; white-space: nowrap; }',
@@ -270,13 +271,45 @@
       var ul = el('ul');
       (m.items || []).forEach(function (item) {
         var li = el('li', item.done ? 'done' : '');
-        li.appendChild(el('span', 'tick', item.done ? '✓' : '○'));
+        var btn = el('button', 'tick', item.done ? '✓' : '○');
+        btn.type = 'button';
+        btn.setAttribute('aria-pressed', item.done ? 'true' : 'false');
+        btn.setAttribute('aria-label', (item.done ? 'Uncheck: ' : 'Check: ') + item.title);
+        btn.addEventListener('click', function () {
+          toggleChecklistItem(host, item.id, li, btn);
+        });
+        li.appendChild(btn);
         li.appendChild(el('span', 'item-title', item.title));
         ul.appendChild(li);
       });
       box.appendChild(ul);
       host.appendChild(box);
     });
+  }
+
+  // The one write the dash makes: work the curriculum in place. The GET above
+  // already proved membership (it 403s outsiders), and the endpoint takes the
+  // session cookie plus a custom header (preflight-gated, org-allowlisted CORS).
+  function toggleChecklistItem(host, itemId, li, btn) {
+    var c = cfg(host);
+    if (!c || btn.disabled) return;
+    btn.disabled = true;
+    fetch(c.up + '/api/v1/orgs/' + c.org + '/checklist/' + itemId + '/toggle/', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'X-Govkit-Embed': '1' },
+    })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (d) {
+        li.className = d.done ? 'done' : '';
+        btn.textContent = d.done ? '✓' : '○';
+        btn.setAttribute('aria-pressed', d.done ? 'true' : 'false');
+        var count = li.closest('.module') &&
+          li.closest('.module').querySelector('.module-head .count');
+        if (count && d.module) count.textContent = d.module.done + '/' + d.module.total;
+      })
+      .catch(function () { /* leave the item as it was */ })
+      .then(function () { btn.disabled = false; });
   }
 
   // --- <govkit-tasks> ------------------------------------------------------
@@ -299,6 +332,13 @@
       if (tasksApp && t.project_slug && t.ref != null) {
         href = safeHref(tasksApp + '/p/' + encodeURIComponent(t.project_slug) +
           '/board?story=' + encodeURIComponent(t.ref));
+      }
+      if (!href && tasksApp) {
+        // The tasks app IS the team's front end — never send people to the
+        // raw tracker when one is configured (Golda 2026-07-19).
+        href = safeHref(t.project_slug
+          ? tasksApp + '/p/' + encodeURIComponent(t.project_slug) + '/board'
+          : tasksApp + '/tasks');
       }
       if (!href) href = safeHref(t.external_url);
       if (href) {

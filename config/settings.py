@@ -62,6 +62,11 @@ CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 COHORT_NAV_SRC = env("COHORT_NAV_SRC")
 CORS_ALLOW_CREDENTIALS = True
 CORS_URLS_REGEX = r"^/api/"
+# The dash's one write (checklist toggle) authenticates with the session cookie
+# plus this preflight-gated header instead of a CSRF token (see api.py).
+from corsheaders.defaults import default_headers as _cors_default_headers  # noqa: E402
+
+CORS_ALLOW_HEADERS = [*_cors_default_headers, "x-govkit-embed"]
 
 # H1: never run production on the insecure dev default. Invite tokens are signed with
 # SECRET_KEY (django.core.signing), so a forgotten prod key = forgeable admin invites.
