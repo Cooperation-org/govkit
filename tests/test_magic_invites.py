@@ -526,3 +526,34 @@ def test_revoke_is_admin_only(client, admin_org, invite, user_factory, membershi
     assert resp.status_code == 403
     invite.refresh_from_db()
     assert invite.status == InviteStatus.CREATED
+
+
+# --- mint_invite management command ------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_mint_invite_command_prints_doorway_link(org_factory, settings, capsys):
+    from django.core.management import call_command
+
+    settings.DOORWAY_BASE_URL = 'https://workers.vc/i/'
+    org = org_factory(slug='integralmass')
+    call_command('mint_invite', 'integralmass', '--name', 'Jefferson Richards',
+                 '--role', 'admin', '--audience', 'founder')
+    out = capsys.readouterr().out.strip()
+    from apps.orgs.models import Invite, InviteAudience, MembershipRole
+    invite = Invite.objects.get(org=org)
+    assert out == f'https://workers.vc/i/{invite.code}/'
+    assert invite.role == MembershipRole.ADMIN
+    assert invite.audience == InviteAudience.FOUNDER
+    assert invite.name == 'Jefferson Richards'
+    assert invite.doorway is True
+    assert invite.can_accept
+
+
+@pytest.mark.django_db
+def test_mint_invite_command_unknown_org_fails(settings):
+    from django.core.management import call_command
+    from django.core.management.base import CommandError
+
+    with pytest.raises(CommandError):
+        call_command('mint_invite', 'nope', '--name', 'X')
