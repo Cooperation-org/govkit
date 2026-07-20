@@ -34,6 +34,7 @@ env = environ.Env(
     CORS_ALLOWED_ORIGINS=(list, []),
     LOGIN_NEXT_ALLOWED_HOSTS=(list, []),
     GOVKIT_OPEN_TASKS_CACHE_SECONDS=(int, 60),
+    COHORT_NAV_SRC=(str, ""),
 )
 
 # Load a local .env if present (dev). In prod, real env vars win.
@@ -54,6 +55,10 @@ CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 # ride along; only these response headers are needed). API paths only — HTML
 # pages are never served cross-origin.
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
+
+# The cohort's thin cross-app menu (a <cohort-nav> script the doorway serves);
+# empty (default) mounts nothing — self-hosted GovKit stays standalone.
+COHORT_NAV_SRC = env("COHORT_NAV_SRC")
 CORS_ALLOW_CREDENTIALS = True
 CORS_URLS_REGEX = r"^/api/"
 

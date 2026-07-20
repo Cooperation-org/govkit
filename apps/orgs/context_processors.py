@@ -47,4 +47,11 @@ def nav(request):
                 "active": view_name == "orgs:members",
             }
         )
-    return {"current_org": org, "nav_tabs": tabs}
+    from django.conf import settings
+
+    return {
+        "current_org": org,
+        "nav_tabs": tabs,
+        # The cohort's thin cross-app menu (workers.vc ships it); empty = not mounted.
+        "cohort_nav_src": settings.COHORT_NAV_SRC,
+    }

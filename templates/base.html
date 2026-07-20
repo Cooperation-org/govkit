@@ -13,6 +13,12 @@
 </head>
 <body>
 
+{% if cohort_nav_src %}
+  {# The cohort's one thin menu — always a way back to the main dash. #}
+  <script src="{{ cohort_nav_src }}" defer></script>
+  <cohort-nav{% if current_org %} data-org="{{ current_org.slug }}"{% endif %} data-current="org"></cohort-nav>
+{% endif %}
+
 <header class="gk-header">
   <a class="gk-brand" href="{% url 'orgs:landing' %}">
     {# the twig mark: a branching stem, leaves at the tips — quiet kin of the LinkedTrust tree #}
