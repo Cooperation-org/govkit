@@ -61,11 +61,22 @@
       'govkit-feed .who { display: flex; align-items: center; gap: 8px; white-space: nowrap; }',
       'govkit-feed .pdot { width: 8px; height: 8px; border-radius: 50%; flex: none; }',
       'govkit-feed .val, govkit-money .num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; opacity: 0.85; }',
-      'govkit-checklist .module { margin: 0 0 10px; }',
-      'govkit-checklist .module-head { display: flex; align-items: baseline; gap: 8px; }',
+      'govkit-checklist .module { margin: 0 0 2px; }',
+      'govkit-checklist .module-head {',
+      '  display: flex; align-items: center; gap: 8px; width: 100%;',
+      '  background: none; border: none; color: inherit; font: inherit;',
+      '  padding: 7px 8px; border-radius: 7px; cursor: pointer; text-align: left;',
+      '}',
+      'govkit-checklist .module-head:hover { background: rgba(127,127,127,0.12); }',
+      'govkit-checklist .module-head:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }',
+      'govkit-checklist .module-head .caret {',
+      '  flex: none; font-size: 10px; opacity: 0.55; transition: transform 120ms ease;',
+      '}',
+      'govkit-checklist .module-head[aria-expanded="true"] .caret { transform: rotate(90deg); }',
       'govkit-checklist .module-head .title { font-weight: 600; font-size: 13.5px; }',
       'govkit-checklist .module-head .count { margin-left: auto; font-size: 12px; opacity: 0.65; font-variant-numeric: tabular-nums; }',
-      'govkit-checklist ul { list-style: none; margin: 4px 0 0; padding: 0; }',
+      'govkit-checklist ul { list-style: none; margin: 2px 0 8px; padding: 0 0 0 22px; }',
+      'govkit-checklist ul[hidden] { display: none; }',
       'govkit-checklist li { display: flex; gap: 8px; padding: 3px 0; font-size: 13px; align-items: baseline; }',
       'govkit-checklist li .tick { flex: none; width: 1.4em; text-align: center; background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0; border-radius: 4px; }',
       'govkit-checklist li .tick:hover { background: rgba(127,127,127,0.15); }',
@@ -268,17 +279,52 @@
 
   // --- <govkit-checklist> --------------------------------------------------
 
+  // The side index is a menu into the curriculum: each module opens and closes.
+  // Disclosure pattern, not <details> — a real <button> carrying aria-expanded and
+  // aria-controls, which is what screen readers and mobile handle predictably.
+  // Which modules are open is pure view state, so it lives in sessionStorage
+  // (per org) and nowhere near the server.
+
+  function openModules(org) {
+    try {
+      return JSON.parse(sessionStorage.getItem('govkit-open:' + org) || '[]');
+    } catch (e) { return []; }
+  }
+
+  function rememberOpen(org, keys) {
+    try { sessionStorage.setItem('govkit-open:' + org, JSON.stringify(keys)); } catch (e) {}
+  }
+
   function renderChecklist(host, d) {
     var modules = d.modules || [];
     if (!modules.length) return false;
-    modules.forEach(function (m) {
+    var org = (cfg(host) || {}).org || '';
+    var open = openModules(org);
+    // Nothing opened yet: start on the first module with work left, so the panel
+    // opens where the team actually is rather than always at the top.
+    if (!open.length) {
+      var next = modules.filter(function (m) { return m.done < m.total; })[0];
+      if (next) open = [next.key];
+    }
+
+    modules.forEach(function (m, i) {
       var box = el('div', 'module');
-      var head = el('div', 'module-head');
+      var panelId = 'gkmod-' + (org || 'x') + '-' + m.key;
+      var expanded = open.indexOf(m.key) !== -1;
+
+      var head = el('button', 'module-head');
+      head.type = 'button';
+      head.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      head.setAttribute('aria-controls', panelId);
+      head.appendChild(el('span', 'caret', '▸'));
       head.appendChild(el('span', 'title',
         m.title + (m.week != null ? ' · week ' + m.week : '')));
       head.appendChild(el('span', 'count', m.done + '/' + m.total));
       box.appendChild(head);
+
       var ul = el('ul');
+      ul.id = panelId;
+      ul.hidden = !expanded;
       (m.items || []).forEach(function (item) {
         var li = el('li', item.done ? 'done' : '');
         var btn = el('button', 'tick', item.done ? '✓' : '○');
@@ -292,6 +338,20 @@
         li.appendChild(el('span', 'item-title', item.title));
         ul.appendChild(li);
       });
+
+      head.addEventListener('click', function () {
+        var nowOpen = ul.hidden;
+        ul.hidden = !nowOpen;
+        head.setAttribute('aria-expanded', nowOpen ? 'true' : 'false');
+        var keys = [];
+        var boxes = host.querySelectorAll('.module');
+        for (var j = 0; j < boxes.length; j++) {
+          var panel = boxes[j].querySelector('ul');
+          if (panel && !panel.hidden) keys.push(modules[j].key);
+        }
+        rememberOpen(org, keys);
+      });
+
       box.appendChild(ul);
       host.appendChild(box);
     });
