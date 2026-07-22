@@ -7,19 +7,22 @@
     <h2>Connected sources</h2>
     {% if sources %}
       <table class="gk-table">
-        <thead><tr><th>Tracker</th><th>Base URL</th><th>Project(s)</th></tr></thead>
+        <thead><tr><th>Tracker</th><th>Base URL</th><th>Project(s)</th>{% if can_manage %}<th></th>{% endif %}</tr></thead>
         <tbody>
           {% for source in sources %}
             <tr>
               <td>{{ source.get_adapter_type_display }}</td>
               <td>{{ source.base_url }}</td>
               <td>{{ source.project_selector|default:"—" }}</td>
+              {% if can_manage %}
+                <td><a href="{% url 'tasksources:index' org_slug=current_org.slug %}?source={{ source.pk }}">Edit</a></td>
+              {% endif %}
             </tr>
           {% endfor %}
         </tbody>
       </table>
     {% else %}
-      <p class="gk-placeholder">No task sources configured yet. Add one in the admin.</p>
+      <p class="gk-placeholder">No task sources configured yet.</p>
     {% endif %}
 
     {% if can_sync %}
@@ -29,6 +32,84 @@
       </form>
     {% endif %}
   </section>
+
+  {% if can_manage %}
+    <section class="gk-card">
+      <h2>{% if editing_source %}Edit source{% else %}Add a source{% endif %}</h2>
+      <form method="post" action="{% url 'tasksources:save_source' org_slug=current_org.slug %}">
+        {% csrf_token %}
+        {% if editing_source %}
+          <input type="hidden" name="source_id" value="{{ editing_source.pk }}">
+        {% endif %}
+
+        <div class="gk-form-grid">
+          <div class="gk-field">
+            <label for="{{ connect_form.adapter_type.id_for_label }}">Tracker</label>
+            {{ connect_form.adapter_type }}
+            {% for e in connect_form.adapter_type.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+          </div>
+          <div class="gk-field">
+            <label for="{{ connect_form.base_url.id_for_label }}">Base URL</label>
+            {{ connect_form.base_url }}
+            {% for e in connect_form.base_url.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+          </div>
+          <div class="gk-field">
+            <label for="{{ connect_form.project_selector.id_for_label }}">Project</label>
+            {{ connect_form.project_selector }}
+            {% for e in connect_form.project_selector.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+          </div>
+          <div class="gk-field">
+            <label for="{{ connect_form.api_token_input.id_for_label }}">API token
+              <small>{% if editing_source and editing_source.api_token %}set (hidden){% else %}not set{% endif %}</small>
+            </label>
+            {{ connect_form.api_token_input }}
+            {% for e in connect_form.api_token_input.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+          </div>
+        </div>
+
+        {# 19 · DETAILS UNFOLD — valuation fields have defaults, folded until needed. #}
+        <details class="gk-unfold"
+                 {% if connect_form.value_tag_pattern.errors or connect_form.hours_field.errors or connect_form.cash_field.errors or connect_form.done_statuses_input.errors %}open{% endif %}>
+          <summary><strong>Details</strong>
+            <span class="gk-muted">· value tag pattern, hours field, cash field, done statuses — defaulted</span></summary>
+          <fieldset>
+            <div class="gk-form-grid">
+              <div class="gk-field">
+                <label for="{{ connect_form.value_tag_pattern.id_for_label }}">Value tag pattern</label>
+                {{ connect_form.value_tag_pattern }}
+                {% for e in connect_form.value_tag_pattern.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+              </div>
+              <div class="gk-field">
+                <label for="{{ connect_form.hours_field.id_for_label }}">Hours field</label>
+                {{ connect_form.hours_field }}
+                {% for e in connect_form.hours_field.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+              </div>
+              <div class="gk-field">
+                <label for="{{ connect_form.cash_field.id_for_label }}">Cash field</label>
+                {{ connect_form.cash_field }}
+                {% for e in connect_form.cash_field.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+              </div>
+              <div class="gk-field">
+                <label for="{{ connect_form.done_statuses_input.id_for_label }}">Done statuses</label>
+                {{ connect_form.done_statuses_input }}
+                {% for e in connect_form.done_statuses_input.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+              </div>
+            </div>
+          </fieldset>
+        </details>
+
+        {% if connect_form.non_field_errors %}
+          <p class="gk-error">{{ connect_form.non_field_errors }}</p>
+        {% endif %}
+        <p>
+          <button type="submit" class="gk-btn gk-btn-primary">Save</button>
+          {% if editing_source %}
+            <a class="gk-btn" href="{% url 'tasksources:index' org_slug=current_org.slug %}">Cancel</a>
+          {% endif %}
+        </p>
+      </form>
+    </section>
+  {% endif %}
 
   <section class="gk-card">
     <h2>Missing-value queue</h2>

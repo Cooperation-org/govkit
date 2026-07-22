@@ -547,3 +547,157 @@ def test_fetch_open_tasks_unknown_status_counts_as_open(taiga_source):
     assert [t.external_id for t in tasks] == ["301"]
     assert tasks[0].ref is None
     assert tasks[0].project_slug is None
+
+
+# --- org-admin connect form (HTML UI) -------------------------------------------------
+
+
+from django.urls import reverse  # noqa: E402
+
+
+def _index_url(org):
+    return reverse("tasksources:index", kwargs={"org_slug": org.slug})
+
+
+def _save_url(org):
+    return reverse("tasksources:save_source", kwargs={"org_slug": org.slug})
+
+
+def _org_with(org_factory, user_factory, membership_factory, role):
+    org = org_factory()
+    user = user_factory()
+    membership_factory(org=org, user=user, role=role)
+    return org, user
+
+
+def _valid_post(**overrides):
+    data = {
+        "adapter_type": "taiga",
+        "base_url": "https://taiga.example/",
+        "project_selector": "proj",
+        "api_token_input": "",
+        "value_tag_pattern": "",
+        "hours_field": "",
+        "cash_field": "",
+        "done_statuses_input": "",
+    }
+    data.update(overrides)
+    return data
+
+
+@pytest.mark.django_db
+def test_index_connect_form_admin_only(org_factory, user_factory, membership_factory, client):
+    org, admin_user = _org_with(org_factory, user_factory, membership_factory, MembershipRole.ADMIN)
+    member = user_factory()
+    membership_factory(org=org, user=member, role=MembershipRole.MEMBER)
+
+    client.force_login(member)
+    resp = client.get(_index_url(org))
+    assert resp.status_code == 200
+    assert 'name="base_url"' not in resp.content.decode()
+
+    client.force_login(admin_user)
+    resp = client.get(_index_url(org))
+    assert resp.status_code == 200
+    html = resp.content.decode()
+    assert 'name="base_url"' in html
+    assert 'name="api_token_input"' in html
+
+
+@pytest.mark.django_db
+def test_save_source_forbidden_for_member_and_steward(
+    org_factory, user_factory, membership_factory, client
+):
+    org, _ = _org_with(org_factory, user_factory, membership_factory, MembershipRole.ADMIN)
+    for role in (MembershipRole.MEMBER, MembershipRole.STEWARD):
+        user = user_factory()
+        membership_factory(org=org, user=user, role=role)
+        client.force_login(user)
+        resp = client.post(_save_url(org), _valid_post())
+        assert resp.status_code == 403
+    assert TaskSourceConfig.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_save_source_creates_with_token_and_default_statuses(
+    settings, org_factory, user_factory, membership_factory, client
+):
+    settings.GOVKIT_SECRET_KEY = FERNET_KEY
+    org, admin_user = _org_with(org_factory, user_factory, membership_factory, MembershipRole.ADMIN)
+    client.force_login(admin_user)
+    resp = client.post(_save_url(org), _valid_post(api_token_input="tok-123"))
+    assert resp.status_code == 302
+
+    src = TaskSourceConfig.objects.get(org=org)
+    assert src.base_url == "https://taiga.example/"
+    assert src.project_selector == "proj"
+    assert src.api_token == "tok-123"
+    # Empty done-statuses input falls back to the model default.
+    assert src.done_statuses == ["done", "archived", "historical"]
+
+
+@pytest.mark.django_db
+def test_save_source_update_blank_token_keeps_existing(
+    settings, org_factory, user_factory, membership_factory, client
+):
+    settings.GOVKIT_SECRET_KEY = FERNET_KEY
+    org, admin_user = _org_with(org_factory, user_factory, membership_factory, MembershipRole.ADMIN)
+    src = TaskSourceConfig.objects.create(
+        org=org, base_url="https://old.example/", api_token="old-token"
+    )
+    client.force_login(admin_user)
+
+    # Blank token input keeps the stored token; other fields update.
+    resp = client.post(
+        _save_url(org),
+        _valid_post(source_id=str(src.pk), base_url="https://new.example/",
+                    done_statuses_input="done, shipped"),
+    )
+    assert resp.status_code == 302
+    src.refresh_from_db()
+    assert src.base_url == "https://new.example/"
+    assert src.api_token == "old-token"
+    assert src.done_statuses == ["done", "shipped"]
+    assert TaskSourceConfig.objects.count() == 1
+
+    # A non-blank token input replaces it.
+    client.post(_save_url(org), _valid_post(source_id=str(src.pk), api_token_input="rotated"))
+    src.refresh_from_db()
+    assert src.api_token == "rotated"
+
+
+@pytest.mark.django_db
+def test_save_source_cross_org_pk_404(
+    settings, org_factory, user_factory, membership_factory, client
+):
+    settings.GOVKIT_SECRET_KEY = FERNET_KEY
+    org, admin_user = _org_with(org_factory, user_factory, membership_factory, MembershipRole.ADMIN)
+    other = org_factory()
+    foreign = TaskSourceConfig.objects.create(
+        org=other, base_url="https://other.example/", api_token="other-token"
+    )
+    client.force_login(admin_user)
+    resp = client.post(_save_url(org), _valid_post(source_id=str(foreign.pk)))
+    assert resp.status_code == 404
+    foreign.refresh_from_db()
+    assert foreign.base_url == "https://other.example/"
+
+
+@pytest.mark.django_db
+def test_index_never_echoes_saved_token(
+    settings, org_factory, user_factory, membership_factory, client
+):
+    settings.GOVKIT_SECRET_KEY = FERNET_KEY
+    org, admin_user = _org_with(org_factory, user_factory, membership_factory, MembershipRole.ADMIN)
+    src = TaskSourceConfig.objects.create(
+        org=org, base_url="https://taiga.example/", api_token="sup3r-secret-token"
+    )
+    client.force_login(admin_user)
+
+    for url in (_index_url(org), f"{_index_url(org)}?source={src.pk}"):
+        resp = client.get(url)
+        assert resp.status_code == 200
+        html = resp.content.decode()
+        assert "sup3r-secret-token" not in html
+    # The edit view shows a set/replace affordance instead of the token.
+    assert "set (hidden)" in html
