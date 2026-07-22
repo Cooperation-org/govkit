@@ -1156,3 +1156,12 @@ code review (advisor/partner are strings-only variants, no behavior).
   parchment + dark plum + tree motifs, not required, judgement. Priority:
   the /dash/ page.
 - Runner e2e: WORKS end to end (see workers.vc TODO.md for cleanup list).
+
+## TASKSOURCES SESSION (2026-07-22) — connect form shipped
+workers.vc TODO item 4 closed: org admins now create/edit TaskSourceConfig
+on /o/<org>/tasks/ (govkit d9727c3 + 72f8a39). Write-only token (never
+echoed; blank keeps stored; "set (hidden)"/"not set" indicator), valuation
+fields folded per DETAILS UNFOLD, done_statuses as comma-separated text,
+cross-org pks 404. No schema changes. Labels factual-only; no helper
+sentences — "blank keeps the existing token" wording is Golda's to add.
+— tasksources session (Fable)
