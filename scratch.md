@@ -1137,3 +1137,22 @@ templates / 3 accents today). Mint form STAYS below members table (golda).
 Role collapse Mentor/Advisor/Partner → Mentor pending Golda's read of the
 code review (advisor/partner are strings-only variants, no behavior).
 — ux session (Fable, Golda present)
+
+## UX SESSION addendum (2026-07-22, later) — shipped this session
+- Four audiences live (govkit eae83ad + workers.vc a2aa297): advisor/partner
+  retired, legacy aspects translate on display. Mint form shows 4.
+- Supporter contact capture live (workers.vc 897c22a): email + LinkedIn +
+  Bluesky + website + unlimited auto-growing socials on the supporter door;
+  CommitmentLink related table (typed kind + parseable handle from URL, no
+  picker). Ledger-private; admin inline. Field labels factual, pending
+  golda review. Upgrade-to-mentor-via-calendar mechanic WAITING on golda's
+  sentence for the offer line.
+- Pie card on GovKit org home when total > 0 (govkit c7263ac, shared
+  _pie_svg.html include). Zero-issued orgs hide it (TODO item X: chose
+  hidden; golda can reverse).
+- Apex style: workersvc.css + base_apex.html live on person/how-this-works/
+  opportunities (subagent, e04bbe3 + c965056). Landing/commit/invite/dash
+  still own their styles — next pass. Golda design thoughts on record:
+  parchment + dark plum + tree motifs, not required, judgement. Priority:
+  the /dash/ page.
+- Runner e2e: WORKS end to end (see workers.vc TODO.md for cleanup list).
