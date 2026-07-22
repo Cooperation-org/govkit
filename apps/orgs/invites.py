@@ -142,11 +142,15 @@ def accept_invite_for_user(invite: Invite, user) -> tuple[Membership | None, Org
 
 def consume_pending_invite(request):
     """
-    If the session holds a pending invite code, create the Membership for the now
-    logged-in user and clear it. Returns the Org to land on (the founder's new
-    venture org when one was created, else the joined org) or None. Pool invites
-    join no org (accept is recorded, None returned — caller lands them normally).
+    If the session holds a pending invite code, complete the accept for the now
+    logged-in user and clear it. Returns the URL to land on — the cohort dash
+    (front door / pool landing) whenever configured, GovKit's own pages only on
+    standalone deployments — or None when no invite was pending. On a cohort
+    deployment every invite path sends people to the dash, never a GovKit page
+    (golda, 2026-07-21).
     """
+    from django.shortcuts import resolve_url
+
     code = request.session.pop(SESSION_KEY, None)
     if not code or not request.user.is_authenticated:
         return None
@@ -156,5 +160,7 @@ def consume_pending_invite(request):
     except InviteError:
         return None
     if membership is None:
-        return venture_org
-    return venture_org or membership.org
+        # Pool accept: screened into the applicant pool, no org to land on.
+        return settings.COHORT_POOL_LANDING or resolve_url("orgs:landing")
+    org = venture_org or membership.org
+    return cohort_front_door_url(org) or resolve_url("orgs:dashboard", org_slug=org.slug)

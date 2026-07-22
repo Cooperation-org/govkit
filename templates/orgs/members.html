@@ -93,6 +93,11 @@
             {{ invite_form.audience }}
           </div>
           <div class="gk-field">
+            <label for="{{ invite_form.kind.id_for_label }}">Invite type <small>org membership,
+              or the applicant pool (no org)</small></label>
+            {{ invite_form.kind }}
+          </div>
+          <div class="gk-field">
             <label for="{{ invite_form.role.id_for_label }}">Membership role <small>what they
               can do once in</small></label>
             {{ invite_form.role }}
@@ -152,7 +157,7 @@
         {% for invite in invites %}
           <tr>
             <td>{{ invite.name|default:invite.email }}</td>
-            <td>{{ invite.get_audience_display }}</td>
+            <td>{{ invite.get_audience_display }}{% if invite.kind == 'pool' %} <span class="gk-muted">(pool)</span>{% endif %}</td>
             <td><span class="gk-badge {% if invite.status == 'accepted' %}gk-badge-approved{% elif invite.status == 'revoked' %}gk-badge-closed{% else %}gk-badge-draft{% endif %}">{{ invite.status_label|lower }}</span></td>
             <td class="gk-muted">{{ invite.created_at|date:"Y-m-d" }}</td>
             <td>
@@ -182,11 +187,16 @@
 
   <script>
     (function () {
-      // The venture group belongs to founder invites only.
+      // The venture group belongs to founder ORG invites only (a pool invite
+      // joins no org and creates none).
       var audience = document.getElementById("{{ invite_form.audience.id_for_label }}");
+      var kind = document.getElementById("{{ invite_form.kind.id_for_label }}");
       var founderFields = document.getElementById("gk-founder-fields");
-      function syncFounder() { founderFields.hidden = audience.value !== "founder"; }
+      function syncFounder() {
+        founderFields.hidden = audience.value !== "founder" || kind.value === "pool";
+      }
       audience.addEventListener("change", syncFounder);
+      kind.addEventListener("change", syncFounder);
       syncFounder();
 
       // Copy buttons on the invites ledger.

@@ -314,6 +314,7 @@ def _mint_data(**overrides):
         "link": "https://linkedin.com/in/janedoe",
         "image_url": "",
         "audience": "mentor",
+        "kind": "org",
         "role": MembershipRole.MEMBER,
         "drafted_statement": "My drafted words.",
         "drafted_social_post": "",
@@ -674,3 +675,57 @@ def test_mint_invite_command_pool_refuses_venture(org_factory):
     org_factory(slug="vc")
     with pytest.raises(CommandError):
         call_command("mint_invite", "vc", "--name", "X", "--pool", "--venture-name", "Y")
+
+
+@pytest.mark.django_db
+def test_pool_accept_after_login_lands_on_pool_landing(client, admin_org, user_factory, settings):
+    """The stash-code-then-login path must land pool accepts on the dash too,
+    never a GovKit page (golda 2026-07-21)."""
+    settings.GOVKIT_DEV_LOGIN = True
+    settings.COHORT_POOL_LANDING = "https://workers.vc/dash/"
+    org, _ = admin_org
+    invite = _pool_invite(org)
+    client.get(_accept_url(invite))  # anonymous: code stashed in session
+    assert client.session.get("pending_invite_code") == invite.code
+    user = user_factory(email="walkup@example.com")
+    resp = client.post(
+        reverse("accounts:dev_login"), {"email": "walkup@example.com", "password": "pw12345!"}
+    )
+    assert resp.status_code == 302
+    assert resp["Location"] == "https://workers.vc/dash/"
+    assert not Membership.objects.filter(user=user).exists()
+    invite.refresh_from_db()
+    assert invite.status == InviteStatus.ACCEPTED
+    assert invite.accepted_by == user
+
+
+@pytest.mark.django_db
+def test_admin_mints_pool_invite_from_members_page(client, admin_org):
+    from apps.orgs.models import InviteKind
+
+    org, admin = admin_org
+    client.force_login(admin)
+    resp = client.post(
+        reverse("orgs:invite_create", kwargs={"org_slug": org.slug}),
+        {"name": "Walk Up", "audience": "supporter", "kind": "pool", "role": "member"},
+    )
+    assert resp.status_code == 302
+    invite = Invite.objects.get(org=org, name="Walk Up")
+    assert invite.kind == InviteKind.POOL
+
+
+@pytest.mark.django_db
+def test_members_page_pool_invite_refuses_venture(client, admin_org):
+    org, admin = admin_org
+    client.force_login(admin)
+    client.post(
+        reverse("orgs:invite_create", kwargs={"org_slug": org.slug}),
+        {
+            "name": "Walk Up",
+            "audience": "founder",
+            "kind": "pool",
+            "role": "member",
+            "venture_name": "Contradiction Inc",
+        },
+    )
+    assert not Invite.objects.filter(org=org, name="Walk Up").exists()

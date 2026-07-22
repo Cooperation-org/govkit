@@ -18,11 +18,11 @@ import secrets
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.http import Http404, HttpResponseBadRequest
-from django.shortcuts import redirect, render, resolve_url
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 
-from apps.orgs.invites import cohort_front_door_url, consume_pending_invite
+from apps.orgs.invites import consume_pending_invite
 
 from . import google_oauth, oidc
 from .auth_handlers import UserUpsertError, upsert_oauth_user
@@ -174,20 +174,17 @@ def _check_callback(request):
 
 
 def _complete_login(request, user, next_url=None):
-    """Log the user in, honor a pending invite, then redirect to next / joined org / home."""
+    """Log the user in, honor a pending invite, then redirect to next / invite landing / home."""
     login(request, user)
-    joined_org = consume_pending_invite(request)
+    # Where the pending invite lands them (org join -> cohort front door / org
+    # dashboard; pool accept -> pool landing) — the URL logic lives with the invite.
+    invite_destination = consume_pending_invite(request)
 
     destination = _safe_next(next_url) or _safe_next(request.session.pop(NEXT_SESSION_KEY, None))
     if destination:
         return redirect(destination)
-    if joined_org is not None:
-        # Cohort deployment: a join finishing after login lands on the dash's connect
-        # route, same as the signed-in accept path. Unset -> GovKit's org dashboard.
-        return redirect(
-            cohort_front_door_url(joined_org)
-            or resolve_url("orgs:dashboard", org_slug=joined_org.slug)
-        )
+    if invite_destination:
+        return redirect(invite_destination)
     return redirect("orgs:landing")
 
 

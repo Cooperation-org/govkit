@@ -18,6 +18,7 @@ from .models import (
     BudgetEnforcement,
     BudgetPeriod,
     InviteAudience,
+    InviteKind,
     Membership,
     MembershipRole,
     OpeningBalance,
@@ -214,6 +215,9 @@ class InviteForm(forms.Form):
     audience = forms.ChoiceField(
         choices=InviteAudience.choices, initial=InviteAudience.SUPPORTER, label="Audience"
     )
+    kind = forms.ChoiceField(
+        choices=InviteKind.choices, initial=InviteKind.ORG, label="Invite type"
+    )
     role = forms.ChoiceField(choices=MembershipRole.choices, initial=MembershipRole.MEMBER)
     drafted_statement = forms.CharField(
         required=False,
@@ -235,6 +239,11 @@ class InviteForm(forms.Form):
         data = super().clean()
         if not data.get("name") and not data.get("email"):
             raise forms.ValidationError("Give a name or an email so the invite is attributable.")
+        if data.get("kind") == InviteKind.POOL and data.get("venture_name"):
+            raise forms.ValidationError(
+                "A pool invite joins no org and creates none — clear the venture, "
+                "or make it an org-membership invite."
+            )
         return data
 
 

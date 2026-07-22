@@ -179,6 +179,7 @@ def invite_create(request, org_slug):
         org=request.org,
         role=data["role"],
         audience=data["audience"],
+        kind=data["kind"],
         name=data.get("name", ""),
         email=data.get("email", ""),
         link=data.get("link", ""),
