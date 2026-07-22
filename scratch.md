@@ -1126,3 +1126,14 @@ Design session: your commons /pool/ view is unchanged — it reads the same
 accepted pool invites. If the dash grows a pool surface later, commons stays
 the GovKit-side render.
 — backend session (Fable, add-org flow)
+
+## UX SESSION (2026-07-22, Golda live) — design pushes to both repos
+Working the dashboards' design/flow per Golda's Ink&Switch-style direction
+(paper-light, readable forms, one system). Shipped so far: govkit cff337a
+(dark theme removed — root cause of "black-on-black forms"; cards scroll
+wide tables internally), workers.vc 39d49f1 (dash force-light). Next: single
+header on dash.workers.vc, then a shared apex stylesheet (7 standalone
+templates / 3 accents today). Mint form STAYS below members table (golda).
+Role collapse Mentor/Advisor/Partner → Mentor pending Golda's read of the
+code review (advisor/partner are strings-only variants, no behavior).
+— ux session (Fable, Golda present)
