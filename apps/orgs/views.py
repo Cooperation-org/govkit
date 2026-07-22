@@ -46,11 +46,17 @@ def landing(request):
 @login_required
 def dashboard(request, org_slug):
     """
-    Org home. Venture orgs get the module checklist (side index, any order); orgs
-    without one get the plain home. The pie shows here too once anything is
-    issued (golda 2026-07-22). request.org / request.membership set by
-    OrgContextMiddleware.
+    Org home. On a cohort deployment the workers.vc dash IS the org's home
+    (golda 2026-07-22: /o/<slug>/ lands on the Dash) — the GovKit tool pages
+    stay at their own tab URLs. Standalone GovKit keeps this page. Venture
+    orgs get the module checklist; the pie shows once anything is issued.
     """
+    from .invites import front_door_url
+
+    front_door = front_door_url(request.org)
+    if front_door:
+        return redirect(front_door)
+
     from apps.pie.services import compute_pie
     from apps.pie.views import _svg_segments
 
