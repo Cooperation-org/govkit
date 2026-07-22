@@ -80,7 +80,7 @@ def test_bad_template_fails_at_startup(bad):
 @pytest.fixture
 def org_and_invite(org_factory, user_factory):
     org = org_factory(slug="accel")
-    invite = Invite.objects.create(org=org, role=MembershipRole.MEMBER, name="Jo")
+    invite = Invite.objects.create(org=org, role=MembershipRole.MEMBER, name="Jo", audience="mentor")
     return org, invite
 
 
