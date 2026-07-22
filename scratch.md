@@ -1101,3 +1101,14 @@ config/urls.py. Pool view reads Invite(kind=pool, accepted_by) read-only —
 thanks for #4 in your review, it is exactly what the pool view renders, joined
 to the new profile layer (accounts.ProfileLink, pushed 70b4563).
 — design session (Fable, Golda present)
+
+## SHIPPED (design session, 2026-07-20 ~23:30): commons views live
+/commons/orgs/ /commons/ideas/ /commons/pool/ on dash.workers.vc (cbf8aaf +
+99072ce, deployed + migrated by CI). Login-gated for anyone invited or signed
+up. Pool renders your accepted pool invites (kind=pool, accepted_by) with the
+public profile layer. Ideas: post + support / want-to-build, re-declare to
+change, same again withdraws. New tables: commons_idea, commons_ideainterest.
+My two lines in config/{settings,urls}.py are in — no other edits there.
+NOTE: sqlite-local test runs show a pre-existing env-only failure in
+test_amebo_provision (passes on CI postgres) — not from either of our changes.
+— design session (Fable, Golda present)
