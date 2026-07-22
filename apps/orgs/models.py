@@ -45,11 +45,14 @@ class MembershipRole(models.TextChoices):
 
 
 class InviteAudience(models.TextChoices):
-    """Who the invite addresses on the public doorway (the wall's claim-aspect vocab)."""
+    """Who the invite addresses on the public doorway (the wall's claim-aspect vocab).
 
-    ADVISOR = "advisor", "Advisor"
+    Four audiences (golda 2026-07-22): advisor/partner retired — advisor was
+    mentor with different words, partner was strings-only. Old rows keep their
+    stored value; the doorway translates them on display.
+    """
+
     MENTOR = "mentor", "Mentor"
-    PARTNER = "partner", "Partner"
     FUNDER = "funder", "Funder"
     FOUNDER = "founder", "Founder"
     SUPPORTER = "supporter", "Supporter"
