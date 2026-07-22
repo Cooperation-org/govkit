@@ -15,12 +15,12 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import ProtectedError
 from django.http import Http404
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from .forms import InviteForm, MemberUpdateForm, OnboardingForm, OrgRateForm
-from .genesis import module_of, modules_for, start_genesis, toggle_item
+from .genesis import MODULES, module_of, modules_for, start_genesis, toggle_item
 from .invites import (
     SESSION_KEY,
     InviteError,
@@ -28,7 +28,7 @@ from .invites import (
     cohort_front_door_url,
     get_invite_for_accept,
 )
-from .models import Invite, InviteStatus, Membership, MembershipRole, Org
+from .models import Cohort, Invite, InviteStatus, Membership, MembershipRole, Org
 
 
 def landing(request):
@@ -92,6 +92,36 @@ def checklist_seed(request, org_slug):
         start_genesis(request.org)
         messages.success(request, "The path is ready. Start anywhere.")
     return redirect("orgs:dashboard", org_slug=request.org.slug)
+
+
+@login_required
+def cohort_progress_view(request, cohort_slug):
+    """
+    Every team in one cohort, as program staff and mentors see it.
+
+    Not org-scoped: the URL carries a cohort, not an org, so the middleware sets
+    no request.org and access is decided in apps.orgs.cohorts (staff by
+    membership, mentors by their accepted invite — never by a governance role).
+    """
+    from .cohorts import can_view_cohort, cohort_progress, item_skip_counts
+
+    cohort = get_object_or_404(Cohort, slug=cohort_slug)
+    if not can_view_cohort(request.user, cohort):
+        raise PermissionDenied("This overview is for the program's staff and mentors.")
+    rows = cohort_progress(cohort)
+    return render(
+        request,
+        "orgs/cohort_progress.html",
+        {
+            "cohort": cohort,
+            "rows": rows,
+            "module_keys": [key for key, _label, _week, _items in MODULES],
+            "modules_meta": [
+                {"key": key, "label": label, "week": week} for key, label, week, _i in MODULES
+            ],
+            "skips": item_skip_counts(cohort),
+        },
+    )
 
 
 @login_required

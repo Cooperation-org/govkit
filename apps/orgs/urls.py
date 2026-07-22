@@ -18,6 +18,8 @@ urlpatterns = [
     path("", views.landing, name="landing"),
     path("onboarding/", views.onboarding, name="onboarding"),
     path("invites/<str:code>/accept/", views.accept_invite, name="accept_invite"),
+    # Cohort-wide: program staff and mentors see every team's curriculum progress.
+    path("cohorts/<slug:cohort_slug>/", views.cohort_progress_view, name="cohort_progress"),
     # Org-scoped (org_slug kwarg → middleware sets request.org / request.membership).
     path("o/<slug:org_slug>/", views.dashboard, name="dashboard"),
     path(

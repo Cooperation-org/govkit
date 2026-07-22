@@ -81,6 +81,30 @@ class InviteStatus(models.TextChoices):
     REVOKED = "revoked", "Revoked"
 
 
+class Cohort(models.Model):
+    """
+    One run of an accelerator: the teams that went through it together.
+
+    Without this, every venture org ever created piles into one undifferentiated
+    list and a second cohort cannot be told from the first. The accelerator is
+    itself an Org (it has members, invites, and a pie), so a cohort points at the
+    org that runs it rather than duplicating any of that.
+    """
+
+    slug = models.SlugField(unique=True, max_length=64)
+    name = models.CharField(max_length=255)
+    accelerator_org = models.ForeignKey("Org", on_delete=models.PROTECT, related_name="cohorts_run")
+    starts_on = models.DateField(null=True, blank=True)
+    ends_on = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-starts_on", "name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.slug})"
+
+
 class Org(models.Model):
     """A tenant. Self-hosters run one; we run many."""
 
@@ -95,6 +119,11 @@ class Org(models.Model):
     # Set when the org starts the genesis curriculum. This, not the presence of
     # rows, is what makes an org "on the path" (apps.orgs.genesis).
     genesis_started_at = models.DateTimeField(null=True, blank=True)
+    # The run this team came through, if any. Null for the accelerator itself and
+    # for any org that was not part of a cohort.
+    cohort = models.ForeignKey(
+        Cohort, null=True, blank=True, on_delete=models.SET_NULL, related_name="teams"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

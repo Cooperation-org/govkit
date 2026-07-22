@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}{{ cohort.name }} — progress — GovKit{% endblock %}
+{% block content %}
+  <h1>{{ cohort.name }}</h1>
+  <p class="gk-muted">
+    {{ rows|length }} team{{ rows|length|pluralize }} on the path
+    {% if cohort.starts_on %}&middot; started {{ cohort.starts_on|date:"M j, Y" }}{% endif %}
+    {% if cohort.ends_on %}&middot; ends {{ cohort.ends_on|date:"M j, Y" }}{% endif %}
+  </p>
+
+  {% if rows %}
+    {# Teams x modules. Each cell is one segment per item, filled when done: the
+       exact count stays readable at this size, so nothing is encoded in shade. #}
+    <div class="gk-card">
+      <h2>Where each team is</h2>
+      <table class="gk-matrix">
+        <thead>
+          <tr>
+            <th scope="col" class="gk-matrix-team">Team</th>
+            {% for m in modules_meta %}
+              <th scope="col">
+                <span class="gk-matrix-mod">{{ m.label }}</span>
+                <span class="gk-muted gk-matrix-week">week {{ m.week }}</span>
+              </th>
+            {% endfor %}
+            <th scope="col" class="gk-matrix-total">All</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <th scope="row" class="gk-matrix-team">
+                <a href="{% url 'orgs:dashboard' org_slug=row.org.slug %}">{{ row.org.display_name }}</a>
+              </th>
+              {% for m in row.modules %}
+                {% if m.week %}
+                  <td title="{{ m.label }}: {{ m.done }} of {{ m.total }}">
+                    <span class="gk-seg">
+                      {% for item in m.items %}
+                        <span class="gk-seg-part {% if item.done %}is-done{% endif %}"></span>
+                      {% endfor %}
+                    </span>
+                    <span class="gk-seg-count {% if m.done == m.total %}gk-cyoa-alldone{% endif %}">{{ m.done }}/{{ m.total }}</span>
+                  </td>
+                {% endif %}
+              {% endfor %}
+              <td class="gk-matrix-total">
+                <span class="gk-seg-count {% if row.done == row.total %}gk-cyoa-alldone{% endif %}">{{ row.done }}/{{ row.total }}</span>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="gk-muted gk-matrix-note">
+        Nobody is ranked here. The order is alphabetical and the modules are a
+        suggestion, so a team working out of order is working as intended.
+      </p>
+    </div>
+
+    {# One series, sorted ascending: the items nobody reaches sit at the top,
+       which is a question about the guide rather than about the teams. #}
+    <div class="gk-card">
+      <h2>Where the guide is landing</h2>
+      <p class="gk-muted">Teams that have done each item, of {{ skips.teams }}.</p>
+      <ul class="gk-rank">
+        {% for item in skips.ranking %}
+          <li>
+            <span class="gk-rank-label">{{ item.title }}</span>
+            <span class="gk-rank-track">
+              <span class="gk-rank-bar" style="width: {% widthratio item.done skips.teams 100 %}%"></span>
+            </span>
+            <span class="gk-rank-value">{{ item.done }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% else %}
+    <div class="gk-card">
+      <p class="gk-placeholder">No team in this cohort has started the path yet.</p>
+    </div>
+  {% endif %}
+{% endblock %}
