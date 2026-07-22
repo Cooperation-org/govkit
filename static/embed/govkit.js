@@ -18,6 +18,11 @@
 //     board deep link, falling back to the tracker's own URL).
 //   - Every fetch carries credentials: 'include' (the member's own GovKit session;
 //     cross-origin needs GovKit's CORS allowlist — see PLAN-cohort-dash.md).
+//     GETs are deduped per URL for the life of the page, so components that read
+//     the same endpoint share one request. Identity is the host page's business:
+//     the page-wide convention is window.__gkMe[<govkit base>] = THE accounts/me
+//     promise (created by whoever needs it first — cohort-nav.js or the host
+//     page); these components never fetch accounts/me themselves.
 //   - Any failure (non-200, network, bad payload) or an empty dataset renders
 //     NOTHING and sets `hidden` on the host element: signed-out and non-member
 //     visitors just see fewer cards. Never placeholder or demo data.
@@ -141,13 +146,22 @@
     host.hidden = true;
   }
 
-  // GET JSON with the member's own session. Throws on ANY non-200 / non-JSON /
-  // network problem — callers catch and render nothing (the dash contract).
+  // GET JSON with the member's own session — ONE request per URL per page.
+  // Components asking for the same endpoint (pie + feed both read the org
+  // summary) share a single fetch; all fetches still start immediately, in
+  // parallel. Throws on ANY non-200 / non-JSON / network problem — callers
+  // catch and render nothing (the dash contract). A failure is dropped from
+  // the cache so a later mount can retry.
+  var inflight = {};
   function jget(url) {
-    return fetch(url, { credentials: 'include' }).then(function (r) {
-      if (r.status !== 200) throw new Error('http ' + r.status);
-      return r.json();
-    });
+    if (!inflight[url]) {
+      inflight[url] = fetch(url, { credentials: 'include' }).then(function (r) {
+        if (r.status !== 200) throw new Error('http ' + r.status);
+        return r.json();
+      });
+      inflight[url].catch(function () { delete inflight[url]; });
+    }
+    return inflight[url];
   }
 
   // Boilerplate shared by all five components: resolve config, fetch, render;
