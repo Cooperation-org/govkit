@@ -64,6 +64,17 @@
     {% endif %}
   {% endif %}
 
+  {% if pie %}
+    <div class="gk-card">
+      <h2><a href="{% url 'pie:index' org_slug=current_org.slug %}">Pie</a></h2>
+      <p class="gk-muted">
+        Live shares of <strong>{{ pie.total }} {{ pie.unit_name }}</strong> of issued equity
+        across {{ pie.member_count }} member{{ pie.member_count|pluralize }}.
+      </p>
+      {% include "pie/_pie_svg.html" %}
+    </div>
+  {% endif %}
+
   {% if request.membership and request.membership.role == 'admin' or request.user.is_superuser %}
     <div class="gk-card">
       <p><a href="{% url 'orgs:members' org_slug=current_org.slug %}">Manage members &amp; roles &rarr;</a></p>

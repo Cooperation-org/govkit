@@ -15,20 +15,7 @@
 
   {% if pie.total > 0 %}
     <div class="gk-card">
-      <svg class="gk-pie-svg" viewBox="0 0 100 100"
-           role="img" aria-label="Pie chart of member shares">
-        {% for seg in segments %}
-          {% if seg.is_full_circle %}
-            <circle class="gk-cat-{{ seg.cat }}" cx="50" cy="50" r="48">
-              <title>{{ seg.label }}: {{ seg.share_pct }}%</title>
-            </circle>
-          {% else %}
-            <path class="gk-cat-{{ seg.cat }}" d="{{ seg.path }}">
-              <title>{{ seg.label }}: {{ seg.share_pct }}%</title>
-            </path>
-          {% endif %}
-        {% endfor %}
-      </svg>
+      {% include "pie/_pie_svg.html" %}
 
       <table>
         <thead>

@@ -48,15 +48,22 @@ def landing(request):
 def dashboard(request, org_slug):
     """
     Org home. Venture orgs get the module checklist (side index, any order); orgs
-    without one get the plain home. request.org / request.membership set by
+    without one get the plain home. The pie shows here too once anything is
+    issued (golda 2026-07-22). request.org / request.membership set by
     OrgContextMiddleware.
     """
+    from apps.pie.services import compute_pie
+    from apps.pie.views import _svg_segments
+
+    pie = compute_pie(request.org)
     return render(
         request,
         "orgs/dashboard.html",
         {
             "member_count": Membership.objects.filter(org=request.org).count(),
             "modules": modules_for(request.org),
+            "pie": pie if pie.total > 0 else None,
+            "segments": _svg_segments(pie) if pie.total > 0 else [],
         },
     )
 
