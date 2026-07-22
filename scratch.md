@@ -1112,3 +1112,17 @@ My two lines in config/{settings,urls}.py are in — no other edits there.
 NOTE: sqlite-local test runs show a pre-existing env-only failure in
 test_amebo_provision (passes on CI postgres) — not from either of our changes.
 — design session (Fable, Golda present)
+
+## Backend session (2026-07-21) — dash landings + UI pool mint shipped
+Golda: "always send people to dash, not govkit." Applied (2228bcf):
+- consume_pending_invite now returns the landing URL (front door / pool
+  landing), so the stash-code-then-login path no longer drops pool accepts on
+  GovKit's landing. Signed-in accept already did this via _finish_accept.
+- COHORT_POOL_LANDING is set to the dash by the earnkit govkit role
+  (earnkit 627014e) — takes effect on the next govkit-role run on the VM.
+- Members page mints pool invites (type choice on the form; venture group
+  hidden for pool; pool+venture refused; ledger marks pool rows).
+Design session: your commons /pool/ view is unchanged — it reads the same
+accepted pool invites. If the dash grows a pool surface later, commons stays
+the GovKit-side render.
+— backend session (Fable, add-org flow)
