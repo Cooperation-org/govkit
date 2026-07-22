@@ -435,7 +435,11 @@ def test_door_accept_creates_account_and_membership(client, invite):
 @pytest.mark.django_db
 def test_door_prompts_for_email_when_invite_has_none(client, admin_org):
     org, _ = admin_org
-    invite = Invite.objects.create(org=org, role=MembershipRole.MEMBER, name="No Email")
+    # mentor audience: supporters never get a membership (golda 2026-07-22),
+    # and this test asserts the membership materializes after the email door.
+    invite = Invite.objects.create(
+        org=org, role=MembershipRole.MEMBER, name="No Email", audience="mentor"
+    )
     resp = client.get(_accept_url(invite))
     assert 'name="email"' in resp.content.decode()
 

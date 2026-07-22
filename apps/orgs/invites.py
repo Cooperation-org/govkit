@@ -122,6 +122,12 @@ def accept_invite_for_user(invite: Invite, user) -> tuple[Membership | None, Org
     if invite.kind == InviteKind.POOL:
         invite.mark_accepted(by=user)
         return None, None
+    if invite.audience == InviteAudience.SUPPORTER:
+        # Supporters never join an org (golda 2026-07-22): they are the email
+        # list — wall card + dash + contact capture, no membership, no slices,
+        # and NOT listed in the applicant pool (that's people seeking a team).
+        invite.mark_accepted(by=user)
+        return None, None
     membership = Membership.objects.create(org=invite.org, user=user, role=invite.role)
     venture_org = None
     if invite.audience == InviteAudience.FOUNDER and invite.venture_name:
