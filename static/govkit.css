@@ -4,10 +4,10 @@
    docs/design/pattern-language.md is the contract; pattern numbers cited below.
 
    One dependency-free stylesheet: tokens on :root (18 · THEMEABLE ROOTS),
-   dark mode via prefers-color-scheme + [data-theme] override, no fonts shipped,
+   light only — paper in every OS theme (golda 2026-07-22), no fonts shipped,
    no animation anywhere (4 · NOTHING MOVES — do not add transitions).
 
-   The six leaf colors are validated (CVD/contrast/lightness) for each mode —
+   The six leaf colors are validated (CVD/contrast/lightness) —
    re-run the dataviz palette validator before changing any of them.
    ============================================================================ */
 

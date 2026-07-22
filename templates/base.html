@@ -20,6 +20,9 @@
 {% endif %}
 
 <header class="gk-header">
+  {% if not cohort_nav_src %}
+  {# Standalone GovKit keeps its own brand row; under a cohort nav the bar above
+     is the one brand (workers.vc) and this row is org context only. #}
   <a class="gk-brand" href="{% url 'orgs:landing' %}">
     {# the twig mark: a branching stem, leaves at the tips — quiet kin of the LinkedTrust tree #}
     <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
@@ -33,6 +36,7 @@
       <circle cx="17" cy="5" r="2.3" fill="var(--gk-cat-4)"/>
     </svg>
     GovKit</a>
+  {% endif %}
   {% if current_org %}
     <nav class="gk-tabs">
       {% for tab in nav_tabs %}
@@ -44,7 +48,8 @@
   {% endif %}
   <span class="gk-user">
     {% if request.user.is_authenticated %}
-      {{ request.user.get_short_name }} &middot;
+      {% if not cohort_nav_src %}{{ request.user.get_short_name }} &middot;{% endif %}
+      {# under a cohort nav the name already shows in the bar above — say it once #}
       <a href="{% url 'accounts:logout' %}">Sign out</a>
     {% else %}
       <a href="{% url 'accounts:login' %}">Sign in</a>
