@@ -27,7 +27,9 @@ def _accept_url(invite):
 def test_invite_link_then_login_creates_member(client, admin_org, user_factory, settings):
     settings.GOVKIT_DEV_LOGIN = True
     org, _ = admin_org
-    invite = Invite.objects.create(org=org, role=MembershipRole.MEMBER, email="invitee@example.com", audience="mentor")
+    invite = Invite.objects.create(
+        org=org, role=MembershipRole.MEMBER, email="invitee@example.com", audience="mentor"
+    )
 
     # Anonymous visitor follows the invite link → the door renders, code stashed.
     # (The "sign in instead" side path below still finishes the join after login.)
@@ -52,7 +54,9 @@ def test_invite_link_then_login_creates_member(client, admin_org, user_factory, 
 @pytest.mark.django_db
 def test_invite_accept_while_authenticated_joins_immediately(client, admin_org, user_factory):
     org, _ = admin_org
-    invite = Invite.objects.create(org=org, role=MembershipRole.STEWARD, name="Stew", audience="mentor")
+    invite = Invite.objects.create(
+        org=org, role=MembershipRole.STEWARD, name="Stew", audience="mentor"
+    )
     user = user_factory()
     client.force_login(user)
     resp = client.get(_accept_url(invite))
