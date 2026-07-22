@@ -650,8 +650,11 @@ def test_save_source_update_blank_token_keeps_existing(
     # Blank token input keeps the stored token; other fields update.
     resp = client.post(
         _save_url(org),
-        _valid_post(source_id=str(src.pk), base_url="https://new.example/",
-                    done_statuses_input="done, shipped"),
+        _valid_post(
+            source_id=str(src.pk),
+            base_url="https://new.example/",
+            done_statuses_input="done, shipped",
+        ),
     )
     assert resp.status_code == 302
     src.refresh_from_db()
