@@ -142,7 +142,11 @@ class TaigaAdapter(TaskSourceAdapter):
         """
         url = self._url(path, params)
         request = urllib.request.Request(url, headers=self._headers(), method="GET")
-        with urllib.request.urlopen(request) as response:  # nosec B310 - config-supplied base_url
+        # timeout: a stalled tracker must never tie up a gunicorn worker for 30s
+        # (the dash tasks card calls this on page load).
+        with urllib.request.urlopen(
+            request, timeout=10
+        ) as response:  # nosec B310 - config-supplied base_url
             payload = response.read().decode("utf-8")
             resp_headers = {k.lower(): v for k, v in response.headers.items()}
         data = json.loads(payload) if payload else None
