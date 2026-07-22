@@ -51,59 +51,11 @@
   --gk-leaf-radius: 50% 50% 50% 2px;  /* 7 · EVERY MEMBER A LEAF */
 
   --gk-measure: 62rem;     /* 9 · THE MEAT IS THE PAGE */
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
-/* 1 · DARK BARK — selected values, not an automatic flip */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --gk-bg: #171310;
-    --gk-surface: #201b16;
-    --gk-ink: #ece7df;
-    --gk-ink-2: #b3aa9c;
-    --gk-muted: #857c6f;
-    --gk-border: #322b23;
-    --gk-border-strong: #4a4136;
-
-    --gk-accent: #2ea3c9;
-    --gk-accent-deep: #5cb8d6;
-    --gk-on-accent: #10222a;
-
-    --gk-cat-0: #2ea3c9;  --gk-cat-0-soft: #1c3339;
-    --gk-cat-1: #d8626d;  --gk-cat-1-soft: #412424;
-    --gk-cat-2: #6f9c3c;  --gk-cat-2-soft: #2a311a;
-    --gk-cat-3: #c06a94;  --gk-cat-3-soft: #3c262d;
-    --gk-cat-4: #b8892a;  --gk-cat-4-soft: #3a2d16;
-    --gk-cat-5: #25a08e;  --gk-cat-5-soft: #1a322c;
-
-    --gk-ok: #8bb35c;        --gk-ok-soft: #2a311a;
-    --gk-warn: #c99a4b;      --gk-warn-soft: #3a2d16;
-    --gk-bad: #e07f88;       --gk-bad-soft: #412424;
-    --gk-neutral: #b3aa9c;   --gk-neutral-soft: #2a251f;
-  }
-}
-[data-theme="dark"] {
-  --gk-bg: #171310;
-  --gk-surface: #201b16;
-  --gk-ink: #ece7df;
-  --gk-ink-2: #b3aa9c;
-  --gk-muted: #857c6f;
-  --gk-border: #322b23;
-  --gk-border-strong: #4a4136;
-  --gk-accent: #2ea3c9;
-  --gk-accent-deep: #5cb8d6;
-  --gk-on-accent: #10222a;
-  --gk-cat-0: #2ea3c9;  --gk-cat-0-soft: #1c3339;
-  --gk-cat-1: #d8626d;  --gk-cat-1-soft: #412424;
-  --gk-cat-2: #6f9c3c;  --gk-cat-2-soft: #2a311a;
-  --gk-cat-3: #c06a94;  --gk-cat-3-soft: #3c262d;
-  --gk-cat-4: #b8892a;  --gk-cat-4-soft: #3a2d16;
-  --gk-cat-5: #25a08e;  --gk-cat-5-soft: #1a322c;
-  --gk-ok: #8bb35c;        --gk-ok-soft: #2a311a;
-  --gk-warn: #c99a4b;      --gk-warn-soft: #3a2d16;
-  --gk-bad: #e07f88;       --gk-bad-soft: #412424;
-  --gk-neutral: #b3aa9c;   --gk-neutral-soft: #2a251f;
-}
+/* Paper only: the dashboards render light in every OS theme (golda 2026-07-22).
+   Forms must read at a glance — light fields, dark ink, visible borders. */
 
 /* ---- base ------------------------------------------------------------- */
 
@@ -213,6 +165,8 @@ small { color: var(--gk-ink-2); }
   border-radius: var(--gk-radius-card);
   padding: 1rem 1.25rem;
   margin: 0.75rem 0;
+  /* Wide ledgers scroll inside their card; the page itself never scrolls sideways. */
+  overflow-x: auto;
 }
 .gk-card > :first-child { margin-top: 0; }
 
