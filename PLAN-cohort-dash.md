@@ -92,9 +92,11 @@ Everything the dash needs mostly exists, session-authed and org-gated by
 - `GET /api/v1/pie/orgs/<slug>/standing/` — personal standing.
 - `GET /api/v1/tasksources/orgs/<slug>/tasks/` — **done** tracked tasks
   only (valuation pipeline; not open work).
-- Genesis checklist — `ChecklistItem` (apps/orgs/models.py:283),
-  5 modules in apps/orgs/genesis.py, rendered only as HTML on the org
-  dashboard; no JSON endpoint.
+- Genesis checklist — 5 modules in apps/orgs/genesis.py, the ONE home of
+  the curriculum. Per-org state is `ChecklistEvent` (apps/orgs/models.py),
+  append-only; current state is derived by joining the latest event per
+  item against MODULES, never stored. `Org.genesis_started_at` marks an
+  org as on the path.
 - Projects/money — apps/projects (Project, Deal, Split, Payout) with
   per-project `summary/`; no single portfolio endpoint.
 - **No CORS anywhere** (no django-cors-headers; no ACAO headers emitted).
@@ -121,7 +123,8 @@ Everything the dash needs mostly exists, session-authed and org-gated by
    {"org_slug": "wayfern",
     "modules": [{"key": "exist", "title": "It exists", "week": 1,
                  "done": 4, "total": 4,
-                 "items": [{"id": 12, "title": "…", "done": true}]}]}
+                 "items": [{"key": "exist.prior-art", "title": "…",
+                            "done": true, "retired": false}]}]}
    ```
    Read-only; toggling stays in the GovKit HTML dashboard (the expand
    target).
@@ -162,7 +165,8 @@ Everything the dash needs mostly exists, session-authed and org-gated by
    - `<govkit-feed data-limit="8">` — flattened
      slices→lines→tasks rows: member, task subject, final_value, unit.
    - `<govkit-checklist>` — modules with done/total + item ticks, from
-     item 2.
+     item 2. Modules open and close (disclosure button, aria-expanded);
+     open/closed is view state in sessionStorage, never on the server.
    - `<govkit-tasks data-limit="6" data-tasks-app="https://marten.workers.vc">`
      — open tasks from item 3; row links prefer the marten deep link,
      falling back to `external_url`.

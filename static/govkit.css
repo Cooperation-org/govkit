@@ -647,10 +647,19 @@ details.gk-unfold fieldset { border: none; padding: 0.25rem 0 0.75rem; margin: 0
 .gk-matrix thead th { border-bottom: 1px solid var(--gk-border-strong); font-weight: 600; }
 .gk-matrix tbody tr:last-child th, .gk-matrix tbody tr:last-child td { border-bottom: none; }
 .gk-matrix tbody tr:hover { background: var(--gk-neutral-soft); }
-.gk-matrix-team { font-weight: 400; white-space: nowrap; }
+/* Row headers are the team's name, not a column label: undo the small-caps
+   label styling `th` carries, so the name reads as the row's subject. */
+.gk-matrix tbody th.gk-matrix-team {
+  font-size: 0.95rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--gk-ink);
+  white-space: nowrap;
+}
+.gk-matrix th.gk-matrix-total, .gk-matrix td.gk-matrix-total { text-align: right; }
 .gk-matrix-mod { display: block; font-size: 0.85rem; }
 .gk-matrix-week { display: block; font-size: 0.72rem; font-weight: 400; }
-.gk-matrix-total { text-align: right; }
 .gk-matrix-note { margin: 0.75rem 0 0; }
 
 /* One segment per item, filled when done: the count is shown, never encoded
@@ -674,7 +683,7 @@ details.gk-unfold fieldset { border: none; padding: 0.25rem 0 0.75rem; margin: 0
 .gk-rank { list-style: none; margin: 0.5rem 0 0; padding: 0; }
 .gk-rank li {
   display: grid;
-  grid-template-columns: minmax(8rem, 22rem) 1fr 2rem;
+  grid-template-columns: minmax(8rem, 24rem) minmax(0, 26rem) 2rem;
   align-items: center;
   gap: 0.75rem;
   padding: 0.3rem 0;

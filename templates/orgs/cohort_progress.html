@@ -9,8 +9,8 @@
   </p>
 
   {% if rows %}
-    {# Teams x modules. Each cell is one segment per item, filled when done: the
-       exact count stays readable at this size, so nothing is encoded in shade. #}
+    {% comment %} Teams x modules. Each cell is one segment per item, filled when done: the
+       exact count stays readable at this size, so nothing is encoded in shade. {% endcomment %}
     <div class="gk-card">
       <h2>Where each team is</h2>
       <table class="gk-matrix">
@@ -57,8 +57,8 @@
       </p>
     </div>
 
-    {# One series, sorted ascending: the items nobody reaches sit at the top,
-       which is a question about the guide rather than about the teams. #}
+    {% comment %} One series, sorted ascending: the items nobody reaches sit at the top,
+       which is a question about the guide rather than about the teams. {% endcomment %}
     <div class="gk-card">
       <h2>Where the guide is landing</h2>
       <p class="gk-muted">Teams that have done each item, of {{ skips.teams }}.</p>

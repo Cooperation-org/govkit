@@ -69,10 +69,16 @@
       '}',
       'govkit-checklist .module-head:hover { background: rgba(127,127,127,0.12); }',
       'govkit-checklist .module-head:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }',
+      // Chevron drawn in CSS, not a glyph: font coverage for the arrow characters
+      // is uneven and at this size a missing one degrades to a dot.
       'govkit-checklist .module-head .caret {',
-      '  flex: none; font-size: 10px; opacity: 0.55; transition: transform 120ms ease;',
+      '  flex: none; width: 0; height: 0; opacity: 0.6;',
+      '  border-left: 5px solid currentColor;',
+      '  border-top: 4px solid transparent; border-bottom: 4px solid transparent;',
+      '  transition: transform 120ms ease;',
       '}',
       'govkit-checklist .module-head[aria-expanded="true"] .caret { transform: rotate(90deg); }',
+      'govkit-checklist .module-head .count.alldone { opacity: 1; font-weight: 600; }',
       'govkit-checklist .module-head .title { font-weight: 600; font-size: 13.5px; }',
       'govkit-checklist .module-head .count { margin-left: auto; font-size: 12px; opacity: 0.65; font-variant-numeric: tabular-nums; }',
       'govkit-checklist ul { list-style: none; margin: 2px 0 8px; padding: 0 0 0 22px; }',
@@ -316,10 +322,12 @@
       head.type = 'button';
       head.setAttribute('aria-expanded', expanded ? 'true' : 'false');
       head.setAttribute('aria-controls', panelId);
-      head.appendChild(el('span', 'caret', '▸'));
+      head.appendChild(el('span', 'caret'));
       head.appendChild(el('span', 'title',
         m.title + (m.week != null ? ' · week ' + m.week : '')));
-      head.appendChild(el('span', 'count', m.done + '/' + m.total));
+      head.appendChild(el('span',
+        'count' + (m.total && m.done === m.total ? ' alldone' : ''),
+        m.done + '/' + m.total));
       box.appendChild(head);
 
       var ul = el('ul');

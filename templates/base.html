@@ -21,8 +21,8 @@
 
 <header class="gk-header">
   {% if not cohort_nav_src %}
-  {# Standalone GovKit keeps its own brand row; under a cohort nav the bar above
-     is the one brand (workers.vc) and this row is org context only. #}
+  {% comment %} Standalone GovKit keeps its own brand row; under a cohort nav the bar above
+     is the one brand (workers.vc) and this row is org context only. {% endcomment %}
   <a class="gk-brand" href="{% url 'orgs:landing' %}">
     {# the twig mark: a branching stem, leaves at the tips — quiet kin of the LinkedTrust tree #}
     <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
