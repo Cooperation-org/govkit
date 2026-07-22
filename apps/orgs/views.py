@@ -51,9 +51,9 @@ def dashboard(request, org_slug):
     stay at their own tab URLs. Standalone GovKit keeps this page. Venture
     orgs get the module checklist; the pie shows once anything is issued.
     """
-    from .invites import front_door_url
+    from .invites import cohort_front_door_url
 
-    front_door = front_door_url(request.org)
+    front_door = cohort_front_door_url(request.org)
     if front_door:
         return redirect(front_door)
 
