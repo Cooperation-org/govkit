@@ -13,10 +13,9 @@ from unittest.mock import patch
 
 import pytest
 from django.core.cache import cache
-from django.utils import timezone
 
-from apps.orgs.genesis import MODULES, seed_genesis
-from apps.orgs.models import ChecklistItem
+from apps.orgs.genesis import MODULES, start_genesis, toggle_item
+from apps.orgs.models import ChecklistEvent
 from apps.projects.models import Deal, Payout, Project, ProjectKind, Split
 from apps.tasksources.adapters import OpenTaskDTO
 from apps.tasksources.models import TaskSourceConfig
@@ -49,9 +48,13 @@ def outsider(user_factory):
 # --------------------------------------------------------------------------- checklist
 
 
-def _toggle(client, org, item, **extra):
+FIRST_KEY = MODULES[0][3][0][0]
+SECOND_KEY = MODULES[0][3][1][0]
+
+
+def _toggle(client, org, item_key, **extra):
     return client.post(
-        f"/api/v1/orgs/{org.slug}/checklist/{item.id}/toggle/",
+        f"/api/v1/orgs/{org.slug}/checklist/{item_key}/toggle/",
         HTTP_X_GOVKIT_EMBED="1",
         **extra,
     )
@@ -60,57 +63,61 @@ def _toggle(client, org, item, **extra):
 def test_member_toggles_item_from_the_dash(client, team):
     """The curriculum is worked directly on the dash: session + embed header."""
     org, user, _ = team
-    seed_genesis(org)
-    item = ChecklistItem.objects.filter(org=org).order_by("id").first()
+    start_genesis(org)
     client.force_login(user)
 
-    resp = _toggle(client, org, item)
+    resp = _toggle(client, org, FIRST_KEY)
     assert resp.status_code == 200
     body = resp.json()
+    assert body["key"] == FIRST_KEY
     assert body["done"] is True
     assert body["module"]["done"] >= 1
-    item.refresh_from_db()
-    assert item.done_by == user
+    tick = ChecklistEvent.objects.get(org=org, item_key=FIRST_KEY)
+    assert tick.actor == user and tick.action == "tick"
 
-    resp = _toggle(client, org, item)
+    resp = _toggle(client, org, FIRST_KEY)
     assert resp.json()["done"] is False
-    item.refresh_from_db()
-    assert item.done_at is None and item.done_by is None
+    # Append-only: unticking adds a row, it never erases the tick.
+    actions = list(
+        ChecklistEvent.objects.filter(org=org, item_key=FIRST_KEY)
+        .order_by("at", "id")
+        .values_list("action", flat=True)
+    )
+    assert actions == ["tick", "untick"]
 
 
 def test_toggle_requires_embed_header(client, team):
     """No header -> no preflight protection -> refuse (the CSRF stand-in)."""
     org, user, _ = team
-    seed_genesis(org)
-    item = ChecklistItem.objects.filter(org=org).first()
+    start_genesis(org)
     client.force_login(user)
-    resp = client.post(f"/api/v1/orgs/{org.slug}/checklist/{item.id}/toggle/")
+    resp = client.post(f"/api/v1/orgs/{org.slug}/checklist/{FIRST_KEY}/toggle/")
     assert resp.status_code == 403
-    item.refresh_from_db()
-    assert item.done_at is None
+    assert not ChecklistEvent.objects.filter(org=org).exists()
 
 
 def test_toggle_forbidden_for_non_member(client, team, outsider):
     org, _, _ = team
-    seed_genesis(org)
-    item = ChecklistItem.objects.filter(org=org).first()
+    start_genesis(org)
     client.force_login(outsider)
-    assert _toggle(client, org, item).status_code == 403
+    assert _toggle(client, org, FIRST_KEY).status_code == 403
 
 
 def test_toggle_unknown_item_404s(client, team):
     org, user, _ = team
     client.force_login(user)
-    resp = client.post(f"/api/v1/orgs/{org.slug}/checklist/99999/toggle/", HTTP_X_GOVKIT_EMBED="1")
+    start_genesis(org)
+    resp = client.post(
+        f"/api/v1/orgs/{org.slug}/checklist/exist.no-such-item/toggle/",
+        HTTP_X_GOVKIT_EMBED="1",
+    )
     assert resp.status_code == 404
 
 
 def test_checklist_shape_for_member(client, team):
     org, user, _ = team
-    seed_genesis(org)
-    first = ChecklistItem.objects.filter(org=org).order_by("id").first()
-    first.done_at = timezone.now()
-    first.save(update_fields=["done_at"])
+    start_genesis(org)
+    toggle_item(org, FIRST_KEY, user)
 
     client.force_login(user)
     resp = client.get(f"/api/v1/orgs/{org.slug}/checklist/")
@@ -123,19 +130,20 @@ def test_checklist_shape_for_member(client, team):
     assert set(first_module) == {"key", "title", "week", "done", "total", "items"}
     assert first_module["key"] == MODULES[0][0]
     assert first_module["title"] == MODULES[0][1]
-    assert first_module["week"] == 1
+    assert first_module["week"] == MODULES[0][2]
     assert first_module["done"] == 1
-    assert first_module["total"] == len(MODULES[0][2])
+    assert first_module["total"] == len(MODULES[0][3])
     assert first_module["items"][0] == {
-        "id": first.id,
-        "title": first.title,
+        "key": FIRST_KEY,
+        "title": MODULES[0][3][0][1],
         "done": True,
+        "retired": False,
     }
     assert first_module["items"][1]["done"] is False
 
 
 def test_checklist_empty_for_non_venture_org(client, team):
-    org, user, _ = team  # no seed_genesis: not a venture org
+    org, user, _ = team  # never started: not a venture org
     client.force_login(user)
     resp = client.get(f"/api/v1/orgs/{org.slug}/checklist/")
     assert resp.status_code == 200

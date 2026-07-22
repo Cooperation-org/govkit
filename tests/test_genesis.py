@@ -1,6 +1,6 @@
 """
 B1 one-hour team: founder invite accept auto-creates the venture org (admin membership,
-default valuation config, seeded genesis checklist) and lands the founder there; the
+default valuation config, genesis path started) and lands the founder there; the
 dashboard renders the any-order module checklist; members toggle items. Also the B2
 venture fields on the invite mint + S2S payload.
 """
@@ -10,7 +10,7 @@ from django.urls import reverse
 
 from apps.orgs.genesis import MODULES
 from apps.orgs.models import (
-    ChecklistItem,
+    ChecklistEvent,
     Invite,
     InviteStatus,
     Membership,
@@ -63,16 +63,21 @@ def test_founder_accept_creates_venture_org(client, user_factory, founder_invite
     assert resp.headers["Location"].endswith("/o/integral-mass/")
 
 
-def test_founder_accept_seeds_genesis_checklist(client, user_factory, founder_invite):
+def test_founder_accept_starts_the_path(client, user_factory, founder_invite):
+    """No copy of the curriculum is made: the org is simply marked as on the path."""
+    from apps.orgs.genesis import modules_for
+
     user = user_factory()
     client.force_login(user)
     _accept(client, founder_invite)
     venture = Org.objects.get(slug="integral-mass")
-    items = ChecklistItem.objects.filter(org=venture)
-    expected = sum(len(titles) for _k, _l, titles in MODULES)
-    assert items.count() == expected
-    assert set(items.values_list("module", flat=True)) == {k for k, _l, _t in MODULES}
-    assert not items.filter(done_at__isnull=False).exists()
+    assert venture.genesis_started_at is not None
+    assert not ChecklistEvent.objects.filter(org=venture).exists()
+
+    modules = modules_for(venture)
+    assert [m["key"] for m in modules] == [k for k, _l, _w, _i in MODULES]
+    assert sum(m["total"] for m in modules) == sum(len(i) for _k, _l, _w, i in MODULES)
+    assert all(m["done"] == 0 for m in modules)
 
 
 def test_venture_slug_collision_gets_suffix(client, user_factory, org_factory, accel):
@@ -112,7 +117,7 @@ def test_dashboard_renders_module_index(client, user_factory, founder_invite):
     resp = client.get(reverse("orgs:dashboard", kwargs={"org_slug": "integral-mass"}))
     assert resp.status_code == 200
     body = resp.content.decode()
-    for key, _label, _titles in MODULES:
+    for key, _label, _week, _items in MODULES:
         assert f'id="module-{key}"' in body
     assert "gk-cyoa-index" in body
 
@@ -122,22 +127,24 @@ def test_member_toggles_checklist_item(client, user_factory, founder_invite):
     client.force_login(user)
     _accept(client, founder_invite)
     venture = Org.objects.get(slug="integral-mass")
-    item = ChecklistItem.objects.filter(org=venture).first()
+    key = MODULES[0][3][0][0]
 
     url = reverse(
         "orgs:checklist_toggle",
-        kwargs={"org_slug": venture.slug, "item_id": item.id},
+        kwargs={"org_slug": venture.slug, "item_key": key},
     )
     resp = client.post(url)
     assert resp.status_code == 302
-    item.refresh_from_db()
-    assert item.done_at is not None
-    assert item.done_by == user
+    tick = ChecklistEvent.objects.get(org=venture, item_key=key)
+    assert tick.action == "tick" and tick.actor == user
+    assert tick.title_shown == MODULES[0][3][0][1]
 
-    client.post(url)  # toggle back
-    item.refresh_from_db()
-    assert item.done_at is None
-    assert item.done_by is None
+    client.post(url)  # toggle back appends, never deletes
+    assert list(
+        ChecklistEvent.objects.filter(org=venture, item_key=key)
+        .order_by("at", "id")
+        .values_list("action", flat=True)
+    ) == ["tick", "untick"]
 
 
 def test_non_member_cannot_toggle(client, user_factory, founder_invite):
@@ -145,19 +152,18 @@ def test_non_member_cannot_toggle(client, user_factory, founder_invite):
     client.force_login(founder)
     _accept(client, founder_invite)
     venture = Org.objects.get(slug="integral-mass")
-    item = ChecklistItem.objects.filter(org=venture).first()
+    key = MODULES[0][3][0][0]
 
     outsider = user_factory()
     client.force_login(outsider)
     resp = client.post(
         reverse(
             "orgs:checklist_toggle",
-            kwargs={"org_slug": venture.slug, "item_id": item.id},
+            kwargs={"org_slug": venture.slug, "item_key": key},
         )
     )
     assert resp.status_code == 403
-    item.refresh_from_db()
-    assert item.done_at is None
+    assert not ChecklistEvent.objects.filter(org=venture).exists()
 
 
 def test_s2s_payload_carries_venture_and_claim_fields(client, settings, founder_invite):
@@ -192,9 +198,9 @@ def test_onboarding_two_answers_is_enough(client, user_factory, db):
 
 
 @pytest.mark.django_db
-def test_admin_seeds_path_for_existing_org(client, org_factory, user_factory, membership_factory):
-    """Orgs that predate their checklist get a one-click start (admin only)."""
-    from apps.orgs.models import ChecklistItem, MembershipRole
+def test_admin_starts_path_for_existing_org(client, org_factory, user_factory, membership_factory):
+    """Orgs that predate the curriculum get a one-click start (admin only)."""
+    from apps.orgs.models import MembershipRole
 
     org = org_factory()
     admin = user_factory()
@@ -202,16 +208,18 @@ def test_admin_seeds_path_for_existing_org(client, org_factory, user_factory, me
     client.force_login(admin)
     resp = client.post(f"/o/{org.slug}/checklist/seed/")
     assert resp.status_code == 302
-    assert ChecklistItem.objects.filter(org=org).count() > 0
-    # Idempotent: seeding again never duplicates.
-    n = ChecklistItem.objects.filter(org=org).count()
+    org.refresh_from_db()
+    started = org.genesis_started_at
+    assert started is not None
+    # Idempotent: starting again keeps the original date.
     client.post(f"/o/{org.slug}/checklist/seed/")
-    assert ChecklistItem.objects.filter(org=org).count() == n
+    org.refresh_from_db()
+    assert org.genesis_started_at == started
 
 
 @pytest.mark.django_db
 def test_member_cannot_seed_path(client, org_factory, user_factory, membership_factory):
-    from apps.orgs.models import ChecklistItem, MembershipRole
+    from apps.orgs.models import MembershipRole
 
     org = org_factory()
     member = user_factory()
@@ -219,4 +227,5 @@ def test_member_cannot_seed_path(client, org_factory, user_factory, membership_f
     client.force_login(member)
     resp = client.post(f"/o/{org.slug}/checklist/seed/")
     assert resp.status_code == 403
-    assert not ChecklistItem.objects.filter(org=org).exists()
+    org.refresh_from_db()
+    assert org.genesis_started_at is None

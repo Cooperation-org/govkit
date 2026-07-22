@@ -24,7 +24,7 @@ from django.db import transaction
 from django.utils.text import slugify
 
 from .amebo import provision_membership
-from .genesis import seed_genesis
+from .genesis import start_genesis
 from .models import (
     Invite,
     InviteAudience,
@@ -87,7 +87,7 @@ def create_venture_org(invite: Invite, user) -> Org:
     )
     ValuationConfig.objects.create(org=org)
     Membership.objects.create(org=org, user=user, role=MembershipRole.ADMIN)
-    seed_genesis(org)
+    start_genesis(org)
     return org
 
 

@@ -27,16 +27,16 @@
               {% for item in m.items %}
                 <li>
                   <form method="post"
-                        action="{% url 'orgs:checklist_toggle' org_slug=current_org.slug item_id=item.id %}">
+                        action="{% url 'orgs:checklist_toggle' org_slug=current_org.slug item_key=item.key %}">
                     {% csrf_token %}
-                    <button type="submit" class="gk-checkbox {% if item.done_at %}is-done{% endif %}"
-                            aria-pressed="{% if item.done_at %}true{% else %}false{% endif %}"
-                            aria-label="{% if item.done_at %}Uncheck{% else %}Check{% endif %}: {{ item.title }}">
-                      {% if item.done_at %}&#10003;{% endif %}
+                    <button type="submit" class="gk-checkbox {% if item.done %}is-done{% endif %}"
+                            aria-pressed="{% if item.done %}true{% else %}false{% endif %}"
+                            aria-label="{% if item.done %}Uncheck{% else %}Check{% endif %}: {{ item.title }}">
+                      {% if item.done %}&#10003;{% endif %}
                     </button>
                   </form>
-                  <span class="{% if item.done_at %}gk-done-title{% endif %}">{{ item.title }}</span>
-                  {% if item.done_at %}
+                  <span class="{% if item.done %}gk-done-title{% endif %}">{{ item.title }}</span>
+                  {% if item.done %}
                     <span class="gk-muted gk-done-meta">{{ item.done_by.email|default:"" }} · {{ item.done_at|date:"M j" }}</span>
                   {% endif %}
                 </li>
@@ -57,7 +57,7 @@
         <form method="post" action="{% url 'orgs:checklist_seed' org_slug=current_org.slug %}">
           {% csrf_token %}
           <button type="submit" class="gk-btn-primary">Start the path</button>
-          <small>Seed the module checklist — exists, who it's for, build, money,
+          <small>Open the module checklist — exists, who it's for, build, money,
             receipts. It shows here and on the team dash.</small>
         </form>
       </div>

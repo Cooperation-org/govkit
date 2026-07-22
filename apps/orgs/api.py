@@ -44,8 +44,8 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.routers import DefaultRouter
 from rest_framework.views import APIView
 
-from .genesis import modules_for
-from .models import ChecklistItem, Invite, InviteStatus, Membership, MembershipRole, Org
+from .genesis import modules_for, serialize_modules, toggle_item
+from .models import Invite, InviteStatus, Membership, MembershipRole, Org
 from .serializers import (
     InviteSerializer,
     MembershipSerializer,
@@ -167,21 +167,9 @@ class ChecklistView(APIView):
     """
 
     def get(self, request, org_slug):
-        modules = [
-            {
-                "key": entry["key"],
-                "title": entry["label"],
-                "week": entry["week"],
-                "done": entry["done"],
-                "total": entry["total"],
-                "items": [
-                    {"id": item.id, "title": item.title, "done": bool(item.done_at)}
-                    for item in entry["items"]
-                ],
-            }
-            for entry in modules_for(request.org)
-        ]
-        return Response({"org_slug": request.org.slug, "modules": modules})
+        return Response(
+            {"org_slug": request.org.slug, "modules": serialize_modules(modules_for(request.org))}
+        )
 
 
 class EmbedSessionAuthentication(SessionAuthentication):
@@ -207,26 +195,16 @@ class ChecklistToggleView(APIView):
 
     authentication_classes = [EmbedSessionAuthentication]
 
-    def post(self, request, org_slug, item_id):
+    def post(self, request, org_slug, item_key):
         if request.membership is None and not request.user.is_superuser:
             raise PermissionDenied("Only members may work the checklist.")
-        item = ChecklistItem.objects.filter(org=request.org, id=item_id).first()
-        if item is None:
+        done, module = toggle_item(request.org, item_key, request.user)
+        if done is None:
             return Response({"error": "no such item"}, status=status.HTTP_404_NOT_FOUND)
-        if item.done_at:
-            item.done_at = None
-            item.done_by = None
-        else:
-            from django.utils import timezone
-
-            item.done_at = timezone.now()
-            item.done_by = request.user
-        item.save(update_fields=["done_at", "done_by"])
-        module = next((e for e in modules_for(request.org) if e["key"] == item.module), None)
         return Response(
             {
-                "id": item.id,
-                "done": bool(item.done_at),
+                "key": item_key,
+                "done": done,
                 "module": (
                     {"key": module["key"], "done": module["done"], "total": module["total"]}
                     if module
@@ -342,7 +320,7 @@ router.register(r"memberships", MembershipViewSet, basename="membership")
 urlpatterns = router.urls + [
     path("<slug:org_slug>/checklist/", ChecklistView.as_view(), name="org-checklist"),
     path(
-        "<slug:org_slug>/checklist/<int:item_id>/toggle/",
+        "<slug:org_slug>/checklist/<str:item_key>/toggle/",
         ChecklistToggleView.as_view(),
         name="org-checklist-toggle",
     ),

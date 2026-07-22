@@ -17,11 +17,10 @@ from django.db.models import ProtectedError
 from django.http import Http404
 from django.shortcuts import redirect, render
 from django.urls import reverse
-from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .forms import InviteForm, MemberUpdateForm, OnboardingForm, OrgRateForm
-from .genesis import modules_for
+from .genesis import module_of, modules_for, start_genesis, toggle_item
 from .invites import (
     SESSION_KEY,
     InviteError,
@@ -29,7 +28,7 @@ from .invites import (
     cohort_front_door_url,
     get_invite_for_accept,
 )
-from .models import ChecklistItem, Invite, InviteStatus, Membership, MembershipRole, Org
+from .models import Invite, InviteStatus, Membership, MembershipRole, Org
 
 
 def landing(request):
@@ -70,35 +69,27 @@ def dashboard(request, org_slug):
 
 @login_required
 @require_POST
-def checklist_toggle(request, org_slug, item_id):
+def checklist_toggle(request, org_slug, item_key):
     """Check/uncheck a genesis item. Any member; records who and when."""
     if request.membership is None and not request.user.is_superuser:
         raise PermissionDenied("Only members may work the checklist.")
-    item = ChecklistItem.objects.filter(org=request.org, id=item_id).first()
-    if item is None:
+    done, _entry = toggle_item(request.org, item_key, request.user)
+    if done is None:
         raise Http404("No such checklist item.")
-    if item.done_at:
-        item.done_at = None
-        item.done_by = None
-    else:
-        item.done_at = timezone.now()
-        item.done_by = request.user
-    item.save(update_fields=["done_at", "done_by"])
     return redirect(
-        f"{reverse('orgs:dashboard', kwargs={'org_slug': request.org.slug})}#module-{item.module}"
+        f"{reverse('orgs:dashboard', kwargs={'org_slug': request.org.slug})}"
+        f"#module-{module_of(item_key)}"
     )
 
 
 @login_required
 @require_POST
 def checklist_seed(request, org_slug):
-    """Admin starts the path for an org that has no checklist yet (only
-    founder-created ventures get one automatically)."""
+    """Admin starts the path for an org that is not on it yet (only
+    founder-created ventures start automatically)."""
     _require_admin(request)
-    if not ChecklistItem.objects.filter(org=request.org).exists():
-        from .genesis import seed_genesis
-
-        seed_genesis(request.org)
+    if request.org.genesis_started_at is None:
+        start_genesis(request.org)
         messages.success(request, "The path is ready. Start anywhere.")
     return redirect("orgs:dashboard", org_slug=request.org.slug)
 

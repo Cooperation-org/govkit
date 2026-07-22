@@ -286,7 +286,7 @@
         btn.setAttribute('aria-pressed', item.done ? 'true' : 'false');
         btn.setAttribute('aria-label', (item.done ? 'Uncheck: ' : 'Check: ') + item.title);
         btn.addEventListener('click', function () {
-          toggleChecklistItem(host, item.id, li, btn);
+          toggleChecklistItem(host, item.key, li, btn);
         });
         li.appendChild(btn);
         li.appendChild(el('span', 'item-title', item.title));
@@ -300,11 +300,12 @@
   // The one write the dash makes: work the curriculum in place. The GET above
   // already proved membership (it 403s outsiders), and the endpoint takes the
   // session cookie plus a custom header (preflight-gated, org-allowlisted CORS).
-  function toggleChecklistItem(host, itemId, li, btn) {
+  function toggleChecklistItem(host, itemKey, li, btn) {
     var c = cfg(host);
     if (!c || btn.disabled) return;
     btn.disabled = true;
-    fetch(c.up + '/api/v1/orgs/' + c.org + '/checklist/' + itemId + '/toggle/', {
+    fetch(c.up + '/api/v1/orgs/' + c.org + '/checklist/' +
+                encodeURIComponent(itemKey) + '/toggle/', {
       method: 'POST',
       credentials: 'include',
       headers: { 'X-Govkit-Embed': '1' },

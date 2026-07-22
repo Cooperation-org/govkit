@@ -92,6 +92,9 @@ class Org(models.Model):
     default_hourly_rate = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True
     )
+    # Set when the org starts the genesis curriculum. This, not the presence of
+    # rows, is what makes an org "on the path" (apps.orgs.genesis).
+    genesis_started_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -322,32 +325,49 @@ class Invite(models.Model):
         self.save(update_fields=["status"])
 
 
-class ChecklistItem(models.Model):
+class ChecklistAction(models.TextChoices):
+    TICK = "tick", "Ticked"
+    UNTICK = "untick", "Unticked"
+
+
+class ChecklistEvent(models.Model):
     """
-    One item of a venture org's genesis checklist (the any-order onboarding path).
-    Grouped into modules by apps.orgs.genesis; done is a timestamp + who, so the
-    checklist doubles as a plain record of what happened when.
+    One thing that happened on a venture org's genesis checklist. APPEND-ONLY:
+    unchecking writes an untick, it never deletes or nulls a tick, so the record
+    of having done something survives being undone.
+
+    The curriculum itself is NOT stored here — it lives once, in
+    apps.orgs.genesis.MODULES, and is joined to these events by item_key at render
+    time. That is why editing the curriculum reaches every org at once and why
+    there is nothing to reseed.
+
+    title_shown is the item's wording at the moment it was acted on: the honest
+    version stamp, and what lets a retired item still describe itself.
     """
 
-    org = models.ForeignKey(Org, on_delete=models.CASCADE, related_name="checklist_items")
-    module = models.CharField(max_length=32)
-    title = models.CharField(max_length=255)
-    order = models.PositiveIntegerField(default=0)
-    done_at = models.DateTimeField(null=True, blank=True)
-    done_by = models.ForeignKey(
+    org = models.ForeignKey(Org, on_delete=models.CASCADE, related_name="checklist_events")
+    # Joins to apps.orgs.genesis.ITEM_INDEX. Keys are permanent; see that module.
+    item_key = models.CharField(max_length=64)
+    action = models.CharField(max_length=10, choices=ChecklistAction.choices)
+    actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name="checklist_items_done",
+        related_name="checklist_events",
     )
+    at = models.DateTimeField(default=timezone.now)
+    title_shown = models.CharField(max_length=255)
 
     class Meta:
-        ordering = ["order", "id"]
+        ordering = ["at", "id"]
+        indexes = [
+            models.Index(fields=["org", "item_key", "at"]),
+            models.Index(fields=["org", "at"]),
+        ]
 
     def __str__(self):
-        state = "done" if self.done_at else "open"
-        return f"ChecklistItem({self.org.slug}/{self.module}: {self.title[:40]}, {state})"
+        return f"ChecklistEvent({self.org.slug}/{self.item_key}: {self.action})"
 
 
 class OpeningBalance(models.Model):
