@@ -21,7 +21,7 @@ from rest_framework.response import Response
 from rest_framework.routers import DefaultRouter
 from rest_framework.views import APIView
 
-from apps.orgs.models import Membership
+from apps.orgs.models import Invite, InviteStatus, Membership
 
 from .models import ProfileLink
 
@@ -29,10 +29,18 @@ from .models import ProfileLink
 class _MembershipSummarySerializer(serializers.ModelSerializer):
     org_slug = serializers.SlugField(source="org.slug", read_only=True)
     org_name = serializers.CharField(source="org.display_name", read_only=True)
+    # The audience on the accepted invite that brought this member in — the same
+    # read as apps/orgs/cohorts.py (mentorship has a home on the invite, not a role).
+    # Null when no accepted invite exists. Resolved from a per-request map in context
+    # to avoid an N+1 across memberships.
+    audience = serializers.SerializerMethodField()
 
     class Meta:
         model = Membership
-        fields = ["org_slug", "org_name", "role"]
+        fields = ["org_slug", "org_name", "role", "audience"]
+
+    def get_audience(self, membership):
+        return self.context.get("audience_by_org_id", {}).get(membership.org_id)
 
 
 class MeView(APIView):
@@ -45,6 +53,13 @@ class MeView(APIView):
         memberships = (
             Membership.objects.filter(user=user).select_related("org").order_by("org__slug")
         )
+        # One query for every accepted invite this user holds, mapped by org — so each
+        # membership can name the audience that brought them in without a per-row lookup.
+        audience_by_org_id = dict(
+            Invite.objects.filter(accepted_by=user, status=InviteStatus.ACCEPTED).values_list(
+                "org_id", "audience"
+            )
+        )
         return Response(
             {
                 "email": user.email,
@@ -52,7 +67,11 @@ class MeView(APIView):
                 "avatar_url": user.avatar_url,
                 "auth_provider": user.auth_provider,
                 "is_superuser": user.is_superuser,
-                "memberships": _MembershipSummarySerializer(memberships, many=True).data,
+                "memberships": _MembershipSummarySerializer(
+                    memberships,
+                    many=True,
+                    context={"audience_by_org_id": audience_by_org_id},
+                ).data,
             }
         )
 
