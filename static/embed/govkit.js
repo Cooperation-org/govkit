@@ -16,6 +16,10 @@
 //   - <govkit-feed data-limit="8">; <govkit-tasks data-limit="6"
 //     data-tasks-app="https://marten.workers.vc"> (row links prefer the tasks-app
 //     board deep link, falling back to the tracker's own URL).
+//   - <govkit-checklist data-reading="https://.../curriculum"> — optional. When
+//     set, each module's panel links to the reading doc at
+//     <data-reading>#chapter-<module-key>. A pointer keyed by module key, never a
+//     copy of the text. Omit it and no read link renders.
 //   - Every fetch carries credentials: 'include' (the member's own GovKit session;
 //     cross-origin needs GovKit's CORS allowlist — see PLAN-cohort-dash.md).
 //     GETs are deduped per URL for the life of the page, so components that read
@@ -93,6 +97,9 @@
       'govkit-checklist li .tick:hover { background: rgba(127,127,127,0.15); }',
       'govkit-checklist li.done { opacity: 0.6; }',
       'govkit-checklist li.done .item-title { text-decoration: line-through; }',
+      'govkit-checklist li.readmore { padding-top: 6px; }',
+      'govkit-checklist li.readmore a { font-size: 12.5px; color: inherit; opacity: 0.75; text-decoration: none; }',
+      'govkit-checklist li.readmore a:hover { opacity: 1; text-decoration: underline; }',
       'govkit-tasks .status { font-size: 12px; opacity: 0.65; white-space: nowrap; }',
       'govkit-tasks .assignee { font-size: 12.5px; opacity: 0.8; white-space: nowrap; }',
       'govkit-tasks a { color: inherit; }',
@@ -360,6 +367,20 @@
         li.appendChild(el('span', 'item-title', item.title));
         ul.appendChild(li);
       });
+
+      // Link TO the reading doc for this module, when the host names one
+      // (data-reading = the curriculum doc base). A pointer keyed by module key,
+      // never a copy of the text: read there, come back and tick here.
+      var readBase = host.dataset.reading && host.dataset.reading.replace(/\/+$/, '');
+      if (readBase) {
+        var readLi = el('li', 'readmore');
+        var a = el('a', null, 'Read the full module →');
+        a.href = readBase + '#chapter-' + encodeURIComponent(m.key);
+        a.target = '_blank';
+        a.rel = 'noopener';
+        readLi.appendChild(a);
+        ul.appendChild(readLi);
+      }
 
       head.addEventListener('click', function () {
         var nowOpen = ul.hidden;
