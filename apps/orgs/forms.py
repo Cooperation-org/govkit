@@ -8,6 +8,7 @@ and the API share the model constraints). Onboarding creates the Org + its Valua
 
 from __future__ import annotations
 
+import re
 from decimal import Decimal
 
 from django import forms
@@ -231,6 +232,19 @@ class InviteForm(forms.Form):
         label="Drafted social post",
         help_text="Your words. Queued only with the invitee's consent.",
     )
+    already_committed = forms.BooleanField(
+        required=False,
+        label="Already committed (special case)",
+        help_text="Rare: this person is already on the wall (or this is a demo org). Skips the "
+        "attestation entirely — no new claim is written. They still get their org and are "
+        "attached to their existing account by email.",
+    )
+    committed_claim = forms.CharField(
+        required=False,
+        label="Existing claim",
+        help_text="Optional, only with the box above. Their existing wall claim as an id or URL — "
+        "links it so they can see themselves on the wall. Leave blank if you don't have it.",
+    )
     # ONE invite flow: every invite routes through the public commitment page whenever
     # a doorway is configured (DOORWAY_BASE_URL). No per-invite choice — two entrances
     # for one job is the UX failure this replaces.
@@ -242,6 +256,20 @@ class InviteForm(forms.Form):
         # No venture/kind validation (golda 2026-07-24): just let them submit. The
         # UI controls what shows (venture fields appear only for BYOV); the accept
         # path does the right thing per kind.
+
+        # "Already committed" special case: parse the optional existing-claim reference
+        # (id or URL) into an int the accept path can link. Only meaningful with the box.
+        data["committed_claim_id"] = None
+        ref = (data.get("committed_claim") or "").strip()
+        if ref:
+            if not data.get("already_committed"):
+                self.add_error("committed_claim", "Only used with 'Already committed'. Check that box or clear this.")
+            else:
+                m = re.search(r"(\d+)\s*/?\s*$", ref)
+                if not m:
+                    self.add_error("committed_claim", "Give a claim id or a claim URL ending in the id.")
+                else:
+                    data["committed_claim_id"] = int(m.group(1))
         return data
 
 

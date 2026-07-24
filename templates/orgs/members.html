@@ -166,6 +166,23 @@
         </div>
       </div>
 
+      <div class="gk-fieldgroup">
+        <h3>Special case</h3>
+        <div class="gk-form-grid">
+          <div class="gk-field gk-span-2">
+            <label class="gk-check">{{ invite_form.already_committed }}
+              Already committed — skip the attestation</label>
+            <small>They're already on the wall (or this is a demo org). No new claim is written;
+              they still get their org and are attached to their existing account.</small>
+          </div>
+          <div class="gk-field gk-span-2">
+            <label for="{{ invite_form.committed_claim.id_for_label }}">Existing claim
+              <small>optional — their wall claim id or URL, to link it</small></label>
+            {{ invite_form.committed_claim }}
+          </div>
+        </div>
+      </div>
+
       <p class="gk-mint-row"><button type="submit" class="gk-btn-primary">Mint invite link</button></p>
     </form>
   </div>

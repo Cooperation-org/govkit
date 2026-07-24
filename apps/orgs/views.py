@@ -37,6 +37,7 @@ from .invites import (
 from .models import (
     Cohort,
     Invite,
+    InviteKind,
     InviteStatus,
     Membership,
     MembershipRole,
@@ -239,9 +240,12 @@ def invite_create(request, org_slug):
         return redirect("orgs:members", org_slug=request.org.slug)
 
     data = form.cleaned_data
+    # BYOV founders own their venture — they land as its admin (create_venture_org
+    # makes them admin regardless), so the invite records Admin, not the dropdown default.
+    role = MembershipRole.ADMIN if data["kind"] == InviteKind.BYOV else data["role"]
     invite = Invite.objects.create(
         org=request.org,
-        role=data["role"],
+        role=role,
         audience=data["audience"],
         kind=data["kind"],
         name=data.get("name", ""),
@@ -255,9 +259,15 @@ def invite_create(request, org_slug):
         doorway=bool(settings.DOORWAY_BASE_URL),  # one flow: doorway whenever configured
         created_by=request.user,
     )
+    if data.get("already_committed"):
+        # Special case: skip the attestation entirely. Born committed so the doorway
+        # shows the accept step directly — no new claim is written. The org is still
+        # provisioned on accept, and login attaches them to their existing account.
+        invite.mark_committed(claim_id=data.get("committed_claim_id"))
+    skipped = " (attestation skipped — already committed)" if data.get("already_committed") else ""
     messages.success(
         request,
-        f"Invite minted for {invite.name or invite.email or 'your invitee'} — "
+        f"Invite minted for {invite.name or invite.email or 'your invitee'}{skipped} — "
         "here is the link to share.",
     )
     url = reverse("orgs:members", kwargs={"org_slug": request.org.slug})
