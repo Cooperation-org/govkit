@@ -50,6 +50,7 @@
     {% if request.user.is_authenticated %}
       {% if not cohort_nav_src %}{{ request.user.get_short_name }} &middot;{% endif %}
       {# under a cohort nav the name already shows in the bar above — say it once #}
+      <a href="{% url 'accounts:profile' %}">Profile</a> &middot;
       <a href="{% url 'accounts:logout' %}">Sign out</a>
     {% else %}
       <a href="{% url 'accounts:login' %}">Sign in</a>

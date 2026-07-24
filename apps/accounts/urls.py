@@ -17,6 +17,7 @@ app_name = "accounts"
 urlpatterns = [
     path("login/", views.login_page, name="login"),
     path("logout/", views.logout_view, name="logout"),
+    path("profile/", views.profile, name="profile"),
     # LinkedTrust OIDC (default).
     path("linkedtrust/start/", views.linkedtrust_start, name="linkedtrust_start"),
     path("linkedtrust/callback/", views.linkedtrust_callback, name="linkedtrust_callback"),

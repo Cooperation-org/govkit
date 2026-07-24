@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Your profile — GovKit{% endblock %}
+{% block content %}
+<section class="gk-narrow">
+  <h1>Your profile</h1>
+  <p class="gk-muted">This is how you show up to the rest of your team. Edit it any time.</p>
+
+  <form method="post" class="gk-card gk-profile">
+    {% csrf_token %}
+
+    <p class="gk-field">
+      <label>Email <small>set by your sign-in, not editable here</small></label>
+      <input type="email" value="{{ request.user.email }}" readonly>
+    </p>
+
+    <p class="gk-field">
+      {{ form.display_name.label_tag }} {{ form.display_name }}
+      {% for e in form.display_name.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+    </p>
+
+    <p class="gk-field">
+      {{ form.avatar_url.label_tag }} {{ form.avatar_url }}
+      <small>{{ form.avatar_url.help_text }}</small>
+      {% for e in form.avatar_url.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+    </p>
+
+    <p class="gk-field">
+      {{ form.bio.label_tag }} {{ form.bio }}
+      <small>{{ form.bio.help_text }}</small>
+      {% for e in form.bio.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+    </p>
+
+    <p><button type="submit" class="gk-btn-primary">Save profile</button></p>
+  </form>
+</section>
+{% endblock %}

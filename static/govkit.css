@@ -650,6 +650,11 @@ details.gk-unfold fieldset { border: none; padding: 0.25rem 0 0.75rem; margin: 0
 }
 .gk-del-icon:hover { color: var(--gk-bad); border-color: var(--gk-bad); }
 
+/* narrow single-column pages (profile, simple forms) */
+.gk-narrow { max-width: 34rem; margin: 0 auto; }
+.gk-profile .gk-field { margin: 0 0 1rem; }
+.gk-profile input[readonly] { color: var(--gk-muted); background: var(--gk-neutral-soft); }
+
 /* member stake: current share %, an inline grant, and the granted total */
 .gk-stake { white-space: nowrap; }
 .gk-stake-pct { font-weight: 600; margin-right: 0.5rem; }

@@ -16,7 +16,9 @@ import logging
 import secrets
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -26,6 +28,7 @@ from apps.orgs.invites import consume_pending_invite
 
 from . import google_oauth, oidc
 from .auth_handlers import UserUpsertError, upsert_oauth_user
+from .forms import ProfileForm
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +63,21 @@ def login_page(request):
 def logout_view(request):
     logout(request)
     return redirect("orgs:landing")
+
+
+@login_required
+def profile(request):
+    """Self-serve profile: a member edits their own public fields (name, photo,
+    bio). No admin needed — you own your profile."""
+    if request.method == "POST":
+        form = ProfileForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Profile saved.")
+            return redirect("accounts:profile")
+    else:
+        form = ProfileForm(instance=request.user)
+    return render(request, "accounts/profile.html", {"form": form})
 
 
 # --- LinkedTrust OIDC (default) --------------------------------------------------------
