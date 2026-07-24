@@ -46,9 +46,12 @@
     </nav>
     <span class="gk-org">{{ current_org.display_name }}</span>
   {% endif %}
+  {% if not cohort_nav_src %}
+  {# Under a cohort nav, identity + account menu live in the bar above — do not
+     repeat the name here (that was the doubled name / extra line). Standalone
+     GovKit keeps its own quiet menu. #}
   <span class="gk-user">
     {% if request.user.is_authenticated %}
-      {# quiet: name is the only chrome; Profile + Sign out fold into it #}
       <details class="gk-usermenu">
         <summary>{{ request.user.get_short_name }}</summary>
         <div class="gk-usermenu-pop">
@@ -60,6 +63,7 @@
       <a href="{% url 'accounts:login' %}">Sign in</a>
     {% endif %}
   </span>
+  {% endif %}
 </header>
 
 <script>
