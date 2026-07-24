@@ -445,9 +445,13 @@ def _finish_accept(request, invite, user):
         messages.error(request, str(exc))
         return redirect("orgs:landing")
     request.session.pop(SESSION_KEY, None)
-    if membership is None:
-        # Pool invite: screened into the applicant pool, no org joined. Land on the
+    if membership is None and venture_org is None:
+        # Pool/supporter invite: no org joined AND no venture created. Land on the
         # cohort's pool landing when configured, else GovKit's own landing.
+        # NOTE: a BYOV accept returns (None, venture_org) — membership is None but
+        # the founder DID get a venture to land on. It must fall through to the
+        # front-door below, not be swept into the pool branch (that bug sent
+        # founders to the accelerator/pool page instead of their own venture).
         return redirect(settings.COHORT_POOL_LANDING or "orgs:landing")
     front_door = cohort_front_door_url(venture_org or membership.org)
     if front_door:
