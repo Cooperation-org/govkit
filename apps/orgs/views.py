@@ -259,6 +259,25 @@ def invite_revoke(request, org_slug, invite_id):
 
 @login_required
 @require_POST
+def invite_delete(request, org_slug, invite_id):
+    """Admin permanently removes an invite row — for junk/test invites that
+    should not linger in the list. Works on any status (revoking only hides a
+    live link; deleting drops the record). Removing the invite never touches a
+    membership: accept creates a Membership as its own row, so a member who
+    already joined stays a member; this only clears the invite record."""
+    _require_admin(request)
+    invite = Invite.objects.filter(org=request.org, id=invite_id).first()
+    if invite is None:
+        messages.error(request, "That invite was not found.")
+    else:
+        who = invite.name or invite.email or invite.code
+        invite.delete()
+        messages.success(request, f"Invite for {who} deleted.")
+    return redirect("orgs:members", org_slug=request.org.slug)
+
+
+@login_required
+@require_POST
 def member_update(request, org_slug, membership_id):
     """Admin sets a member's role and per-member hourly-rate override."""
     _require_admin(request)

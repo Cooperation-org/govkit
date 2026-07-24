@@ -632,6 +632,24 @@ details.gk-unfold fieldset { border: none; padding: 0.25rem 0 0.75rem; margin: 0
 .gk-copy-icon:hover { color: var(--gk-accent); border-color: var(--gk-accent); }
 .gk-copy-icon.gk-copied { color: var(--gk-accent); border-color: var(--gk-accent); }
 
+/* invite row actions: revoke (word) + delete (trash glyph), kept on one line */
+.gk-row-actions { display: flex; align-items: center; gap: 0.4rem; justify-content: flex-end; }
+.gk-row-actions form { margin: 0; }
+/* delete = quiet trash glyph that reddens on intent, matching the copy icon's weight */
+.gk-del-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+  line-height: 0;
+  color: var(--gk-ink-2);
+  background: none;
+  border: 1px solid var(--gk-border);
+  border-radius: var(--gk-radius-card);
+  cursor: pointer;
+}
+.gk-del-icon:hover { color: var(--gk-bad); border-color: var(--gk-bad); }
+
 /* invites ledger: the share link is the page's product — copyable, never a flash */
 .gk-sharelink { display: flex; align-items: center; gap: 0.4rem; }
 .gk-sharelink input {

@@ -39,6 +39,11 @@ urlpatterns = [
         views.invite_revoke,
         name="invite_revoke",
     ),
+    path(
+        "o/<slug:org_slug>/members/invites/<int:invite_id>/delete/",
+        views.invite_delete,
+        name="invite_delete",
+    ),
     path("o/<slug:org_slug>/members/rate/", views.org_rate, name="org_rate"),
     path(
         "o/<slug:org_slug>/members/<int:membership_id>/remove/",
