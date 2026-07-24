@@ -45,7 +45,12 @@ NATIVE_POINTS_FIELDS = {"points", "total_points"}
 
 # Taiga auth scheme. "Bearer" for normal/session auth tokens; "Application" for
 # application tokens. Kept here (not hardcoded per-call) so it is easy to switch.
-AUTH_SCHEME = "Bearer"
+# The earnkit task sources are auto-wired with durable Taiga *application* tokens,
+# which Taiga only accepts under the "Application" scheme — sending them as
+# "Bearer" returns 401 ("token_not_valid"), which surfaces as a 502 on the open-
+# tasks view and an empty cohort-dash card. (If a source ever uses a normal Bearer
+# token, this should become a per-source TaskSourceConfig field.)
+AUTH_SCHEME = "Application"
 
 
 @dataclass
