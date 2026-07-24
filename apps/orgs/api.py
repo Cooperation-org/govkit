@@ -39,6 +39,7 @@ from django.views.decorators.http import require_GET, require_POST
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.routers import DefaultRouter
@@ -313,11 +314,28 @@ def invite_committed(request, org_slug, code):
 invite_committed.org_context_exempt = True
 
 
+class OrgDirectoryView(APIView):
+    """Every org on this installation, name + slug only, for a signed-in person
+    choosing where to go — the workers.vc /welcome cards for someone with no
+    membership yet. This is a single-tenant install (no self-hosters; one
+    accelerator on the vc VM), so "all orgs" is exactly the accelerator's own
+    teams. Unlike OrgViewSet (which scopes to the caller's memberships), this
+    lists teams the caller could join; it exposes no config, rates, or members.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        orgs = Org.objects.order_by("display_name").values("slug", "display_name")
+        return Response({"orgs": list(orgs)})
+
+
 router = DefaultRouter()
 router.register(r"orgs", OrgViewSet, basename="org")
 router.register(r"memberships", MembershipViewSet, basename="membership")
 
 urlpatterns = router.urls + [
+    path("directory/", OrgDirectoryView.as_view(), name="org-directory"),
     path("<slug:org_slug>/checklist/", ChecklistView.as_view(), name="org-checklist"),
     path(
         "<slug:org_slug>/checklist/<str:item_key>/toggle/",
