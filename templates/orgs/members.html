@@ -3,6 +3,19 @@
 {% block content %}
   <h1>Members — {{ current_org.display_name }}</h1>
 
+  {% if minted_invite %}
+    <div class="gk-minted" role="status">
+      <h2>Invite for {{ minted_invite.name|default:minted_invite.email|default:"your invitee" }}</h2>
+      <div class="gk-sharelink">
+        <input readonly value="{{ minted_invite.share_link }}"
+               aria-label="Invite link for {{ minted_invite.name|default:minted_invite.email }}"
+               onclick="this.select()">
+        <button type="button" class="gk-copy gk-copy-icon" data-link="{{ minted_invite.share_link }}"
+                aria-label="Copy invite link" title="Copy"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg></button>
+      </div>
+    </div>
+  {% endif %}
+
   <div class="gk-card">
     <h2>Members &amp; roles</h2>
     <table>
@@ -53,22 +66,6 @@
 
   <div class="gk-card">
     <h2>Invite someone</h2>
-
-    {% if minted_invite %}
-      <div class="gk-minted" role="status">
-        <h3>Your invite link for {{ minted_invite.name|default:minted_invite.email|default:"your invitee" }}</h3>
-        <p class="gk-muted">Single-use. Share it any way you like; they join the moment they say yes.</p>
-        <div class="gk-sharelink">
-          <input readonly value="{{ minted_invite.share_link }}"
-                 aria-label="Invite link for {{ minted_invite.name|default:minted_invite.email }}"
-                 onclick="this.select()">
-          <button type="button" class="gk-copy gk-btn-primary" data-link="{{ minted_invite.share_link }}">Copy</button>
-        </div>
-      </div>
-    {% endif %}
-
-    <p class="gk-muted gk-invite-lede">A single-use link is minted for you to share any way
-      you like; they join the moment they say yes.</p>
 
     <form method="post" action="{% url 'orgs:invite_create' org_slug=current_org.slug %}">
       {% csrf_token %}
@@ -178,7 +175,7 @@
               {% if invite.share_link %}
                 <div class="gk-sharelink">
                   <input readonly value="{{ invite.share_link }}" aria-label="Invite link for {{ invite.name|default:invite.email }}">
-                  <button type="button" class="gk-copy" data-link="{{ invite.share_link }}">Copy</button>
+                  <button type="button" class="gk-copy gk-copy-icon" data-link="{{ invite.share_link }}" aria-label="Copy invite link" title="Copy"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg></button>
                 </div>
               {% else %}<span class="gk-muted">—</span>{% endif %}
             </td>
@@ -213,12 +210,15 @@
       kind.addEventListener("change", syncFounder);
       syncFounder();
 
-      // Copy buttons on the invites ledger.
+      // Copy buttons: swap the two-page glyph for a check on success.
+      var CHECK = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
       document.querySelectorAll(".gk-copy").forEach(function (btn) {
+        var glyph = btn.innerHTML;
         btn.addEventListener("click", function () {
           navigator.clipboard.writeText(btn.dataset.link).then(function () {
-            btn.textContent = "Copied";
-            setTimeout(function () { btn.textContent = "Copy"; }, 1500);
+            btn.innerHTML = CHECK;
+            btn.classList.add("gk-copied");
+            setTimeout(function () { btn.innerHTML = glyph; btn.classList.remove("gk-copied"); }, 1500);
           });
         });
       });

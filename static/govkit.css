@@ -604,16 +604,33 @@ details.gk-unfold fieldset { border: none; padding: 0.25rem 0 0.75rem; margin: 0
 .gk-rate-line { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
 .gk-rate-line input { width: 6rem; }
 
-/* just minted: the fresh link, handed straight to the inviter — not hunted from the ledger */
+/* just minted: the fresh link at the top of the page, handed straight to the
+   inviter — first thing seen, nothing to read, nothing to hunt for */
 .gk-minted {
-  margin: 0 0 1.25rem;
+  margin: 0 0 1.5rem;
   padding: 1rem 1.25rem;
   background: var(--gk-surface);
   border: 2px solid var(--gk-accent);
   border-radius: var(--gk-radius);
 }
-.gk-minted h3 { margin: 0 0 0.25rem; }
-.gk-minted .gk-sharelink { margin-top: 0.75rem; }
+.gk-minted h2 { margin: 0 0 0.6rem; font-size: 1.05rem; }
+.gk-minted .gk-sharelink { margin: 0; }
+
+/* copy = the two-page glyph, not a word; a check on success */
+.gk-copy-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+  line-height: 0;
+  color: var(--gk-ink-2);
+  background: none;
+  border: 1px solid var(--gk-border);
+  border-radius: var(--gk-radius-card);
+  cursor: pointer;
+}
+.gk-copy-icon:hover { color: var(--gk-accent); border-color: var(--gk-accent); }
+.gk-copy-icon.gk-copied { color: var(--gk-accent); border-color: var(--gk-accent); }
 
 /* invites ledger: the share link is the page's product — copyable, never a flash */
 .gk-sharelink { display: flex; align-items: center; gap: 0.4rem; }
