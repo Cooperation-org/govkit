@@ -185,6 +185,14 @@ def _complete_login(request, user, next_url=None):
         return redirect(destination)
     if invite_destination:
         return redirect(invite_destination)
+    # A plain login (no next, no pending invite): send a MEMBER straight to their
+    # team dashboard via the cohort front door — never the org-list "choose org"
+    # page (golda 2026-07-24). One org -> that dash; several -> their first (the
+    # dash carries an org switcher). Only a person with zero memberships, or a
+    # standalone GovKit with no front door configured, falls to the org-list.
+    front_door = _cohort_front_door_for(user)
+    if front_door:
+        return redirect(front_door)
     return redirect("orgs:landing")
 
 
@@ -201,6 +209,26 @@ def _login_error(request, message):
         },
         status=400,
     )
+
+
+def _cohort_front_door_for(user):
+    """The dash URL for a member's own org, or None.
+
+    Uses COHORT_FRONT_DOOR (an https template with ``{org_slug}``); unset means a
+    standalone GovKit that has no cohort dash, so return None and let the caller
+    fall back to the org-list. Picks the member's first org — the dash's own
+    switcher covers anyone in several.
+    """
+    if not settings.COHORT_FRONT_DOOR:
+        return None
+    from apps.orgs.models import Membership
+
+    membership = (
+        Membership.objects.filter(user=user).select_related("org").order_by("id").first()
+    )
+    if membership is None:
+        return None
+    return settings.COHORT_FRONT_DOOR.format(org_slug=membership.org.slug)
 
 
 def _safe_next(url):
