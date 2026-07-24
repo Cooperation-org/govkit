@@ -122,28 +122,33 @@ def accept_invite_for_user(invite: Invite, user) -> tuple[Membership | None, Org
     if invite.kind == InviteKind.POOL:
         invite.mark_accepted(by=user)
         return None, None
+    if invite.kind == InviteKind.BYOV:
+        # Founder Bringing their Own Venture: create THAT org (invitee as admin)
+        # and land them on it. They do NOT join the inviting org — the venture is
+        # its own home. (The distinct third invite type, golda 2026-07-24.)
+        venture_org = create_venture_org(invite, user)
+        invite.mark_accepted(by=user)
+        transaction.on_commit(
+            lambda: provision_membership(venture_org, user, MembershipRole.ADMIN)
+        )
+        return None, venture_org
     if invite.audience == InviteAudience.SUPPORTER:
         # Supporters never join an org (golda 2026-07-22): they are the email
         # list — wall card + dash + contact capture, no membership, no slices,
         # and NOT listed in the applicant pool (that's people seeking a team).
         invite.mark_accepted(by=user)
         return None, None
+    # Org membership: join the inviting org (a founder invited here is a co-founder
+    # of THIS org, no venture — venture belongs to the BYOV path above).
     membership = Membership.objects.create(org=invite.org, user=user, role=invite.role)
-    venture_org = None
-    if invite.audience == InviteAudience.FOUNDER and invite.venture_name:
-        venture_org = create_venture_org(invite, user)
     invite.mark_accepted(by=user)
 
-    # Report the membership(s) to amebo (the operational team registry) so the person
+    # Report the membership to amebo (the operational team registry) so the person
     # gets provisioned across the team's tools. After commit, outside the transaction
-    # (L7: network I/O never holds a DB transaction open), and only for memberships
-    # that actually exist. provision_membership never raises.
+    # (L7: network I/O never holds a DB transaction open). provision_membership never raises.
     org, role = invite.org, membership.role  # the role the membership actually got
     transaction.on_commit(lambda: provision_membership(org, user, role))
-    if venture_org is not None:
-        # The founder's freshly created venture org, founder as admin.
-        transaction.on_commit(lambda: provision_membership(venture_org, user, MembershipRole.ADMIN))
-    return membership, venture_org
+    return membership, None
 
 
 def consume_pending_invite(request):

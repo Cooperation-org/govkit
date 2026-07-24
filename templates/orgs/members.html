@@ -198,15 +198,14 @@
 
   <script>
     (function () {
-      // The venture group belongs to founder ORG invites only (a pool invite
-      // joins no org and creates none).
-      var audience = document.getElementById("{{ invite_form.audience.id_for_label }}");
+      // The venture group belongs ONLY to the BYOV invite type ("Founder
+      // bringing their own venture") — never a plain org-membership or pool
+      // invite. A founder invited as a co-founder of THIS org sees no venture.
       var kind = document.getElementById("{{ invite_form.kind.id_for_label }}");
       var founderFields = document.getElementById("gk-founder-fields");
       function syncFounder() {
-        founderFields.hidden = audience.value !== "founder" || kind.value === "pool";
+        founderFields.hidden = kind.value !== "byov";
       }
-      audience.addEventListener("change", syncFounder);
       kind.addEventListener("change", syncFounder);
       syncFounder();
 

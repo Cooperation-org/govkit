@@ -239,11 +239,9 @@ class InviteForm(forms.Form):
         data = super().clean()
         if not data.get("name") and not data.get("email"):
             raise forms.ValidationError("Give a name or an email so the invite is attributable.")
-        if data.get("kind") == InviteKind.POOL and data.get("venture_name"):
-            raise forms.ValidationError(
-                "A pool invite joins no org and creates none — clear the venture, "
-                "or make it an org-membership invite."
-            )
+        # No venture/kind validation (golda 2026-07-24): just let them submit. The
+        # UI controls what shows (venture fields appear only for BYOV); the accept
+        # path does the right thing per kind.
         return data
 
 

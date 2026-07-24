@@ -60,16 +60,24 @@ class InviteAudience(models.TextChoices):
 
 class InviteKind(models.TextChoices):
     """
-    The two join paths (Golda, 2026-07-20). ORG is membership: accepting joins you to
-    the invite's org (and a founder invite naming a venture creates that venture).
-    POOL is screening: accepting records you in the applicant pool — NO membership,
-    NO slices, NO org. Orgs are never auto-created for pool people; an org exists only
-    when a deliberate founder invite names a real venture, or an operator/kickoff runs
-    add-team for a team formed by actual people.
+    The three join paths (Golda, 2026-07-24). Each is a distinct destination:
+
+    ORG  — membership: accepting joins you to the invite's org (e.g. a founder
+           invited as a co-founder of THIS org). No venture is created.
+    POOL — screening: accepting records you in the applicant pool — NO membership,
+           NO slices, NO org.
+    BYOV — Founder Bringing their Own Venture: accepting creates a NEW venture org
+           (the invitee as admin) from the named venture, and lands them on ITS
+           dashboard. It does NOT join the inviting org — the venture is its own
+           home. The venture fields belong to this path alone.
+
+    Orgs are auto-created only by a BYOV accept naming a real venture, or by an
+    operator/kickoff add-team run — never for pool people.
     """
 
     ORG = "org", "Org membership"
     POOL = "pool", "Applicant pool"
+    BYOV = "byov", "BYOV: Founder bringing their own venture"
 
 
 class InviteStatus(models.TextChoices):
