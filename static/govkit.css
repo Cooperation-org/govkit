@@ -604,6 +604,17 @@ details.gk-unfold fieldset { border: none; padding: 0.25rem 0 0.75rem; margin: 0
 .gk-rate-line { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
 .gk-rate-line input { width: 6rem; }
 
+/* just minted: the fresh link, handed straight to the inviter — not hunted from the ledger */
+.gk-minted {
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.25rem;
+  background: var(--gk-surface);
+  border: 2px solid var(--gk-accent);
+  border-radius: var(--gk-radius);
+}
+.gk-minted h3 { margin: 0 0 0.25rem; }
+.gk-minted .gk-sharelink { margin-top: 0.75rem; }
+
 /* invites ledger: the share link is the page's product — copyable, never a flash */
 .gk-sharelink { display: flex; align-items: center; gap: 0.4rem; }
 .gk-sharelink input {

@@ -179,6 +179,10 @@ def members(request, org_slug):
     for invite in invites:
         # Live links stay copyable from the ledger; dead ones show none.
         invite.share_link = _invite_share_link(request, invite) if invite.can_accept else ""
+    # If we just minted one, surface it directly so the inviter copies its exact link
+    # here — not by hunting the ledger below.
+    minted_code = request.GET.get("minted")
+    minted_invite = next((i for i in invites if i.code == minted_code), None) if minted_code else None
     return render(
         request,
         "orgs/members.html",
@@ -187,6 +191,7 @@ def members(request, org_slug):
             "roles": MembershipRole.choices,
             "invite_form": InviteForm(),
             "invites": invites,
+            "minted_invite": minted_invite,
             "doorway_enabled": bool(settings.DOORWAY_BASE_URL),
             "rate_form": OrgRateForm(
                 initial={"default_hourly_rate": request.org.default_hourly_rate}
@@ -228,9 +233,10 @@ def invite_create(request, org_slug):
     messages.success(
         request,
         f"Invite minted for {invite.name or invite.email or 'your invitee'} — "
-        "copy the link from the invites list below.",
+        "here is the link to share.",
     )
-    return redirect("orgs:members", org_slug=request.org.slug)
+    url = reverse("orgs:members", kwargs={"org_slug": request.org.slug})
+    return redirect(f"{url}?minted={invite.code}")
 
 
 @login_required

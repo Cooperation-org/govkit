@@ -53,6 +53,20 @@
 
   <div class="gk-card">
     <h2>Invite someone</h2>
+
+    {% if minted_invite %}
+      <div class="gk-minted" role="status">
+        <h3>Your invite link for {{ minted_invite.name|default:minted_invite.email|default:"your invitee" }}</h3>
+        <p class="gk-muted">Single-use. Share it any way you like; they join the moment they say yes.</p>
+        <div class="gk-sharelink">
+          <input readonly value="{{ minted_invite.share_link }}"
+                 aria-label="Invite link for {{ minted_invite.name|default:minted_invite.email }}"
+                 onclick="this.select()">
+          <button type="button" class="gk-copy gk-btn-primary" data-link="{{ minted_invite.share_link }}">Copy</button>
+        </div>
+      </div>
+    {% endif %}
+
     <p class="gk-muted gk-invite-lede">A single-use link is minted for you to share any way
       you like; they join the moment they say yes.</p>
 
