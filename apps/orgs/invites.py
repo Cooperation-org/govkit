@@ -170,8 +170,12 @@ def consume_pending_invite(request):
         membership, venture_org = accept_invite_for_user(invite, request.user)
     except InviteError:
         return None
-    if membership is None:
-        # Pool accept: screened into the applicant pool, no org to land on.
+    if membership is None and venture_org is None:
+        # Pool/supporter accept: no org joined AND no venture created, so nothing
+        # to land on. A BYOV accept returns (None, venture_org) — membership None
+        # but the founder DID get a venture; it must fall through to the front
+        # door below, not the pool landing (same fix as _finish_accept — this
+        # path is the one founders hit when forced through LinkedTrust login).
         return settings.COHORT_POOL_LANDING or resolve_url("orgs:landing")
     org = venture_org or membership.org
     return cohort_front_door_url(org) or resolve_url("orgs:dashboard", org_slug=org.slug)

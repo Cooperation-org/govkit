@@ -493,6 +493,18 @@ def accept_invite(request, code):
     # Anonymous: stash the code so the "use my existing sign-in" side door (or any
     # OAuth button) completes the join right after login.
     request.session[SESSION_KEY] = code
+
+    # A founder bringing their own venture (BYOV) MUST authenticate with LinkedTrust:
+    # the per-team Odoo CRM user is provisioned by matching the member's LinkedTrust
+    # OIDC `sub`, so an email-only account (no sub) never gets CRM access — no user,
+    # no sales team, no pipeline. Force LinkedTrust before any account is made; the
+    # code is already stashed above, so consume_pending_invite finishes the venture
+    # join (with a sub) after the OIDC round-trip. Only BYOV is gated — ORG / POOL /
+    # SUPPORTER invites keep the frictionless email door untouched. Gate also on a
+    # configured provider so standalone GovKit (no LinkedTrust) still works.
+    if invite.kind == InviteKind.BYOV and settings.LINKEDTRUST_CLIENT_ID:
+        return redirect("accounts:linkedtrust_start")
+
     door_context = {
         "invite": invite,
         "org": invite.org,
