@@ -55,4 +55,9 @@ urlpatterns = [
         views.member_update,
         name="member_update",
     ),
+    path(
+        "o/<slug:org_slug>/members/<int:membership_id>/grant/",
+        views.member_grant_value,
+        name="member_grant_value",
+    ),
 ]

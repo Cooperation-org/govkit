@@ -650,6 +650,15 @@ details.gk-unfold fieldset { border: none; padding: 0.25rem 0 0.75rem; margin: 0
 }
 .gk-del-icon:hover { color: var(--gk-bad); border-color: var(--gk-bad); }
 
+/* member stake: current share %, an inline grant, and the granted total */
+.gk-stake { white-space: nowrap; }
+.gk-stake-pct { font-weight: 600; margin-right: 0.5rem; }
+.gk-grant-form { display: inline-flex; align-items: center; gap: 0.3rem; margin: 0; }
+.gk-grant-form input { width: 9rem; }
+.gk-stake-note { display: block; margin-top: 0.2rem; font-size: 0.8rem; }
+/* quiet = a secondary action that shouldn't compete with the primary button */
+.gk-btn-quiet { font-weight: 500; }
+
 /* invites ledger: the share link is the page's product — copyable, never a flash */
 .gk-sharelink { display: flex; align-items: center; gap: 0.4rem; }
 .gk-sharelink input {

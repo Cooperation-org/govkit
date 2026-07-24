@@ -260,3 +260,15 @@ class OrgRateForm(forms.Form):
     default_hourly_rate = forms.DecimalField(
         max_digits=12, decimal_places=2, required=False, label="Org-wide default hourly rate"
     )
+
+
+class GrantValueForm(forms.Form):
+    """Admin grants a member a starting stake for work done before the pie —
+    recorded as an OpeningBalance (the historical-equity target). Additive:
+    each grant is its own row, so re-granting tops up rather than replacing."""
+
+    value = forms.DecimalField(
+        max_digits=16, decimal_places=2, min_value=Decimal("0.01"),
+        label="Starting value",
+    )
+    source_note = forms.CharField(max_length=500, required=False, label="Note")

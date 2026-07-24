@@ -19,7 +19,13 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from .forms import InviteForm, MemberUpdateForm, OnboardingForm, OrgRateForm
+from .forms import (
+    GrantValueForm,
+    InviteForm,
+    MemberUpdateForm,
+    OnboardingForm,
+    OrgRateForm,
+)
 from .genesis import MODULES, module_of, modules_for, start_genesis, toggle_item
 from .invites import (
     SESSION_KEY,
@@ -28,7 +34,15 @@ from .invites import (
     cohort_front_door_url,
     get_invite_for_accept,
 )
-from .models import Cohort, Invite, InviteStatus, Membership, MembershipRole, Org
+from .models import (
+    Cohort,
+    Invite,
+    InviteStatus,
+    Membership,
+    MembershipRole,
+    OpeningBalance,
+    Org,
+)
 
 
 def landing(request):
@@ -175,6 +189,16 @@ def members(request, org_slug):
         .select_related("user", "org")
         .order_by("user__email")
     )
+    # Current pie stake per member, so the admin sees the effect of a grant
+    # (share %) and each member's granted starting value in the same row.
+    from apps.pie.services import compute_pie
+
+    pie = compute_pie(request.org)
+    slice_by_member = {s.membership_id: s for s in pie.slices}
+    for m in memberships:
+        pie_slice = slice_by_member.get(m.id)
+        m.share_pct = pie_slice.share_pct if pie_slice else None
+        m.opening_total = pie_slice.opening_total if pie_slice else None
     invites = list(Invite.objects.filter(org=request.org).order_by("-created_at"))
     for invite in invites:
         # Live links stay copyable from the ledger; dead ones show none.
@@ -189,6 +213,7 @@ def members(request, org_slug):
         {
             "memberships": memberships,
             "roles": MembershipRole.choices,
+            "unit_name": request.org.unit_name,
             "invite_form": InviteForm(),
             "invites": invites,
             "minted_invite": minted_invite,
@@ -304,6 +329,39 @@ def member_update(request, org_slug, membership_id):
     membership.hourly_rate = form.cleaned_data.get("hourly_rate")
     membership.save(update_fields=["role", "hourly_rate"])
     messages.success(request, "Member updated.")
+    return redirect("orgs:members", org_slug=request.org.slug)
+
+
+@login_required
+@require_POST
+def member_grant_value(request, org_slug, membership_id):
+    """Admin grants a member a starting stake for work done before the pie —
+    e.g. co-founders who already built the thing. Recorded as an OpeningBalance
+    (the historical-equity model), so it enters the pie exactly like imported
+    equity and adjusts everyone's share proportionally. Additive by design: each
+    grant is its own row, so granting again tops the member up."""
+    _require_admin(request)
+    membership = Membership.objects.filter(org=request.org, id=membership_id).first()
+    if membership is None:
+        messages.error(request, "That member was not found.")
+        return redirect("orgs:members", org_slug=request.org.slug)
+
+    form = GrantValueForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Enter a starting value greater than zero.")
+        return redirect("orgs:members", org_slug=request.org.slug)
+
+    OpeningBalance.objects.create(
+        org=request.org,
+        membership=membership,
+        value=form.cleaned_data["value"],
+        source_note=form.cleaned_data.get("source_note") or "Starting value (pre-pie work)",
+    )
+    messages.success(
+        request,
+        f"Granted {form.cleaned_data['value']} {request.org.unit_name} "
+        f"to {membership.user.email} as a starting stake.",
+    )
     return redirect("orgs:members", org_slug=request.org.slug)
 
 
