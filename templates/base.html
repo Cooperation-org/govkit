@@ -56,6 +56,7 @@
         <summary>{{ request.user.get_short_name }}</summary>
         <div class="gk-usermenu-pop">
           <a href="{% url 'accounts:profile' %}">Profile</a>
+          <a href="{% url 'orgs:landing' %}">My orgs</a>
           <a href="{% url 'accounts:logout' %}">Sign out</a>
         </div>
       </details>
