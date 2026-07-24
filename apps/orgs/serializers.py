@@ -40,10 +40,15 @@ class ValuationConfigSerializer(serializers.ModelSerializer):
 
 class OrgSerializer(serializers.ModelSerializer):
     valuation_config = ValuationConfigSerializer(read_only=True)
+    # The shared-context repo amebo reads (the repo flagged main). Read-only property.
+    context_repo = serializers.ReadOnlyField()
 
     class Meta:
         model = Org
-        fields = ["slug", "display_name", "unit_name", "default_hourly_rate", "valuation_config"]
+        fields = [
+            "slug", "display_name", "unit_name", "default_hourly_rate", "valuation_config",
+            "website", "socials", "repos", "context_repo",
+        ]
 
 
 class OnboardingSerializer(serializers.Serializer):

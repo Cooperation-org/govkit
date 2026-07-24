@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Settings — {{ current_org.display_name }} — GovKit{% endblock %}
+{% block content %}
+  <h1>Settings — {{ current_org.display_name }}</h1>
+
+  <form method="post" action="{% url 'orgs:settings' org_slug=current_org.slug %}">
+    {% csrf_token %}
+
+    <div class="gk-card">
+      <h2>Team profile</h2>
+      <div class="gk-field">
+        <label for="{{ form.display_name.id_for_label }}">Team name</label>
+        {{ form.display_name }}
+      </div>
+      <div class="gk-field">
+        <label for="{{ form.website.id_for_label }}">Website</label>
+        {{ form.website }}
+      </div>
+      <div class="gk-field">
+        <label for="{{ form.socials.id_for_label }}">Socials
+          <small>one per line — a label and URL (e.g. "Twitter https://…"), or just a URL</small></label>
+        {{ form.socials }}
+      </div>
+    </div>
+
+    <div class="gk-card">
+      <h2>Repos</h2>
+      <p>The team brings its own repo for shared context. The main repo is what
+         amebo reads. We never create a repo for you.</p>
+      <div class="gk-field">
+        <label for="{{ form.main_repo.id_for_label }}">Main repo
+          <small>amebo uses this for shared context</small></label>
+        {{ form.main_repo }}
+      </div>
+      <div class="gk-field">
+        <label for="{{ form.other_repos.id_for_label }}">Other repos
+          <small>optional — one URL per line</small></label>
+        {{ form.other_repos }}
+      </div>
+    </div>
+
+    <button type="submit">Save settings</button>
+  </form>
+{% endblock %}

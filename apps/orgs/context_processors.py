@@ -47,6 +47,13 @@ def nav(request):
                 "active": view_name == "orgs:members",
             }
         )
+        tabs.append(
+            {
+                "label": "Settings",
+                "url_name": "orgs:settings",
+                "active": view_name == "orgs:settings",
+            }
+        )
     from django.conf import settings
 
     return {

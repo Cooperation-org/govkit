@@ -132,6 +132,13 @@ class Org(models.Model):
     cohort = models.ForeignKey(
         Cohort, null=True, blank=True, on_delete=models.SET_NULL, related_name="teams"
     )
+    # Public org profile, edited on the org settings page. All optional/additive.
+    website = models.URLField(blank=True)
+    # List of {"label": str, "url": str}.
+    socials = models.JSONField(default=list, blank=True)
+    # List of {"url": str, "is_main": bool}. The is_main one is the team's shared
+    # context repo that amebo reads (see context_repo). Teams bring their own repo.
+    repos = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -140,6 +147,18 @@ class Org(models.Model):
 
     def __str__(self):
         return f"{self.display_name} ({self.slug})"
+
+    @property
+    def context_repo(self) -> str:
+        """The repo amebo reads for shared context: the one flagged main, else the first."""
+        repos = self.repos or []
+        for repo in repos:
+            if isinstance(repo, dict) and repo.get("is_main") and repo.get("url"):
+                return repo["url"]
+        for repo in repos:
+            if isinstance(repo, dict) and repo.get("url"):
+                return repo["url"]
+        return ""
 
 
 class ValuationConfig(models.Model):

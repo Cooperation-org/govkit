@@ -25,6 +25,7 @@ from .forms import (
     MemberUpdateForm,
     OnboardingForm,
     OrgRateForm,
+    OrgSettingsForm,
 )
 from .genesis import MODULES, module_of, modules_for, start_genesis, toggle_item
 from .invites import (
@@ -274,6 +275,48 @@ def members(request, org_slug):
             ),
         },
     )
+
+
+def _settings_initial(org):
+    """Prefill the settings form from the stored profile (list fields → textareas)."""
+    socials = "\n".join(
+        (s.get("label", "") + " " + s.get("url", "")).strip()
+        for s in (org.socials or [])
+        if isinstance(s, dict) and s.get("url")
+    )
+    repos = [r for r in (org.repos or []) if isinstance(r, dict) and r.get("url")]
+    main = next((r["url"] for r in repos if r.get("is_main")), "")
+    if not main and repos:
+        main = repos[0]["url"]
+    other = "\n".join(r["url"] for r in repos if r["url"] != main)
+    return {
+        "display_name": org.display_name,
+        "website": org.website,
+        "socials": socials,
+        "main_repo": main,
+        "other_repos": other,
+    }
+
+
+@login_required
+def org_settings(request, org_slug):
+    """Admin edits the org profile: name, site, socials, repos. Additive; nothing required."""
+    _require_admin(request)
+    org = request.org
+    if request.method == "POST":
+        form = OrgSettingsForm(request.POST)
+        if form.is_valid():
+            org.display_name = form.cleaned_data["display_name"].strip() or org.display_name
+            org.website = form.cleaned_data["website"]
+            org.socials = form.socials_list()
+            org.repos = form.repos_list()
+            org.save(update_fields=["display_name", "website", "socials", "repos", "updated_at"])
+            messages.success(request, "Org settings saved.")
+            return redirect("orgs:settings", org_slug=org.slug)
+        messages.error(request, "Please check the settings and try again.")
+    else:
+        form = OrgSettingsForm(initial=_settings_initial(org))
+    return render(request, "orgs/settings.html", {"form": form, "org": org})
 
 
 @login_required

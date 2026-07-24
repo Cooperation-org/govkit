@@ -290,6 +290,69 @@ class OrgRateForm(forms.Form):
     )
 
 
+def _norm_url(value: str) -> str:
+    """Best-effort scheme so a pasted 'github.com/x' still resolves. Blank stays blank."""
+    value = (value or "").strip()
+    if value and "://" not in value:
+        value = "https://" + value
+    return value
+
+
+class OrgSettingsForm(forms.Form):
+    """Admin edits the org profile: name, site, socials, and repos.
+
+    Socials and Other repos are one entry per line (textareas) so there is nothing
+    to break — blank lines are ignored. Main repo is the shared-context repo amebo
+    reads. Nothing here is required; an empty field clears that part of the profile.
+    """
+
+    display_name = forms.CharField(max_length=255, label="Team name")
+    website = forms.CharField(max_length=500, required=False, label="Website")
+    socials = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 4}),
+        label="Socials (one per line: label and URL, or just a URL)",
+    )
+    main_repo = forms.CharField(
+        max_length=500, required=False, label="Main repo (amebo uses this for shared context)",
+    )
+    other_repos = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 3}),
+        label="Other repos (one URL per line)",
+    )
+
+    def clean_website(self):
+        return _norm_url(self.cleaned_data.get("website", ""))
+
+    def socials_list(self) -> list:
+        """Parse the socials textarea into [{'label', 'url'}]. Label optional."""
+        out = []
+        for line in (self.cleaned_data.get("socials") or "").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split(None, 1)
+            if len(parts) == 2 and "://" not in parts[0] and "." not in parts[0]:
+                label, url = parts[0], _norm_url(parts[1])
+            else:
+                url = _norm_url(line)
+                label = re.sub(r"^www\.", "", url.split("://", 1)[-1].split("/", 1)[0])
+            if url:
+                out.append({"label": label, "url": url})
+        return out
+
+    def repos_list(self) -> list:
+        """Parse main + other repos into [{'url', 'is_main'}]; the main one first."""
+        out = []
+        main = _norm_url(self.cleaned_data.get("main_repo", ""))
+        if main:
+            out.append({"url": main, "is_main": True})
+        for line in (self.cleaned_data.get("other_repos") or "").splitlines():
+            url = _norm_url(line)
+            if url and url != main:
+                out.append({"url": url, "is_main": False})
+        return out
+
+
 class GrantValueForm(forms.Form):
     """Admin grants a member a starting stake for work done before the pie —
     recorded as an OpeningBalance (the historical-equity target). Additive:

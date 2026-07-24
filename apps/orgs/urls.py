@@ -36,6 +36,7 @@ urlpatterns = [
         views.checklist_seed,
         name="checklist_seed",
     ),
+    path("o/<slug:org_slug>/settings/", views.org_settings, name="settings"),
     path("o/<slug:org_slug>/members/", views.members, name="members"),
     path("o/<slug:org_slug>/members/invite/", views.invite_create, name="invite_create"),
     path(
