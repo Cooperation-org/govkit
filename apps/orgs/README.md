@@ -55,6 +55,21 @@ tab), `exports`, `tasksources`. Reverse with the org slug:
 Non-org names live under the `orgs` namespace: `orgs:landing`, `orgs:onboarding`,
 `orgs:dashboard`.
 
+## Members page — admin actions
+
+`/o/<slug>/members/` (admin-only) manages people and invites. Beyond role/rate:
+
+- **Grant starting value** — the per-member *Stake* column records an
+  `OpeningBalance` (`member_grant_value`), giving a member equity for pre-pie
+  work. Additive: each grant is its own row. Enters `compute_pie` like any
+  opening balance and reshapes shares proportionally.
+- **Delete invite** — `invite_delete` hard-removes an invite row at any status
+  (revoke only marks a *live* link dead and is blocked once accepted). Deleting
+  an invite never touches a membership; anyone who already joined stays a member.
+
+Members edit their own public fields (name, photo, bio) at `/accounts/profile/` —
+self-serve, no admin in the loop.
+
 ## API-first
 
 Each app has its own DRF router in `<app>/api.py`, included at
