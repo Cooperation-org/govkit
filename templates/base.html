@@ -48,15 +48,34 @@
   {% endif %}
   <span class="gk-user">
     {% if request.user.is_authenticated %}
-      {% if not cohort_nav_src %}{{ request.user.get_short_name }} &middot;{% endif %}
-      {# under a cohort nav the name already shows in the bar above — say it once #}
-      <a href="{% url 'accounts:profile' %}">Profile</a> &middot;
-      <a href="{% url 'accounts:logout' %}">Sign out</a>
+      {# quiet: name is the only chrome; Profile + Sign out fold into it #}
+      <details class="gk-usermenu">
+        <summary>{{ request.user.get_short_name }}</summary>
+        <div class="gk-usermenu-pop">
+          <a href="{% url 'accounts:profile' %}">Profile</a>
+          <a href="{% url 'accounts:logout' %}">Sign out</a>
+        </div>
+      </details>
     {% else %}
       <a href="{% url 'accounts:login' %}">Sign in</a>
     {% endif %}
   </span>
 </header>
+
+<script>
+  // Close the account menu when clicking elsewhere or pressing Escape — the one
+  // behaviour <details> lacks natively. No dependency, no framework.
+  (function () {
+    var menu = document.querySelector(".gk-usermenu");
+    if (!menu) return;
+    document.addEventListener("click", function (e) {
+      if (menu.open && !menu.contains(e.target)) menu.open = false;
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") menu.open = false;
+    });
+  })();
+</script>
 
 <main class="gk-main">
   {% if messages %}

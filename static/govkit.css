@@ -133,6 +133,41 @@ small { color: var(--gk-ink-2); }
 .gk-org { color: var(--gk-muted); font-size: 0.88rem; }
 .gk-user { margin-left: auto; color: var(--gk-muted); font-size: 0.88rem; }
 
+/* account menu: the name is the only chrome; actions fold beneath it */
+.gk-usermenu { position: relative; display: inline-block; }
+.gk-usermenu > summary {
+  list-style: none;               /* hide the default disclosure triangle */
+  cursor: pointer;
+  color: var(--gk-ink-2);
+  padding: 0.15rem 0.1rem;
+  user-select: none;
+}
+.gk-usermenu > summary::-webkit-details-marker { display: none; }
+.gk-usermenu > summary::after { content: " \25BE"; color: var(--gk-muted); font-size: 0.85em; }
+.gk-usermenu > summary:hover { color: var(--gk-ink); }
+.gk-usermenu[open] > summary { color: var(--gk-ink); }
+.gk-usermenu-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.35rem);
+  min-width: 8rem;
+  display: flex;
+  flex-direction: column;
+  background: var(--gk-surface);
+  border: 1px solid var(--gk-border);
+  border-radius: var(--gk-radius);
+  box-shadow: 0 6px 20px rgba(38, 34, 28, 0.1);
+  padding: 0.25rem;
+  z-index: 20;
+}
+.gk-usermenu-pop a {
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--gk-radius);
+  color: var(--gk-ink-2);
+  white-space: nowrap;
+}
+.gk-usermenu-pop a:hover { background: var(--gk-neutral-soft); color: var(--gk-ink); text-decoration: none; }
+
 .gk-main {
   max-width: var(--gk-measure);
   margin: 0 auto;
