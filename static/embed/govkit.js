@@ -336,6 +336,9 @@
 
     modules.forEach(function (m, i) {
       var box = el('div', 'module');
+      // Anchor target for the curriculum's "Open on dashboard" links (#module-<key>).
+      box.id = 'module-' + m.key;
+      box.setAttribute('data-key', m.key);
       var panelId = 'gkmod-' + (org || 'x') + '-' + m.key;
       var expanded = open.indexOf(m.key) !== -1;
 
@@ -398,6 +401,32 @@
       box.appendChild(ul);
       host.appendChild(box);
     });
+
+    // Arrive from the curriculum on #module-<key>: open that module and scroll
+    // to it. Modules render after the fetch, so the browser's own anchor jump
+    // already missed; apply it here and on later hash changes.
+    function focusFromHash() {
+      var hm = /^#module-(.+)$/.exec(location.hash || '');
+      if (!hm) return;
+      var key = decodeURIComponent(hm[1]);
+      var boxes = host.querySelectorAll('.module');
+      for (var b = 0; b < boxes.length; b++) {
+        if (boxes[b].getAttribute('data-key') !== key) continue;
+        var panel = boxes[b].querySelector('ul');
+        var btn = boxes[b].querySelector('.module-head');
+        if (panel && panel.hidden && btn) {
+          panel.hidden = false;
+          btn.setAttribute('aria-expanded', 'true');
+        }
+        boxes[b].scrollIntoView({ behavior: 'smooth', block: 'start' });
+        break;
+      }
+    }
+    focusFromHash();
+    if (!host.__gkHashBound) {
+      host.__gkHashBound = true;
+      window.addEventListener('hashchange', focusFromHash);
+    }
   }
 
   // The one write the dash makes: work the curriculum in place. The GET above
