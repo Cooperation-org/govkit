@@ -13,7 +13,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.db.models import ProtectedError
+from django.db.models import Count, ProtectedError
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -55,7 +55,57 @@ def landing(request):
             if request.user.is_superuser
             else Org.objects.filter(memberships__user=request.user).distinct()
         )
-    return render(request, "orgs/landing.html", {"my_orgs": my_orgs})
+    return render(request, "orgs/landing.html", {
+        "my_orgs": my_orgs,
+        "is_accelerator_admin": _is_accelerator_admin(request.user),
+    })
+
+
+def about_org(request, org_slug):
+    """Public "About <org>" stub. A non-member who reaches an org's internal
+    pages is redirected here (by OrgContextMiddleware) instead of a raw 403 —
+    a friendly page with the org's name and a way to ask to join. Exempt from
+    the org membership gate (it IS the page non-members land on)."""
+    org = get_object_or_404(Org, slug=org_slug)
+    apply_url = (
+        settings.ORG_APPLY_URL
+        or settings.COHORT_POOL_LANDING
+        or settings.PUBLIC_BASE_URL
+        or reverse("orgs:landing")
+    )
+    return render(request, "orgs/about.html", {"org": org, "apply_url": apply_url})
+
+
+about_org.org_context_exempt = True  # non-members must be able to load it
+
+
+def _is_accelerator_admin(user):
+    """True for a superuser, or an admin of the accelerator org (the org whose
+    slug is settings.ACCELERATOR_ORG_SLUG). Empty slug => superusers only."""
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    slug = settings.ACCELERATOR_ORG_SLUG
+    if not slug:
+        return False
+    return Membership.objects.filter(
+        org__slug=slug, user=user, role=MembershipRole.ADMIN
+    ).exists()
+
+
+@login_required
+def all_teams(request):
+    """Cross-org oversight for accelerator admins: every team at a glance.
+    Not a superuser tool — an admin of the accelerator org sees all orgs
+    without being made a superuser. Others get 403."""
+    if not _is_accelerator_admin(request.user):
+        raise PermissionDenied("This overview is for accelerator admins.")
+    orgs = (
+        Org.objects.annotate(member_count=Count("memberships"))
+        .order_by("display_name")
+    )
+    return render(request, "orgs/all_teams.html", {"orgs": orgs})
 
 
 @login_required

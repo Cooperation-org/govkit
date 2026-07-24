@@ -18,8 +18,12 @@ urlpatterns = [
     path("", views.landing, name="landing"),
     path("onboarding/", views.onboarding, name="onboarding"),
     path("invites/<str:code>/accept/", views.accept_invite, name="accept_invite"),
+    # Accelerator-admin cross-org oversight (not superuser-only).
+    path("teams/", views.all_teams, name="all_teams"),
     # Cohort-wide: program staff and mentors see every team's curriculum progress.
     path("cohorts/<slug:cohort_slug>/", views.cohort_progress_view, name="cohort_progress"),
+    # Public "About <org>" stub — where non-members land (org_context_exempt).
+    path("o/<slug:org_slug>/about/", views.about_org, name="about"),
     # Org-scoped (org_slug kwarg → middleware sets request.org / request.membership).
     path("o/<slug:org_slug>/", views.dashboard, name="dashboard"),
     path(

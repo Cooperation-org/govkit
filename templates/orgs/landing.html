@@ -14,6 +14,9 @@
       <p class="gk-placeholder">You are not a member of any organization yet.</p>
     {% endif %}
     <p><a href="{% url 'orgs:onboarding' %}">Set up a new organization &rarr;</a></p>
+    {% if is_accelerator_admin %}
+      <p><a href="{% url 'orgs:all_teams' %}">All teams &rarr;</a> <span class="gk-muted">(accelerator oversight)</span></p>
+    {% endif %}
   {% else %}
     <p class="gk-placeholder">An earned-governance toolkit.</p>
     <p><a href="{% url 'accounts:login' %}">Sign in</a> to continue.</p>

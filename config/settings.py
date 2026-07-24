@@ -38,6 +38,13 @@ env = environ.Env(
     COHORT_FRONT_DOOR=(str, ""),
     COHORT_POOL_LANDING=(str, ""),
     PUBLIC_BASE_URL=(str, ""),
+    # Where the public "About <org>" stub sends a non-member's "Request to join"
+    # (the cohort's apply/main page, e.g. https://workers.vc/). Falls back to the
+    # pool landing, then GovKit's own landing.
+    ORG_APPLY_URL=(str, ""),
+    # The accelerator org's slug (e.g. "vc"). Its admins get the cross-org
+    # "All teams" oversight page. Empty => only superusers see it.
+    ACCELERATOR_ORG_SLUG=(str, ""),
 )
 
 # Load a local .env if present (dev). In prod, real env vars win.
@@ -67,6 +74,8 @@ COHORT_NAV_SRC = env("COHORT_NAV_SRC")
 # payloads): loopback callers must never leak http://127.0.0.1 links to real
 # invitees. Empty falls back to the request host (fine for browser requests).
 PUBLIC_BASE_URL = env("PUBLIC_BASE_URL").rstrip("/")
+ORG_APPLY_URL = env("ORG_APPLY_URL")
+ACCELERATOR_ORG_SLUG = env("ACCELERATOR_ORG_SLUG")
 CORS_ALLOW_CREDENTIALS = True
 CORS_URLS_REGEX = r"^/api/"
 # The dash's one write (checklist toggle) authenticates with the session cookie

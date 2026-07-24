@@ -17,8 +17,7 @@ not a session) opt out by setting `org_context_exempt = True` on the view functi
 """
 
 from django.contrib.auth.views import redirect_to_login
-from django.http import HttpResponseForbidden
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 
 from .models import Membership, Org
 
@@ -49,7 +48,12 @@ class OrgContextMiddleware:
             Membership.objects.select_related("org", "user").filter(org=org, user=user).first()
         )
         if membership is None and not user.is_superuser:
-            return HttpResponseForbidden("You are not a member of this organization.")
+            # Not a member: don't load the org's internal pages, and don't dead-end
+            # on a raw 403 — send them to the public "About <org>" stub, where they
+            # can see the team and ask to join. about_org is org_context_exempt, so
+            # this never loops. (Anonymous users still go to login above — they may
+            # be a member who simply isn't signed in yet.)
+            return redirect("orgs:about", org_slug=slug)
 
         request.membership = membership
         return None

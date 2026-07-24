@@ -687,6 +687,12 @@ details.gk-unfold fieldset { border: none; padding: 0.25rem 0 0.75rem; margin: 0
 
 /* narrow single-column pages (profile, simple forms) */
 .gk-narrow { max-width: 34rem; margin: 0 auto; }
+/* public "About <org>" stub: quiet, centered, one leaf */
+.gk-about { text-align: center; padding-top: 2rem; }
+.gk-about .gk-leaf { display: inline-block; margin-bottom: 0.75rem; transform: scale(1.6); }
+.gk-about h1 { margin: 0 0 0.25rem; }
+.gk-about-url { color: var(--gk-muted); margin: 0 0 1.25rem; font-size: 0.9rem; }
+.gk-about .gk-btn-primary { margin-top: 0.5rem; }
 .gk-profile .gk-field { margin: 0 0 1rem; }
 .gk-profile input[readonly] { color: var(--gk-muted); background: var(--gk-neutral-soft); }
 

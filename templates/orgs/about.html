@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}{{ org.display_name }}{% endblock %}
+{% block content %}
+<section class="gk-narrow gk-about">
+  <span class="gk-leaf gk-cat-2" aria-hidden="true"></span>
+  <h1>{{ org.display_name }}</h1>
+  <p class="gk-about-url">{{ org.slug }}</p>
+  <p class="gk-muted">You're not a member of this team, so its workspace is private.</p>
+  <p><a class="gk-btn gk-btn-primary" href="{{ apply_url }}">Request to join</a></p>
+</section>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}All teams — GovKit{% endblock %}
+{% block content %}
+  <h1>All teams</h1>
+  <p class="gk-muted">Every team in the accelerator. You see this because you administer
+    the accelerator org.</p>
+
+  <div class="gk-card">
+    <table>
+      <thead>
+        <tr><th>Team</th><th>Slug</th><th>Members</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for org in orgs %}
+          <tr>
+            <td><span class="gk-leaf gk-cat-{% cycle '0' '1' '2' '3' '4' '5' %}"></span>{{ org.display_name }}</td>
+            <td class="gk-muted">{{ org.slug }}</td>
+            <td>{{ org.member_count }}</td>
+            <td><a href="{% url 'orgs:members' org_slug=org.slug %}">Members</a></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4" class="gk-placeholder">No teams yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}
