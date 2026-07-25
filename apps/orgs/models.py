@@ -351,7 +351,9 @@ class Invite(models.Model):
             label = f"{label} (expired)"
         return label
 
-    def mark_committed(self, claim_id: int | None = None, statement_as_published: str = "", video_url: str = ""):
+    def mark_committed(
+        self, claim_id: int | None = None, statement_as_published: str = "", video_url: str = ""
+    ):
         """created → committed (idempotent; no-op if already committed/accepted).
 
         claim_id may be None for the 'already committed' special case: the person's

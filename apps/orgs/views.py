@@ -63,10 +63,14 @@ def landing(request):
         )
         if not request.user.is_superuser and len(my_orgs) == 1:
             return redirect("orgs:dashboard", org_slug=my_orgs[0].slug)
-    return render(request, "orgs/landing.html", {
-        "my_orgs": my_orgs,
-        "is_accelerator_admin": _is_accelerator_admin(request.user),
-    })
+    return render(
+        request,
+        "orgs/landing.html",
+        {
+            "my_orgs": my_orgs,
+            "is_accelerator_admin": _is_accelerator_admin(request.user),
+        },
+    )
 
 
 def about_org(request, org_slug):
@@ -97,9 +101,7 @@ def _is_accelerator_admin(user):
     slug = settings.ACCELERATOR_ORG_SLUG
     if not slug:
         return False
-    return Membership.objects.filter(
-        org__slug=slug, user=user, role=MembershipRole.ADMIN
-    ).exists()
+    return Membership.objects.filter(org__slug=slug, user=user, role=MembershipRole.ADMIN).exists()
 
 
 @login_required
@@ -109,10 +111,7 @@ def all_teams(request):
     without being made a superuser. Others get 403."""
     if not _is_accelerator_admin(request.user):
         raise PermissionDenied("This overview is for accelerator admins.")
-    orgs = (
-        Org.objects.annotate(member_count=Count("memberships"))
-        .order_by("display_name")
-    )
+    orgs = Org.objects.annotate(member_count=Count("memberships")).order_by("display_name")
     return render(request, "orgs/all_teams.html", {"orgs": orgs})
 
 
@@ -265,7 +264,9 @@ def members(request, org_slug):
     # If we just minted one, surface it directly so the inviter copies its exact link
     # here — not by hunting the ledger below.
     minted_code = request.GET.get("minted")
-    minted_invite = next((i for i in invites if i.code == minted_code), None) if minted_code else None
+    minted_invite = (
+        next((i for i in invites if i.code == minted_code), None) if minted_code else None
+    )
     return render(
         request,
         "orgs/members.html",

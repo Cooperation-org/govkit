@@ -46,8 +46,15 @@ class OrgSerializer(serializers.ModelSerializer):
     class Meta:
         model = Org
         fields = [
-            "slug", "display_name", "unit_name", "default_hourly_rate", "valuation_config",
-            "website", "socials", "repos", "context_repo",
+            "slug",
+            "display_name",
+            "unit_name",
+            "default_hourly_rate",
+            "valuation_config",
+            "website",
+            "socials",
+            "repos",
+            "context_repo",
         ]
 
 

@@ -263,11 +263,16 @@ class InviteForm(forms.Form):
         ref = (data.get("committed_claim") or "").strip()
         if ref:
             if not data.get("already_committed"):
-                self.add_error("committed_claim", "Only used with 'Already committed'. Check that box or clear this.")
+                self.add_error(
+                    "committed_claim",
+                    "Only used with 'Already committed'. Check that box or clear this.",
+                )
             else:
                 m = re.search(r"(\d+)\s*/?\s*$", ref)
                 if not m:
-                    self.add_error("committed_claim", "Give a claim id or a claim URL ending in the id.")
+                    self.add_error(
+                        "committed_claim", "Give a claim id or a claim URL ending in the id."
+                    )
                 else:
                     data["committed_claim_id"] = int(m.group(1))
         return data
@@ -309,14 +314,18 @@ class OrgSettingsForm(forms.Form):
     display_name = forms.CharField(max_length=255, label="Team name")
     website = forms.CharField(max_length=500, required=False, label="Website")
     socials = forms.CharField(
-        required=False, widget=forms.Textarea(attrs={"rows": 4}),
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 4}),
         label="Socials (one per line: label and URL, or just a URL)",
     )
     main_repo = forms.CharField(
-        max_length=500, required=False, label="Main repo (amebo uses this for shared context)",
+        max_length=500,
+        required=False,
+        label="Main repo (amebo uses this for shared context)",
     )
     other_repos = forms.CharField(
-        required=False, widget=forms.Textarea(attrs={"rows": 3}),
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
         label="Other repos (one URL per line)",
     )
 
@@ -359,7 +368,9 @@ class GrantValueForm(forms.Form):
     each grant is its own row, so re-granting tops up rather than replacing."""
 
     value = forms.DecimalField(
-        max_digits=16, decimal_places=2, min_value=Decimal("0.01"),
+        max_digits=16,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
         label="Starting value",
     )
     source_note = forms.CharField(max_length=500, required=False, label="Note")
