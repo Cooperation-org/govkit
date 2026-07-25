@@ -12,7 +12,8 @@ What these tests pin down, because getting any of them wrong would be expensive:
 * The sponsor's share does NOT VOTE. Governance weight comes from memberships only.
 * An unsponsored venture is untouched: no rows, no sponsor, an empty pie as before.
 
-No person names anywhere — members are keyed by neutral emails.
+No person names anywhere: members are keyed by neutral emails, and the pie labels
+them by the short name those emails produce.
 """
 
 from decimal import Decimal
@@ -31,8 +32,8 @@ from apps.orgs.models import (
     OpeningBalance,
     Org,
     OrgStake,
+    WeightWindow,
 )
-from apps.orgs.models import WeightWindow
 from apps.orgs.weighting import work_weight_map
 from apps.pie.services import HOLDER_SPONSOR, compute_personal_standing, compute_pie
 
@@ -82,6 +83,7 @@ def _accept(invite, user):
 
 
 def _share_by_label(pie):
+    """Shares keyed by display label. A member's is their short name, not their email."""
     return {s.member_label: s.share_pct for s in pie.slices}
 
 
@@ -108,7 +110,7 @@ def test_pie_reads_the_split_as_fifty_fifty(byov_invite, user_factory):
     assert pie.member_count == 1
     assert pie.sponsor_count == 1
     assert _share_by_label(pie) == {
-        "founder@example.com": Decimal("50.00"),
+        "founder": Decimal("50.00"),
         "Sponsor Co": Decimal("50.00"),
     }
 
@@ -158,7 +160,7 @@ def test_sponsor_share_dilutes_as_members_earn(byov_invite, user_factory):
     assert pie.total == Decimal("200000.00")
     # 50/50 becomes 75/25. No floor, no protection, no anti-dilution.
     assert _share_by_label(pie) == {
-        "founder@example.com": Decimal("75.00"),
+        "founder": Decimal("75.00"),
         "Sponsor Co": Decimal("25.00"),
     }
 
@@ -179,9 +181,9 @@ def test_a_new_person_earning_in_dilutes_both(byov_invite, user_factory, members
 
     shares = _share_by_label(compute_pie(venture))
     assert shares == {
-        "founder@example.com": Decimal("25.00"),
+        "founder": Decimal("25.00"),
         "Sponsor Co": Decimal("25.00"),
-        "joiner@example.com": Decimal("50.00"),
+        "joiner": Decimal("50.00"),
     }
 
 
