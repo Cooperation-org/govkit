@@ -13,12 +13,14 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 from django.db.models import Count, ProtectedError
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
+from .amebo import provision_membership
 from .forms import (
     GrantValueForm,
     InviteForm,
@@ -204,11 +206,32 @@ def cohort_progress_view(request, cohort_slug):
 
 @login_required
 def onboarding(request):
-    """One-flow org setup: create Org + ValuationConfig + admin Membership, land on Members."""
+    """One-flow org setup: create Org + ValuationConfig + admin Membership, land on Members.
+
+    This is the deliberate, self-serve way to mint a venture — the path for
+    someone in the applicant pool who is bringing their own thing rather than
+    waiting on a BYOV invite (golda 2026-07-25). It therefore has to finish the
+    SAME two steps the invite path does in create_venture_org(), or the founder
+    ends up an admin of a GovKit shell with nothing behind it:
+
+      * start_genesis(org) — without it genesis_started_at is NULL, and the
+        whole module checklist is inert (toggle_item refuses every item).
+      * provision_membership(...) — the ping that tells amebo the org exists,
+        which is what queues earnkit add-team: the team's Odoo CRM database,
+        Taiga project, amebo instance and route. Skipping it was why a
+        self-serve org had no tools at all while an invited one did.
+    """
     if request.method == "POST":
         form = OnboardingForm(request.POST)
         if form.is_valid():
             org = form.save(request.user)
+            start_genesis(org)
+            # After commit, outside any transaction — network I/O never holds one
+            # open (same rule as invites.accept_invite_for_user). Never raises.
+            user = request.user
+            transaction.on_commit(
+                lambda: provision_membership(org, user, MembershipRole.ADMIN)
+            )
             messages.success(
                 request,
                 f"{org.display_name} is ready. Now the important part: invite your members.",
@@ -303,6 +326,8 @@ def _settings_initial(org):
         "socials": socials,
         "main_repo": main,
         "other_repos": other,
+        "calendar_url": org.calendar_url,
+        "chat_url": org.chat_url,
     }
 
 
@@ -318,7 +343,19 @@ def org_settings(request, org_slug):
             org.website = form.cleaned_data["website"]
             org.socials = form.socials_list()
             org.repos = form.repos_list()
-            org.save(update_fields=["display_name", "website", "socials", "repos", "updated_at"])
+            org.calendar_url = form.cleaned_data["calendar_url"]
+            org.chat_url = form.cleaned_data["chat_url"]
+            org.save(
+                update_fields=[
+                    "display_name",
+                    "website",
+                    "socials",
+                    "repos",
+                    "calendar_url",
+                    "chat_url",
+                    "updated_at",
+                ]
+            )
             messages.success(request, "Org settings saved.")
             return redirect("orgs:settings", org_slug=org.slug)
         messages.error(request, "Please check the settings and try again.")

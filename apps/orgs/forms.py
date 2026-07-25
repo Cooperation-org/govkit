@@ -328,9 +328,25 @@ class OrgSettingsForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 3}),
         label="Other repos (one URL per line)",
     )
+    calendar_url = forms.CharField(
+        max_length=500,
+        required=False,
+        label="Team calendar (Google Calendar or iCal share link)",
+    )
+    chat_url = forms.CharField(
+        max_length=500,
+        required=False,
+        label="Team chat (Slack or Discord invite link)",
+    )
 
     def clean_website(self):
         return _norm_url(self.cleaned_data.get("website", ""))
+
+    def clean_calendar_url(self):
+        return _norm_url(self.cleaned_data.get("calendar_url", ""))
+
+    def clean_chat_url(self):
+        return _norm_url(self.cleaned_data.get("chat_url", ""))
 
     def socials_list(self) -> list:
         """Parse the socials textarea into [{'label', 'url'}]. Label optional."""

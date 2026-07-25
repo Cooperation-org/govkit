@@ -314,6 +314,36 @@ def invite_committed(request, org_slug, code):
 invite_committed.org_context_exempt = True
 
 
+@require_GET
+def org_profile(request, org_slug):
+    """S2S: the org profile the cohort top bar needs (calendar/chat/site + repos).
+
+    Same shared-bearer auth as the invite endpoints. workers.vc reads this
+    (cached) to stamp the Calendar / Chat links onto the nav. No members, rates,
+    or governance config — just the public-facing profile the team set.
+    """
+    if not _s2s_authorized(request):
+        return JsonResponse({"error": "unauthorized"}, status=401)
+    org = Org.objects.filter(slug=org_slug).first()
+    if org is None:
+        return JsonResponse({"error": "not_found"}, status=404)
+    return JsonResponse(
+        {
+            "slug": org.slug,
+            "display_name": org.display_name,
+            "website": org.website,
+            "socials": org.socials or [],
+            "repos": org.repos or [],
+            "context_repo": org.context_repo,
+            "calendar_url": org.calendar_url,
+            "chat_url": org.chat_url,
+        }
+    )
+
+
+org_profile.org_context_exempt = True
+
+
 class OrgDirectoryView(APIView):
     """Every org on this installation, name + slug only, for a signed-in person
     choosing where to go — the workers.vc /welcome cards for someone with no
@@ -342,6 +372,7 @@ urlpatterns = router.urls + [
         ChecklistToggleView.as_view(),
         name="org-checklist-toggle",
     ),
+    path("<slug:org_slug>/profile/", org_profile, name="s2s_org_profile"),
     path("<slug:org_slug>/invites/<str:code>/", invite_detail, name="s2s_invite_detail"),
     path(
         "<slug:org_slug>/invites/<str:code>/committed/",

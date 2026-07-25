@@ -139,6 +139,10 @@ class Org(models.Model):
     # List of {"url": str, "is_main": bool}. The is_main one is the team's shared
     # context repo that amebo reads (see context_repo). Teams bring their own repo.
     repos = models.JSONField(default=list, blank=True)
+    # Team calendar (Google Calendar / iCal share URL) and team chat (Slack/Discord
+    # invite). When set, the cohort top bar shows a Calendar / Chat link.
+    calendar_url = models.URLField(blank=True)
+    chat_url = models.URLField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -55,6 +55,8 @@ class OrgSerializer(serializers.ModelSerializer):
             "socials",
             "repos",
             "context_repo",
+            "calendar_url",
+            "chat_url",
         ]
 
 
