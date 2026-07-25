@@ -51,10 +51,25 @@ def _opening_dict(ob):
     }
 
 
+def _stake_dict(st):
+    return {
+        "stake_id": st.stake_id,
+        "value": _dec(st.value),
+        "source_note": st.source_note,
+    }
+
+
 def _slice_dict(s):
+    # holder_kind tells a reader whether this is a member or a sponsor; membership_id is
+    # null for a sponsor, which holds no membership. Every key an older client already
+    # read is still here and still means the same thing.
     return {
         "membership_id": s.membership_id,
         "member_label": s.member_label,
+        "holder_kind": s.holder_kind,
+        "holder_slug": s.holder_slug,
+        "holder_url": s.holder_url,
+        "stakes": [_stake_dict(st) for st in s.stakes],
         "role": s.role,
         "drops_total": _dec(s.drops_total),
         "opening_total": _dec(s.opening_total),
@@ -77,6 +92,7 @@ class PieSummaryView(APIView):
                 "unit_name": pie.unit_name,
                 "total": _dec(pie.total),
                 "member_count": pie.member_count,
+                "sponsor_count": pie.sponsor_count,
                 "slices": [_slice_dict(s) for s in pie.slices],
             }
         )

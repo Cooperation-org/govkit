@@ -8,8 +8,9 @@
   </div>
   <p class="gk-muted">
     Live shares of <strong>{{ pie.total }} {{ pie.unit_name }}</strong> of issued equity
-    across {{ pie.member_count }} member{{ pie.member_count|pluralize }}. Every slice traces
-    back to the work that earned it — expand a row to see the exact drops, tasks and
+    across {{ pie.member_count }} member{{ pie.member_count|pluralize }}{% if pie.sponsor_count %}
+    and {{ pie.sponsor_count }} sponsor{{ pie.sponsor_count|pluralize }}{% endif %}. Every slice
+    traces back to the work that earned it — expand a row to see the exact drops, tasks and
     opening balances.
   </p>
 
@@ -31,7 +32,12 @@
           {% for row in rows %}
             {% with s=row.slice %}
               <tr>
-                <td><span class="gk-leaf gk-cat-{{ row.cat }}"></span>{{ s.member_label }}</td>
+                <td>
+                  <span class="gk-leaf gk-cat-{{ row.cat }}"></span>
+                  {% if s.holder_url %}
+                    <a href="{{ s.holder_url }}" target="_blank" rel="noopener">{{ s.member_label }}</a>
+                  {% else %}{{ s.member_label }}{% endif %}
+                </td>
                 <td class="gk-muted">{{ s.role }}</td>
                 <td class="gk-num">{{ s.issued_total }}</td>
                 <td class="gk-num">{{ s.share_pct }}%</td>
@@ -43,7 +49,7 @@
               </tr>
               <tr>
                 <td colspan="5">
-                  {% if s.lines or s.opening_balances %}
+                  {% if s.lines or s.opening_balances or s.stakes %}
                     <details class="gk-trace">
                       <summary>Trace {{ s.member_label }}'s {{ s.issued_total }} {{ pie.unit_name }}</summary>
                       {% if s.lines %}
@@ -98,6 +104,27 @@
                             {% endfor %}
                           </tbody>
                         </table>
+                      {% endif %}
+                      {% if s.stakes %}
+                        {# A sponsor's share: what they put in, and what it was for. #}
+                        <table>
+                          <thead>
+                            <tr><th>Sponsor stake</th><th>Source</th><th class="gk-num">Value</th></tr>
+                          </thead>
+                          <tbody>
+                            {% for st in s.stakes %}
+                              <tr>
+                                <td>#{{ st.stake_id }}</td>
+                                <td class="gk-muted">{{ st.source_note|default:"—" }}</td>
+                                <td class="gk-num">{{ st.value }}</td>
+                              </tr>
+                            {% endfor %}
+                          </tbody>
+                        </table>
+                        <p class="gk-muted">
+                          A sponsor's share is equity only. It carries no vote, and it dilutes
+                          like every other share as members earn.
+                        </p>
                       {% endif %}
                     </details>
                   {% else %}

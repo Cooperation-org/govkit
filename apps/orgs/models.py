@@ -5,6 +5,13 @@ An Org is the top-level grouping; every domain table is scoped to one (see
 apps/orgs/scoping.py). Valuation/governance policy lives in ValuationConfig, membership
 (including external identity maps) in Membership, and imported historical equity in
 OpeningBalance.
+
+Equity is held by people through Membership, with ONE exception: OrgStake, where the
+holder is an ExternalHolder (the outside company that funded the venture). It is
+deliberately its own table rather than a nullable user on Membership, so that everything
+keyed on a member being a person — drop runs, votes, sortition, exports, provisioning —
+keeps working untouched and no fake user account is ever created to stand in for a
+company.
 """
 
 import secrets
@@ -143,6 +150,40 @@ class Org(models.Model):
     # invite). When set, the cohort top bar shows a Calendar / Chat link.
     calendar_url = models.URLField(blank=True)
     chat_url = models.URLField(blank=True)
+    # A team whose equity record lives in another system (Slicing Pie's Pie Slicer today)
+    # points at it here. This is a POINTER, never a sync: GovKit reads nothing from it and
+    # writes nothing to it, so nothing here can overwrite what GovKit computed. `pie_as_of`
+    # is the date that outside record was last brought up to date; work approved in GovKit
+    # after it is what the team still owes the outside pie.
+    pie_url = models.URLField(blank=True)
+    pie_as_of = models.DateField(null=True, blank=True)
+    # What this org offers by default when it invites a sponsored venture (accelerator
+    # side). These only prefill the BYOV invite form so the terms are not retyped every
+    # time; the invite records what was actually offered, and the invite is what the
+    # accept honors. Changing a default never touches a venture already created.
+    default_sponsor = models.ForeignKey(
+        "ExternalHolder",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="orgs_defaulting_to",
+        help_text="Prefills who takes the sponsor share on a BYOV invite from this org.",
+    )
+    default_founding_value = models.DecimalField(
+        max_digits=16,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Prefills the starting value of a sponsored venture's pie. Blank = no default.",
+    )
+    default_sponsor_pct = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Prefills the share of a sponsored venture this org keeps, 0-100. "
+        "Blank = no default.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -296,6 +337,41 @@ class Invite(models.Model):
     venture_name = models.CharField(max_length=255, blank=True)
     venture_url = models.URLField(blank=True)
 
+    # The founding split, offered on the invite and honored at accept (BYOV only).
+    # All three must be set for anything to be seeded: founding_value is the venture's
+    # pie on day one, sponsor_pct is the part of it `sponsor` keeps for the money and
+    # the idea it put in. The rest is the founder's, as an opening balance for the work
+    # they did before the pie existed. Ordinary dilution takes over from there: every
+    # drop line afterwards grows the total and shrinks both shares in proportion.
+    # A percentage is how the offer is *stated*; it is never stored as a standing claim
+    # on the venture, only used once to size the two starting rows. Blank (the default,
+    # and every non-BYOV invite) seeds nothing at all.
+    #
+    # The sponsor is an ExternalHolder, NOT the inviting org: the company putting money
+    # in is normally outside the cohort entirely.
+    sponsor = models.ForeignKey(
+        "ExternalHolder",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="invites_sponsored",
+        help_text="BYOV: the outside company taking a share of this venture.",
+    )
+    founding_value = models.DecimalField(
+        max_digits=16,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="BYOV: the venture's total pie at genesis, in its own units.",
+    )
+    sponsor_pct = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="BYOV: percent of the founding value the sponsor keeps, 0-100.",
+    )
+
     # The inviter's authored drafts (never generated); invitee edits before commit.
     drafted_statement = models.TextField(blank=True)
     drafted_social_post = models.TextField(blank=True)
@@ -346,6 +422,31 @@ class Invite(models.Model):
     def can_accept(self) -> bool:
         """Accept is allowed from created OR committed (direct invites skip committed)."""
         return self.status in (InviteStatus.CREATED, InviteStatus.COMMITTED) and not self.is_expired
+
+    @property
+    def seeds_founding_split(self) -> bool:
+        """True when this invite carries a complete, non-zero founding split to seed."""
+        return (
+            self.kind == InviteKind.BYOV
+            and self.sponsor_id is not None
+            and self.founding_value is not None
+            and self.sponsor_pct is not None
+            and self.founding_value > 0
+        )
+
+    @property
+    def sponsor_value(self):
+        """The sponsor's slice of the founding value, or None if none is offered."""
+        if not self.seeds_founding_split:
+            return None
+        return (self.founding_value * self.sponsor_pct / Decimal("100")).quantize(Decimal("0.01"))
+
+    @property
+    def founder_value(self):
+        """The founder's slice: the remainder, so the two always sum to founding_value."""
+        if not self.seeds_founding_split:
+            return None
+        return self.founding_value - self.sponsor_value
 
     @property
     def status_label(self) -> str:
@@ -452,3 +553,76 @@ class OpeningBalance(models.Model):
 
     def __str__(self):
         return f"OpeningBalance({self.membership}, {self.value})"
+
+
+class ExternalHolder(models.Model):
+    """An outside company that can hold equity in an org without being one.
+
+    The sponsor of a venture is typically NOT a tenant here: LinkedTrust funds ventures
+    in the cohort but does not run its pie in GovKit, has no members here, and must
+    never appear in an org list, a cohort, or the provisioning chain. Making it an Org
+    to give it a stake would put it in all of them.
+
+    It is a real row rather than a name typed onto each stake so that one company
+    holding stakes in several ventures is one identity, and so renaming it is one edit.
+
+    Its OWN equity is not modelled here and must not be. LinkedTrust's cap table lives
+    on Fairmint and is closed to new people; GovKit holds a link to it and nothing more,
+    the same way it references any fact whose home is elsewhere. What GovKit computes is
+    only what this holder owns of a venture INSIDE GovKit.
+    """
+
+    slug = models.SlugField(unique=True, max_length=64)
+    display_name = models.CharField(max_length=255)
+    url = models.URLField(
+        blank=True,
+        help_text="Where this company's own equity actually lives, e.g. its Fairmint cap "
+        "table. A reference for people to follow. GovKit never reads or computes it.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["display_name"]
+
+    def __str__(self):
+        return f"{self.display_name} ({self.slug})"
+
+
+class OrgStake(models.Model):
+    """Equity in `org` held by an ExternalHolder — the sponsor case, not a person.
+
+    A company that put cash and an idea into a venture holds part of that venture's
+    pie, but it has no user account and never should have one: a company standing in
+    the members list as a fake person would leak into drop runs, votes, provisioning
+    and exports, and would be a lie in every one of them.
+
+    So this is its own table, read only by the pie. Two consequences worth knowing:
+
+    * It is ECONOMIC, NOT GOVERNANCE. Voting weight comes from memberships
+      (apps/orgs/weighting.py) and is untouched by this, so a sponsor's share never
+      votes. An outside company has no one here to cast a ballot.
+    * It DILUTES like everything else. The pie is a sum, so each drop line a member
+      earns grows the total and shrinks the sponsor's percentage, with no floor.
+
+    Rows are additive, like OpeningBalance: a second grant is a second row, and the
+    holder's stake is their sum, each with its own note about where it came from.
+    """
+
+    org = models.ForeignKey(Org, on_delete=models.CASCADE, related_name="org_stakes")
+    holder = models.ForeignKey(ExternalHolder, on_delete=models.PROTECT, related_name="stakes")
+    value = models.DecimalField(max_digits=16, decimal_places=2)
+    source_note = models.CharField(max_length=500, blank=True)
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="org_stakes_granted",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"OrgStake({self.holder.slug} in {self.org.slug}, {self.value})"

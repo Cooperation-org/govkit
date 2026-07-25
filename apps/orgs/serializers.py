@@ -57,6 +57,8 @@ class OrgSerializer(serializers.ModelSerializer):
             "context_repo",
             "calendar_url",
             "chat_url",
+            "pie_url",
+            "pie_as_of",
         ]
 
 

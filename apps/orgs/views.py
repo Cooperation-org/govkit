@@ -259,6 +259,20 @@ def _invite_share_link(request, invite):
     return request.build_absolute_uri(reverse("orgs:accept_invite", kwargs={"code": invite.code}))
 
 
+def _invite_split_initial(org) -> dict:
+    """Prefill the BYOV founding split from this org's standing offer.
+
+    Only a convenience: what the invite records is what was submitted, so editing the
+    boxes for one venture never touches the default, and editing the default never
+    touches an invite already minted.
+    """
+    return {
+        "sponsor": org.default_sponsor_id,
+        "founding_value": org.default_founding_value,
+        "sponsor_pct": org.default_sponsor_pct,
+    }
+
+
 @login_required
 def members(request, org_slug):
     """Admin UI: list members with role + rate controls, org-wide rate, and an invite form."""
@@ -273,7 +287,9 @@ def members(request, org_slug):
     from apps.pie.services import compute_pie
 
     pie = compute_pie(request.org)
-    slice_by_member = {s.membership_id: s for s in pie.slices}
+    # Members only: a sponsor slice has no membership_id and belongs to the sponsor
+    # panel below, not to a member row.
+    slice_by_member = {s.membership_id: s for s in pie.slices if s.membership_id is not None}
     for m in memberships:
         pie_slice = slice_by_member.get(m.id)
         m.share_pct = pie_slice.share_pct if pie_slice else None
@@ -295,9 +311,13 @@ def members(request, org_slug):
             "memberships": memberships,
             "roles": MembershipRole.choices,
             "unit_name": request.org.unit_name,
-            "invite_form": InviteForm(),
+            "invite_form": InviteForm(initial=_invite_split_initial(request.org)),
             "invites": invites,
             "minted_invite": minted_invite,
+            # Sponsors of THIS org, if any. They hold equity here but no membership, so
+            # they have no row in the table above and would otherwise be invisible to
+            # the admin looking at who owns what.
+            "sponsor_slices": [s for s in pie.slices if s.is_sponsor],
             "doorway_enabled": bool(settings.DOORWAY_BASE_URL),
             "rate_form": OrgRateForm(
                 initial={"default_hourly_rate": request.org.default_hourly_rate}
@@ -326,6 +346,11 @@ def _settings_initial(org):
         "other_repos": other,
         "calendar_url": org.calendar_url,
         "chat_url": org.chat_url,
+        "pie_url": org.pie_url,
+        "pie_as_of": org.pie_as_of,
+        "default_sponsor": org.default_sponsor_id,
+        "default_founding_value": org.default_founding_value,
+        "default_sponsor_pct": org.default_sponsor_pct,
     }
 
 
@@ -343,6 +368,11 @@ def org_settings(request, org_slug):
             org.repos = form.repos_list()
             org.calendar_url = form.cleaned_data["calendar_url"]
             org.chat_url = form.cleaned_data["chat_url"]
+            org.pie_url = form.cleaned_data["pie_url"]
+            org.pie_as_of = form.cleaned_data["pie_as_of"]
+            org.default_sponsor = form.cleaned_data["default_sponsor"]
+            org.default_founding_value = form.cleaned_data["default_founding_value"]
+            org.default_sponsor_pct = form.cleaned_data["default_sponsor_pct"]
             org.save(
                 update_fields=[
                     "display_name",
@@ -351,6 +381,11 @@ def org_settings(request, org_slug):
                     "repos",
                     "calendar_url",
                     "chat_url",
+                    "pie_url",
+                    "pie_as_of",
+                    "default_sponsor",
+                    "default_founding_value",
+                    "default_sponsor_pct",
                     "updated_at",
                 ]
             )
@@ -390,6 +425,11 @@ def invite_create(request, org_slug):
         image_url=data.get("image_url", ""),
         venture_name=data.get("venture_name", ""),
         venture_url=data.get("venture_url", ""),
+        # The founding split as offered. The invite is the record of the terms, so a
+        # later change to the org's defaults never rewrites what this person was told.
+        sponsor=data.get("sponsor"),
+        founding_value=data.get("founding_value"),
+        sponsor_pct=data.get("sponsor_pct"),
         drafted_statement=data.get("drafted_statement", ""),
         drafted_social_post=data.get("drafted_social_post", ""),
         doorway=bool(settings.DOORWAY_BASE_URL),  # one flow: doorway whenever configured
@@ -401,10 +441,17 @@ def invite_create(request, org_slug):
         # provisioned on accept, and login attaches them to their existing account.
         invite.mark_committed(claim_id=data.get("committed_claim_id"))
     skipped = " (attestation skipped — already committed)" if data.get("already_committed") else ""
+    # Say the terms back, so a mistyped split is caught here and not on a live pie.
+    terms = (
+        f" {invite.sponsor.display_name} keeps {invite.sponsor_pct}% of "
+        f"{invite.founding_value}, the founder gets {invite.founder_value}."
+        if invite.seeds_founding_split
+        else ""
+    )
     messages.success(
         request,
         f"Invite minted for {invite.name or invite.email or 'your invitee'}{skipped} — "
-        "here is the link to share.",
+        f"here is the link to share.{terms}",
     )
     url = reverse("orgs:members", kwargs={"org_slug": request.org.slug})
     return redirect(f"{url}?minted={invite.code}")

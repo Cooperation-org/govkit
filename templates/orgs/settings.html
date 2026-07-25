@@ -33,6 +33,24 @@
       </div>
     </div>
 
+    {# A pointer out, not a sync. Nothing is read from this link. #}
+    <div class="gk-card">
+      <h2>Pie kept elsewhere</h2>
+      <p>If your equity record lives in another system, link it here. We only show the
+         link. Nothing is read from it and nothing here changes it.</p>
+      <div class="gk-field">
+        <label for="{{ form.pie_url.id_for_label }}">Link
+          <small>e.g. your Pie Slicer pie</small></label>
+        {{ form.pie_url }}
+      </div>
+      <div class="gk-field">
+        <label for="{{ form.pie_as_of.id_for_label }}">Current as of
+          <small>the date that record was last brought up to date — work approved here
+                 after it still needs adding there</small></label>
+        {{ form.pie_as_of }}
+      </div>
+    </div>
+
     <div class="gk-card">
       <h2>Repos</h2>
       <p>The team brings its own repo for shared context. The main repo is what
@@ -46,6 +64,29 @@
         <label for="{{ form.other_repos.id_for_label }}">Other repos
           <small>optional — one URL per line</small></label>
         {{ form.other_repos }}
+      </div>
+    </div>
+
+    {# Set once, and every founder invite from this org comes up already filled in. #}
+    <div class="gk-card">
+      <h2>Sponsoring ventures</h2>
+      <p>What a venture invited from here starts with. These fill in the invite form for
+         you; you can change them on any single invite, and the invite is what counts.
+         Leave the sponsor blank if you are not putting money into your ventures.</p>
+      <div class="gk-field">
+        <label for="{{ form.default_sponsor.id_for_label }}">Sponsor
+          <small>the outside company that takes a share</small></label>
+        {{ form.default_sponsor }}
+      </div>
+      <div class="gk-field">
+        <label for="{{ form.default_founding_value.id_for_label }}">Starting value
+          <small>the venture's whole pie on day one</small></label>
+        {{ form.default_founding_value }}
+      </div>
+      <div class="gk-field">
+        <label for="{{ form.default_sponsor_pct.id_for_label }}">Sponsor keeps
+          <small>percent — the rest is the founder's</small></label>
+        {{ form.default_sponsor_pct }}
       </div>
     </div>
 

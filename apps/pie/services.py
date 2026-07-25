@@ -3,7 +3,14 @@ Pie computation — the single place that turns the earnings record into shares.
 
 Definition (settled):
 
-    Pie = Σ issued DropLines + OpeningBalances, per membership, per org.
+    Pie = Σ issued DropLines + OpeningBalances, per membership, per org,
+          plus Σ OrgStakes, per holder org.
+
+Almost every holder is a person, reached through their Membership. The exception is a
+sponsor: an outside company that funded the venture, which holds OrgStake rows and no
+membership — see apps.orgs.models.OrgStake for why that is a separate table. Both kinds
+are slices of the same total and dilute together, so a slice says which it is via
+``holder_kind`` rather than the caller having to know.
 
 Traceability is the product: every slice this module returns carries the exact
 DropLines / tasks / OpeningBalances that produced it, so the UI (and the API) can drill
@@ -20,7 +27,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional
 
 from apps.drops.models import DropLine, DropRunState
-from apps.orgs.models import Membership, OpeningBalance
+from apps.orgs.models import Membership, OpeningBalance, OrgStake
 
 ZERO = Decimal("0")
 # Full-precision fraction (0..1), quantized only for a stable, comparable value.
@@ -72,14 +79,37 @@ class OpeningProvenance:
     source_note: str
 
 
+@dataclass
+class StakeProvenance:
+    """One grant of equity to a sponsoring org."""
+
+    stake_id: int
+    value: Decimal
+    source_note: str
+
+
 # --------------------------------------------------------------------------- #
 # Aggregates.
 # --------------------------------------------------------------------------- #
+HOLDER_MEMBER = "member"
+HOLDER_SPONSOR = "sponsor"
+# What a sponsor's row shows in the Role column. Not a MembershipRole: it holds no
+# membership and casts no vote.
+SPONSOR_ROLE_LABEL = "sponsor"
+
+
 @dataclass
 class PieSlice:
-    """One member's stake in the org pie, fully traceable."""
+    """One holder's stake in the org pie, fully traceable.
 
-    membership_id: int
+    Usually a member, reached by ``membership_id``. When ``holder_kind`` is
+    :data:`HOLDER_SPONSOR` the holder is an outside company: ``membership_id`` is None,
+    ``holder_slug`` names it, and the value sits in ``stakes`` rather than in ``lines``
+    or ``opening_balances``. ``member_label`` is the display name either way, so
+    anything that only renders a name and a share needs no branch.
+    """
+
+    membership_id: Optional[int]
     member_label: str
     role: str
     drops_total: Decimal
@@ -89,17 +119,32 @@ class PieSlice:
     share_pct: Decimal  # percentage for display, 0..100
     lines: List[LineProvenance] = field(default_factory=list)
     opening_balances: List[OpeningProvenance] = field(default_factory=list)
+    holder_kind: str = HOLDER_MEMBER
+    holder_slug: str = ""
+    # Where the sponsor's OWN equity lives (its Fairmint cap table, say). A link out,
+    # never anything this app computes.
+    holder_url: str = ""
+    stakes: List[StakeProvenance] = field(default_factory=list)
+
+    @property
+    def is_sponsor(self) -> bool:
+        return self.holder_kind == HOLDER_SPONSOR
 
 
 @dataclass
 class Pie:
-    """The whole org pie: total issued equity + every member's traceable slice."""
+    """The whole org pie: total issued equity + every holder's traceable slice.
+
+    ``member_count`` counts people, not sponsors — it is what the page means by "across
+    N members". Sponsors are counted separately in ``sponsor_count``.
+    """
 
     org_slug: str
     unit_name: str
     total: Decimal
     member_count: int
     slices: List[PieSlice] = field(default_factory=list)
+    sponsor_count: int = 0
 
 
 @dataclass
@@ -182,6 +227,43 @@ def _openings_by_member(org) -> Dict[int, List[OpeningBalance]]:
     return by_member
 
 
+def _stakes_by_holder(org) -> Dict[int, List[OrgStake]]:
+    """Sponsor stakes in this org, grouped by holder id (usually zero or one holder)."""
+    stakes = OrgStake.objects.filter(org=org).select_related("holder")
+    by_holder: Dict[int, List[OrgStake]] = {}
+    for stake in stakes:
+        by_holder.setdefault(stake.holder_id, []).append(stake)
+    return by_holder
+
+
+def _sponsor_slices(org) -> List[PieSlice]:
+    """One slice per sponsor, with share left at zero for the caller to derive."""
+    slices: List[PieSlice] = []
+    for stakes in _stakes_by_holder(org).values():
+        holder = stakes[0].holder
+        total = _cents(sum((s.value for s in stakes), ZERO))
+        slices.append(
+            PieSlice(
+                membership_id=None,
+                member_label=holder.display_name,
+                role=SPONSOR_ROLE_LABEL,
+                drops_total=ZERO,
+                opening_total=total,
+                issued_total=total,
+                share=ZERO,
+                share_pct=ZERO,
+                holder_kind=HOLDER_SPONSOR,
+                holder_slug=holder.slug,
+                holder_url=holder.url,
+                stakes=[
+                    StakeProvenance(stake_id=s.pk, value=s.value, source_note=s.source_note)
+                    for s in stakes
+                ],
+            )
+        )
+    return slices
+
+
 def compute_pie(org) -> Pie:
     """
     Compute the current pie for an org.
@@ -189,9 +271,13 @@ def compute_pie(org) -> Pie:
     Per membership: issued_total = Σ final_value of DropLines in APPROVED DropRuns
     + Σ OpeningBalance.value. Each member's share is issued_total / org total.
 
+    Any sponsor holding OrgStake rows in this org joins the same total as an extra slice
+    (see :func:`_sponsor_slices`), so it dilutes exactly as a member's does when new work
+    is issued. Orgs with no sponsor are entirely unaffected.
+
     Returns a :class:`Pie` whose slices are sorted by issued_total (desc, then label) and
-    carry full provenance (the exact lines/tasks/opening balances) for drill-down. The
-    zero-total org is handled without dividing by zero (all shares are 0).
+    carry full provenance (the exact lines/tasks/opening balances/stakes) for drill-down.
+    The zero-total org is handled without dividing by zero (all shares are 0).
     """
     memberships = list(Membership.objects.filter(org=org).select_related("user").order_by("id"))
     issued_by_member = _lines_by_member(org, DropRunState.APPROVED)
@@ -221,6 +307,11 @@ def compute_pie(org) -> Pie:
             )
         )
 
+    sponsor_slices = _sponsor_slices(org)
+    for s in sponsor_slices:
+        total += s.issued_total
+    slices.extend(sponsor_slices)
+
     # Derive shares once the org total is known (guard the empty-org divide-by-zero).
     if total > ZERO:
         for s in slices:
@@ -236,6 +327,7 @@ def compute_pie(org) -> Pie:
         total=total,
         member_count=len(memberships),
         slices=slices,
+        sponsor_count=len(sponsor_slices),
     )
 
 

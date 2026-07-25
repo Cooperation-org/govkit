@@ -1,6 +1,15 @@
 from django.contrib import admin
 
-from .models import Invite, InviteStatus, Membership, OpeningBalance, Org, ValuationConfig
+from .models import (
+    ExternalHolder,
+    Invite,
+    InviteStatus,
+    Membership,
+    OpeningBalance,
+    Org,
+    OrgStake,
+    ValuationConfig,
+)
 
 
 class ValuationConfigInline(admin.StackedInline):
@@ -57,3 +66,27 @@ class OpeningBalanceAdmin(admin.ModelAdmin):
     list_display = ("membership", "org", "value", "created_at")
     list_filter = ("org",)
     search_fields = ("membership__user__email", "source_note")
+
+
+@admin.register(ExternalHolder)
+class ExternalHolderAdmin(admin.ModelAdmin):
+    """Outside companies that can hold equity in a venture without being an org here."""
+
+    list_display = ("display_name", "slug", "url", "created_at")
+    search_fields = ("display_name", "slug")
+    prepopulated_fields = {"slug": ("display_name",)}
+
+
+@admin.register(OrgStake)
+class OrgStakeAdmin(admin.ModelAdmin):
+    """A sponsor's share of a venture, including one added after the venture exists.
+
+    This is the seam for a venture that was created before its terms were recorded:
+    add the sponsor's stake here and give the founder the matching opening balance
+    above, so the pie ends up where the invite said it would.
+    """
+
+    list_display = ("holder", "org", "value", "created_at")
+    list_filter = ("holder", "org")
+    search_fields = ("holder__display_name", "org__slug", "source_note")
+    autocomplete_fields = ("holder", "granted_by")

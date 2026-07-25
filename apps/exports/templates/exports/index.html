@@ -3,6 +3,19 @@
 {% block content %}
   <h1>{{ page_title }}</h1>
 
+  {% if current_org.pie_url %}
+    <section class="gk-card">
+      <h2>This team's pie lives elsewhere</h2>
+      <p><a href="{{ current_org.pie_url }}" target="_blank" rel="noopener">
+           {{ current_org.pie_url }}</a>
+        {% if current_org.pie_as_of %}
+          <br><small>Current as of {{ current_org.pie_as_of }}. Work approved here after
+            that date has not been added there yet.</small>
+        {% endif %}
+      </p>
+    </section>
+  {% endif %}
+
   <section class="gk-card">
     <h2>Export</h2>
     <p>Download the org's current equity record. Every share traces back to the work that

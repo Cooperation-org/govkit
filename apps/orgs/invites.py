@@ -31,7 +31,9 @@ from .models import (
     InviteKind,
     Membership,
     MembershipRole,
+    OpeningBalance,
     Org,
+    OrgStake,
     ValuationConfig,
 )
 
@@ -73,11 +75,45 @@ def _unique_org_slug(base: str) -> str:
     return slug
 
 
+def seed_founding_split(invite: Invite, membership: Membership) -> None:
+    """
+    Write the venture's day-one pie exactly as the invite offered it: the founder's
+    opening balance and the sponsor's stake, together, or neither.
+
+    The percentage on the invite is only used HERE, once, to size two rows. After this
+    the venture has an ordinary pie: both starting shares dilute as members earn, and
+    nothing anywhere holds a standing claim to a fixed percent.
+
+    No-op unless the invite carries a complete split (`seeds_founding_split`), which is
+    the normal case: an unsponsored venture starts empty, as it always did.
+    """
+    if not invite.seeds_founding_split:
+        return
+    org = membership.org
+    offer = f"{invite.sponsor_pct}% of {invite.founding_value} at founding"
+    OpeningBalance.objects.create(
+        org=org,
+        membership=membership,
+        value=invite.founder_value,
+        source_note=f"Founding stake: building {org.display_name} before the pie. Invite offer: {offer}.",
+    )
+    OrgStake.objects.create(
+        org=org,
+        holder=invite.sponsor,
+        value=invite.sponsor_value,
+        source_note=f"Founding sponsor of {org.display_name}. Invite offer: {offer}.",
+        granted_by=invite.created_by,
+    )
+
+
 def create_venture_org(invite: Invite, user) -> Org:
     """
     A founder's venture becomes a real org the moment they accept: Org (default
     valuation config, unit "slices") + the founder as admin + the seeded module
     checklist. Their first hour starts here, not in a setup form.
+
+    A sponsored venture also starts with its founding split already in the pie, so the
+    founder's first view of it shows the terms they just accepted rather than zeros.
     """
     base = slugify(invite.venture_name)[:60] or f"venture-{invite.code[:8].lower()}"
     org = Org.objects.create(
@@ -86,7 +122,8 @@ def create_venture_org(invite: Invite, user) -> Org:
         unit_name="slices",
     )
     ValuationConfig.objects.create(org=org)
-    Membership.objects.create(org=org, user=user, role=MembershipRole.ADMIN)
+    membership = Membership.objects.create(org=org, user=user, role=MembershipRole.ADMIN)
+    seed_founding_split(invite, membership)
     start_genesis(org)
     return org
 
