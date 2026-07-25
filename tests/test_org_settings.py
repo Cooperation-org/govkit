@@ -108,6 +108,24 @@ def test_admin_saves_profile_and_main_repo(client, admin_org):
     assert org.context_repo == "https://github.com/team/context"
 
 
+def test_admin_saves_calendar_and_chat(client, admin_org):
+    org, admin = admin_org
+    client.force_login(admin)
+    url = reverse("orgs:settings", kwargs={"org_slug": org.slug})
+    resp = client.post(
+        url,
+        {
+            "display_name": org.display_name,
+            "calendar_url": "calendar.google.com/team.ics",
+            "chat_url": "discord.gg/abc123",
+        },
+    )
+    assert resp.status_code == 302
+    org.refresh_from_db()
+    assert org.calendar_url == "https://calendar.google.com/team.ics"
+    assert org.chat_url == "https://discord.gg/abc123"
+
+
 def test_non_admin_cannot_open_settings(client, admin_org, user_factory, membership_factory):
     org, _ = admin_org
     member = user_factory(email="member@example.com")
@@ -128,3 +146,32 @@ def test_context_repo_is_exposed_in_org_api(client, admin_org):
     body = resp.json()
     assert body["context_repo"] == "https://github.com/team/context"
     assert body["website"] == "https://team.example"
+
+
+# --- S2S profile endpoint (what workers.vc reads for the top bar) ------------------------
+
+
+def test_s2s_profile_returns_calendar_and_chat(client, admin_org, settings):
+    settings.GOVKIT_S2S_TOKEN = "s2s-secret"
+    org, _ = admin_org
+    org.calendar_url = "https://calendar.google.com/team.ics"
+    org.chat_url = "https://discord.gg/abc123"
+    org.save(update_fields=["calendar_url", "chat_url"])
+    resp = client.get(
+        f"/api/v1/orgs/{org.slug}/profile/",
+        HTTP_AUTHORIZATION="Bearer s2s-secret",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["calendar_url"] == "https://calendar.google.com/team.ics"
+    assert body["chat_url"] == "https://discord.gg/abc123"
+
+
+def test_s2s_profile_rejects_bad_token(client, admin_org, settings):
+    settings.GOVKIT_S2S_TOKEN = "s2s-secret"
+    org, _ = admin_org
+    resp = client.get(
+        f"/api/v1/orgs/{org.slug}/profile/",
+        HTTP_AUTHORIZATION="Bearer wrong",
+    )
+    assert resp.status_code == 401

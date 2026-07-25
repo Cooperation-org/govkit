@@ -229,9 +229,7 @@ def onboarding(request):
             # After commit, outside any transaction — network I/O never holds one
             # open (same rule as invites.accept_invite_for_user). Never raises.
             user = request.user
-            transaction.on_commit(
-                lambda: provision_membership(org, user, MembershipRole.ADMIN)
-            )
+            transaction.on_commit(lambda: provision_membership(org, user, MembershipRole.ADMIN))
             messages.success(
                 request,
                 f"{org.display_name} is ready. Now the important part: invite your members.",
