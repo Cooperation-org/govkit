@@ -42,6 +42,11 @@ MODULES = [
             ("exist.prior-art", "Prior art: find who already does this, before building anything"),
             ("exist.paragraph", "Write one plain paragraph: what this is and why now"),
             ("exist.who-else", "List who is working on this today"),
+            (
+                "exist.calendar",
+                "Set up a team calendar and add it in Settings — it shows in your top bar",
+            ),
+            ("exist.chat", "Set up a team chat (Slack or Discord) and add it in Settings"),
         ],
     ),
     (
