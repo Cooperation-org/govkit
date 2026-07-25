@@ -241,9 +241,7 @@ def _cohort_front_door_for(user):
         return None
     from apps.orgs.models import Membership
 
-    membership = (
-        Membership.objects.filter(user=user).select_related("org").order_by("id").first()
-    )
+    membership = Membership.objects.filter(user=user).select_related("org").order_by("id").first()
     if membership is None:
         return None
     return settings.COHORT_FRONT_DOOR.format(org_slug=membership.org.slug)

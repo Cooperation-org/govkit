@@ -128,9 +128,7 @@ def accept_invite_for_user(invite: Invite, user) -> tuple[Membership | None, Org
         # its own home. (The distinct third invite type, golda 2026-07-24.)
         venture_org = create_venture_org(invite, user)
         invite.mark_accepted(by=user)
-        transaction.on_commit(
-            lambda: provision_membership(venture_org, user, MembershipRole.ADMIN)
-        )
+        transaction.on_commit(lambda: provision_membership(venture_org, user, MembershipRole.ADMIN))
         return None, venture_org
     if invite.audience == InviteAudience.SUPPORTER:
         # Supporters never join an org (golda 2026-07-22): they are the email

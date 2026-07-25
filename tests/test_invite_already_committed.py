@@ -73,7 +73,9 @@ def test_already_committed_links_supplied_existing_claim(client, admin_org):
     client.force_login(admin)
     resp = client.post(
         _mint_url(org),
-        _base_fields(already_committed="on", committed_claim="https://live.linkedtrust.us/claims/1234/"),
+        _base_fields(
+            already_committed="on", committed_claim="https://live.linkedtrust.us/claims/1234/"
+        ),
     )
     assert resp.status_code == 302
     invite = Invite.objects.get(email="invitee@example.com")
@@ -87,7 +89,12 @@ def test_byov_invite_defaults_role_to_admin(client, admin_org):
     client.force_login(admin)
     resp = client.post(
         _mint_url(org),
-        _base_fields(name="Founder", kind=InviteKind.BYOV, role=MembershipRole.MEMBER, venture_name="IntegralMASS"),
+        _base_fields(
+            name="Founder",
+            kind=InviteKind.BYOV,
+            role=MembershipRole.MEMBER,
+            venture_name="IntegralMASS",
+        ),
     )
     assert resp.status_code == 302
     invite = Invite.objects.get(venture_name="IntegralMASS")
@@ -101,8 +108,12 @@ def test_byov_invite_defaults_role_to_admin(client, admin_org):
 def test_accept_committed_byov_provisions_org(admin_org, user_factory):
     org, _ = admin_org
     invite = Invite.objects.create(
-        org=org, kind=InviteKind.BYOV, role=MembershipRole.ADMIN,
-        audience="founder", name="Founder", venture_name="IntegralMASS",
+        org=org,
+        kind=InviteKind.BYOV,
+        role=MembershipRole.ADMIN,
+        audience="founder",
+        name="Founder",
+        venture_name="IntegralMASS",
     )
     invite.mark_committed()  # already committed, no claim
     assert invite.status == InviteStatus.COMMITTED
