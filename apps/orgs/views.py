@@ -48,14 +48,21 @@ from .models import (
 
 
 def landing(request):
-    """Public landing + org picker. Shows the current user's orgs if logged in."""
+    """Public landing + org picker. Shows the current user's orgs if logged in.
+
+    With exactly one org there is nothing to pick, so go straight to it (the
+    dashboard then bounces to the cohort front door if configured). Superusers,
+    who see every org, keep the picker so they can reach cross-org oversight.
+    """
     my_orgs = []
     if request.user.is_authenticated:
-        my_orgs = (
+        my_orgs = list(
             Org.objects.all()
             if request.user.is_superuser
             else Org.objects.filter(memberships__user=request.user).distinct()
         )
+        if not request.user.is_superuser and len(my_orgs) == 1:
+            return redirect("orgs:dashboard", org_slug=my_orgs[0].slug)
     return render(request, "orgs/landing.html", {
         "my_orgs": my_orgs,
         "is_accelerator_admin": _is_accelerator_admin(request.user),
