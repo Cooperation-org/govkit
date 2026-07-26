@@ -28,6 +28,7 @@ from .forms import (
     OnboardingForm,
     OrgRateForm,
     OrgSettingsForm,
+    SponsorGrantForm,
 )
 from .genesis import MODULES, module_of, modules_for, start_genesis, toggle_item
 from .invites import (
@@ -39,6 +40,7 @@ from .invites import (
 )
 from .models import (
     Cohort,
+    ExternalHolder,
     Invite,
     InviteKind,
     InviteStatus,
@@ -46,6 +48,7 @@ from .models import (
     MembershipRole,
     OpeningBalance,
     Org,
+    OrgStake,
 )
 
 
@@ -318,6 +321,11 @@ def members(request, org_slug):
             # they have no row in the table above and would otherwise be invisible to
             # the admin looking at who owns what.
             "sponsor_slices": [s for s in pie.slices if s.is_sponsor],
+            "sponsor_form": SponsorGrantForm(),
+            # Nothing to grant to until a company exists; the panel says so rather
+            # than showing a form whose only choice is empty.
+            "has_external_holders": ExternalHolder.objects.exists(),
+            "pie_total": pie.total,
             "doorway_enabled": bool(settings.DOORWAY_BASE_URL),
             "rate_form": OrgRateForm(
                 initial={"default_hourly_rate": request.org.default_hourly_rate}
@@ -555,6 +563,80 @@ def member_grant_value(request, org_slug, membership_id):
         f"Granted {form.cleaned_data['value']} {request.org.unit_name} "
         f"to {membership.user.email} as a starting stake.",
     )
+    return redirect("orgs:members", org_slug=request.org.slug)
+
+
+@login_required
+@require_POST
+def sponsor_grant(request, org_slug):
+    """
+    Admin gives an outside company a share of this org, whenever the deal is actually
+    struck. Recorded as an OrgStake, which the pie reads next to memberships.
+
+    Doing this at invite time is the exception, not the rule: a venture usually exists,
+    and has done work, before anyone settles what the company that funded it holds. So
+    the percentage is read against the pie as it stands, and the amount is worked out
+    from it (a half of a 50,000-slice pie is another 50,000 slices, not 25,000, and no
+    admin should have to remember that).
+
+    Additive: granting again tops the company up. To correct a mistake, remove the row.
+    """
+    _require_admin(request)
+    form = SponsorGrantForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, form.errors.as_text().lstrip("* "))
+        return redirect("orgs:members", org_slug=request.org.slug)
+
+    from apps.pie.services import value_for_target_share
+
+    data = form.cleaned_data
+    value = data.get("value")
+    if value is None:
+        try:
+            value = value_for_target_share(request.org, data["target_pct"])
+        except ValueError as exc:
+            messages.error(request, str(exc))
+            return redirect("orgs:members", org_slug=request.org.slug)
+
+    stake = OrgStake.objects.create(
+        org=request.org,
+        holder=data["sponsor"],
+        value=value,
+        source_note=data.get("source_note") or "",
+        granted_by=request.user,
+    )
+    # Say the resulting share back from the recomputed pie, not from what was asked
+    # for: rounding and any other holder's stake both move it.
+    from apps.pie.services import compute_pie
+
+    landed = next(
+        (
+            s.share_pct
+            for s in compute_pie(request.org).slices
+            if s.holder_slug == stake.holder.slug
+        ),
+        None,
+    )
+    messages.success(
+        request,
+        f"{stake.holder.display_name} now holds {landed}% of {request.org.display_name} "
+        f"({value} {request.org.unit_name}). It dilutes as members earn, and it does not vote.",
+    )
+    return redirect("orgs:members", org_slug=request.org.slug)
+
+
+@login_required
+@require_POST
+def sponsor_stake_remove(request, org_slug, stake_id):
+    """Undo a grant. Removing the row is how a wrong number is corrected."""
+    _require_admin(request)
+    stake = OrgStake.objects.filter(org=request.org, id=stake_id).first()
+    if stake is None:
+        messages.error(request, "That grant was not found.")
+        return redirect("orgs:members", org_slug=request.org.slug)
+    holder, value = stake.holder.display_name, stake.value
+    stake.delete()
+    messages.success(request, f"Removed {value} {request.org.unit_name} from {holder}.")
     return redirect("orgs:members", org_slug=request.org.slug)
 
 

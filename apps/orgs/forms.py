@@ -484,3 +484,57 @@ class GrantValueForm(forms.Form):
         label="Starting value",
     )
     source_note = forms.CharField(max_length=500, required=False, label="Note")
+
+
+class SponsorGrantForm(forms.Form):
+    """Admin gives an outside company a share of THIS org, at any point in its life.
+
+    Deciding a sponsor's share up front, on the invite, is the exception. The normal
+    case is deciding it once the venture already exists and already has a pie, so this
+    takes a percentage of the pie as it will stand once the grant lands and works out
+    the amount itself (apps.pie.services.value_for_target_share). An amount can be
+    given directly instead, which is the only option while the pie is still empty.
+
+    Additive, like every other grant here: granting again tops the holder up rather
+    than replacing what they hold.
+    """
+
+    sponsor = forms.ModelChoiceField(
+        queryset=ExternalHolder.objects.all(),
+        label="Company",
+        empty_label="Choose a company",
+    )
+    target_pct = forms.DecimalField(
+        required=False,
+        max_digits=5,
+        decimal_places=2,
+        label="Share of the pie",
+        help_text="What they should hold once this lands. We work out the amount.",
+    )
+    value = forms.DecimalField(
+        required=False,
+        max_digits=16,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        label="Or an amount",
+        help_text="Use this instead when you know the number, or while the pie is empty.",
+    )
+    source_note = forms.CharField(
+        max_length=500,
+        required=False,
+        label="What it is for",
+        help_text="Say what they put in. It shows on the pie next to their share.",
+    )
+
+    def clean(self):
+        data = super().clean()
+        pct, value = data.get("target_pct"), data.get("value")
+        if pct is None and value is None:
+            raise forms.ValidationError("Give either a share of the pie or an amount.")
+        if pct is not None and value is not None:
+            raise forms.ValidationError(
+                "Give a share or an amount, not both, so there is no doubt which one wins."
+            )
+        if pct is not None and not (Decimal("0") < pct < Decimal("100")):
+            self.add_error("target_pct", "A share has to be above 0 and below 100 percent.")
+        return data

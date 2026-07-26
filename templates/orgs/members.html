@@ -76,10 +76,12 @@
     </form>
   </div>
 
-  {% if sponsor_slices %}
-    {# Sponsors hold equity here but are not members, so they have no row above. #}
-    <div class="gk-card">
-      <h2>Sponsors</h2>
+  {# Sponsors hold equity here but are not members, so they have no row above.
+     Granting is done here, at any point in the org's life — settling what an outside
+     backer holds usually happens well after the venture exists. #}
+  <div class="gk-card">
+    <h2>Sponsors</h2>
+    {% if sponsor_slices %}
       <table>
         <thead>
           <tr>
@@ -87,12 +89,18 @@
             <th class="gk-num">Holds ({{ unit_name }})</th>
             <th class="gk-num">Share</th>
             <th>Where their own equity lives</th>
+            <th>&nbsp;</th>
           </tr>
         </thead>
         <tbody>
           {% for s in sponsor_slices %}
             <tr>
-              <td>{{ s.member_label }}</td>
+              <td>
+                {{ s.member_label }}
+                {% for st in s.stakes %}
+                  {% if st.source_note %}<br><small class="gk-muted">{{ st.source_note }}</small>{% endif %}
+                {% endfor %}
+              </td>
               <td class="gk-num">{{ s.issued_total }}</td>
               <td class="gk-num">{{ s.share_pct }}%</td>
               <td>
@@ -100,14 +108,61 @@
                   <a href="{{ s.holder_url }}" target="_blank" rel="noopener">{{ s.holder_url }}</a>
                 {% else %}<span class="gk-muted">Not recorded</span>{% endif %}
               </td>
+              <td>
+                {% for st in s.stakes %}
+                  <form method="post"
+                        action="{% url 'orgs:sponsor_stake_remove' org_slug=current_org.slug stake_id=st.stake_id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="gk-btn-danger">Remove {{ st.value }}</button>
+                  </form>
+                {% endfor %}
+              </td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
       <small>Equity only. A sponsor holds no membership and casts no vote, and its share
         dilutes as members earn.</small>
-    </div>
-  {% endif %}
+    {% else %}
+      <p class="gk-muted">Nobody outside the team holds a share of {{ current_org.display_name }}.</p>
+    {% endif %}
+
+    {% if has_external_holders %}
+      <form method="post" action="{% url 'orgs:sponsor_grant' org_slug=current_org.slug %}">
+        {% csrf_token %}
+        <h3>Give a company a share</h3>
+        <div class="gk-form-grid">
+          <div class="gk-field">
+            <label for="{{ sponsor_form.sponsor.id_for_label }}">Company</label>
+            {{ sponsor_form.sponsor }}
+          </div>
+          <div class="gk-field">
+            <label for="{{ sponsor_form.target_pct.id_for_label }}">Share of the pie
+              <small>what they end up holding — we work out the amount</small></label>
+            {{ sponsor_form.target_pct }}
+          </div>
+          <div class="gk-field">
+            <label for="{{ sponsor_form.value.id_for_label }}">Or an amount
+              <small>in {{ unit_name }}{% if pie_total <= 0 %} — the pie is empty, so use this{% endif %}</small></label>
+            {{ sponsor_form.value }}
+          </div>
+          <div class="gk-field">
+            <label for="{{ sponsor_form.source_note.id_for_label }}">What it is for
+              <small>shows on the pie next to their share</small></label>
+            {{ sponsor_form.source_note }}
+          </div>
+        </div>
+        <button type="submit">Give the share</button>
+        <small>Their share falls from here as members earn. Granting again tops them up.</small>
+      </form>
+    {% else %}
+      <p class="gk-muted">
+        No outside companies are set up yet. Add one under External holders in
+        <a href="{% url 'admin:orgs_externalholder_changelist' %}">the admin</a>, with a link
+        to where its own equity lives, and it becomes available here.
+      </p>
+    {% endif %}
+  </div>
 
   <div class="gk-card">
     <h2>Invite someone</h2>

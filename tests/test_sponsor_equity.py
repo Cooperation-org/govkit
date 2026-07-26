@@ -35,7 +35,12 @@ from apps.orgs.models import (
     WeightWindow,
 )
 from apps.orgs.weighting import work_weight_map
-from apps.pie.services import HOLDER_SPONSOR, compute_personal_standing, compute_pie
+from apps.pie.services import (
+    HOLDER_SPONSOR,
+    compute_personal_standing,
+    compute_pie,
+    value_for_target_share,
+)
 
 
 @pytest.fixture
@@ -392,3 +397,171 @@ def test_holder_survives_the_venture_being_deleted(byov_invite, user_factory, sp
 
     assert ExternalHolder.objects.filter(pk=sponsor.pk).exists()
     assert not OrgStake.objects.filter(org_id=venture.pk).exists()
+
+
+# --------------------------------------------------------------------------- #
+# The normal case: settling the share AFTER the venture already exists.
+# --------------------------------------------------------------------------- #
+@pytest.fixture
+def venture_with_work(org_factory, user_factory, membership_factory):
+    """A venture already holding 50,000 slices of one member's approved work."""
+    org = org_factory(slug="running", display_name="Running Venture")
+    member = membership_factory(
+        org=org, user=user_factory(email="builder@example.com"), role=MembershipRole.ADMIN
+    )
+    run = DropRun.objects.create(org=org, state=DropRunState.APPROVED)
+    DropLine.objects.create(
+        org=org,
+        run=run,
+        membership=member,
+        computed_value=Decimal("50000.00"),
+        adjustment=Decimal("0"),
+        final_value=Decimal("50000.00"),
+    )
+    return org, member
+
+
+def test_target_share_accounts_for_its_own_dilution(venture_with_work):
+    """Half of a 50,000 pie is another 50,000, not 25,000. This is the whole point."""
+    org, _ = venture_with_work
+    assert value_for_target_share(org, Decimal("50")) == Decimal("50000.00")
+    # A quarter: v / (50000 + v) = 0.25 => v = 16,666.67.
+    assert value_for_target_share(org, Decimal("25")) == Decimal("16666.67")
+
+
+def test_target_share_refuses_an_empty_pie(org_factory):
+    """A percentage of nothing says nothing; the admin must give an amount."""
+    with pytest.raises(ValueError):
+        value_for_target_share(org_factory(slug="empty"), Decimal("50"))
+
+
+def test_target_share_refuses_a_hundred_percent(venture_with_work):
+    org, _ = venture_with_work
+    for bad in (Decimal("0"), Decimal("100"), Decimal("150")):
+        with pytest.raises(ValueError):
+            value_for_target_share(org, bad)
+
+
+def test_grant_by_percent_on_a_running_venture(venture_with_work, sponsor, client):
+    """The case that actually happens: the venture is built, then the deal is struck."""
+    org, member = venture_with_work
+    client.force_login(member.user)
+
+    resp = client.post(
+        reverse("orgs:sponsor_grant", kwargs={"org_slug": org.slug}),
+        {"sponsor": sponsor.id, "target_pct": "50", "source_note": "Cash and the idea"},
+    )
+    assert resp.status_code == 302
+
+    pie = compute_pie(org)
+    assert pie.total == Decimal("100000.00")
+    assert _share_by_label(pie) == {
+        "builder": Decimal("50.00"),
+        "Sponsor Co": Decimal("50.00"),
+    }
+    assert OrgStake.objects.get(org=org).source_note == "Cash and the idea"
+
+
+def test_grant_by_amount_works_on_an_empty_pie(
+    org_factory, user_factory, membership_factory, sponsor, client
+):
+    org = org_factory(slug="fresh", display_name="Fresh")
+    admin = membership_factory(
+        org=org, user=user_factory(email="admin2@example.com"), role=MembershipRole.ADMIN
+    )
+    client.force_login(admin.user)
+
+    resp = client.post(
+        reverse("orgs:sponsor_grant", kwargs={"org_slug": org.slug}),
+        {"sponsor": sponsor.id, "value": "1000"},
+    )
+    assert resp.status_code == 302
+    assert OrgStake.objects.get(org=org).value == Decimal("1000.00")
+
+
+def test_grant_by_percent_on_an_empty_pie_is_refused(
+    org_factory, user_factory, membership_factory, sponsor, client
+):
+    """Refuse rather than guess: nothing is granted and the admin is told why."""
+    org = org_factory(slug="nothing-yet", display_name="Nothing Yet")
+    admin = membership_factory(
+        org=org, user=user_factory(email="admin3@example.com"), role=MembershipRole.ADMIN
+    )
+    client.force_login(admin.user)
+
+    resp = client.post(
+        reverse("orgs:sponsor_grant", kwargs={"org_slug": org.slug}),
+        {"sponsor": sponsor.id, "target_pct": "50"},
+    )
+    assert resp.status_code == 302
+    assert not OrgStake.objects.filter(org=org).exists()
+
+
+def test_granting_again_tops_up_rather_than_replacing(venture_with_work, sponsor, client):
+    org, member = venture_with_work
+    client.force_login(member.user)
+    url = reverse("orgs:sponsor_grant", kwargs={"org_slug": org.slug})
+
+    client.post(url, {"sponsor": sponsor.id, "value": "10000"})
+    client.post(url, {"sponsor": sponsor.id, "value": "5000"})
+
+    assert OrgStake.objects.filter(org=org).count() == 2
+    sponsor_slice = next(s for s in compute_pie(org).slices if s.is_sponsor)
+    assert sponsor_slice.issued_total == Decimal("15000.00")
+    assert len(sponsor_slice.stakes) == 2
+
+
+def test_a_wrong_grant_can_be_removed(venture_with_work, sponsor, client):
+    org, member = venture_with_work
+    client.force_login(member.user)
+    client.post(
+        reverse("orgs:sponsor_grant", kwargs={"org_slug": org.slug}),
+        {"sponsor": sponsor.id, "value": "999999"},
+    )
+    stake = OrgStake.objects.get(org=org)
+
+    resp = client.post(
+        reverse("orgs:sponsor_stake_remove", kwargs={"org_slug": org.slug, "stake_id": stake.id})
+    )
+    assert resp.status_code == 302
+    assert not OrgStake.objects.filter(org=org).exists()
+    # Back to the members holding all of it, as if the grant never happened.
+    assert compute_pie(org).total == Decimal("50000.00")
+
+
+def test_grant_requires_a_share_or_an_amount(venture_with_work, sponsor, client):
+    org, member = venture_with_work
+    client.force_login(member.user)
+    resp = client.post(
+        reverse("orgs:sponsor_grant", kwargs={"org_slug": org.slug}), {"sponsor": sponsor.id}
+    )
+    assert resp.status_code == 302
+    assert not OrgStake.objects.filter(org=org).exists()
+
+
+def test_grant_refuses_both_a_share_and_an_amount(venture_with_work, sponsor, client):
+    """Two answers to one question is a mistake, not a preference order."""
+    org, member = venture_with_work
+    client.force_login(member.user)
+    resp = client.post(
+        reverse("orgs:sponsor_grant", kwargs={"org_slug": org.slug}),
+        {"sponsor": sponsor.id, "target_pct": "50", "value": "10"},
+    )
+    assert resp.status_code == 302
+    assert not OrgStake.objects.filter(org=org).exists()
+
+
+def test_only_an_admin_can_grant_a_share(
+    venture_with_work, sponsor, user_factory, membership_factory, client
+):
+    org, _ = venture_with_work
+    plain = membership_factory(
+        org=org, user=user_factory(email="plain@example.com"), role=MembershipRole.MEMBER
+    )
+    client.force_login(plain.user)
+    resp = client.post(
+        reverse("orgs:sponsor_grant", kwargs={"org_slug": org.slug}),
+        {"sponsor": sponsor.id, "value": "1000"},
+    )
+    assert resp.status_code == 403
+    assert not OrgStake.objects.filter(org=org).exists()

@@ -331,6 +331,31 @@ def compute_pie(org) -> Pie:
     )
 
 
+def value_for_target_share(org, target_pct: Decimal) -> Decimal:
+    """How much to grant NOW so the holder ends up owning ``target_pct`` of the pie.
+
+    A share is a fraction of the whole, and the grant is part of the whole, so this is
+    not ``total * pct``. To hold p percent once the grant lands::
+
+        v / (total + v) = p / 100   =>   v = total * p / (100 - p)
+
+    Stating a percent and letting this do the arithmetic is the point: an admin who
+    means "half" should not have to work out that half of a 50,000-slice pie is another
+    50,000 slices, not 25,000.
+
+    Raises ValueError when the pie is empty (any grant would be 100% of it, so a
+    percentage says nothing) or when the target is not below 100 (unreachable: the
+    members already hold what they hold, and this never takes anything away).
+    """
+    total = compute_pie(org).total
+    if total <= ZERO:
+        raise ValueError("This pie is empty, so a percentage of it means nothing yet.")
+    if target_pct <= ZERO or target_pct >= Decimal("100"):
+        raise ValueError("A share has to be above 0 and below 100 percent.")
+    value = total * target_pct / (Decimal("100") - target_pct)
+    return _cents(value)
+
+
 def compute_personal_standing(org, membership: Membership) -> Standing:
     """
     Personal standing for one member in an org.

@@ -65,4 +65,14 @@ urlpatterns = [
         views.member_grant_value,
         name="member_grant_value",
     ),
+    path(
+        "o/<slug:org_slug>/sponsors/grant/",
+        views.sponsor_grant,
+        name="sponsor_grant",
+    ),
+    path(
+        "o/<slug:org_slug>/sponsors/<int:stake_id>/remove/",
+        views.sponsor_stake_remove,
+        name="sponsor_stake_remove",
+    ),
 ]
