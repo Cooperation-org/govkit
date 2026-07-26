@@ -61,8 +61,10 @@ def all_open_interest_items():
     return [_interest_item(i, with_org_name=True) for i in rows]
 
 
-def pool_pending_items():
-    """Walk-ups waiting for approval, read live from the doorway's ledger.
+def doorway_items():
+    """The doorway's side of the rail: walk-ups pending approval (actionable)
+    and recent approved joins (awareness — invited people are auto-approved,
+    so this is the only feed that would ever mention them).
 
     Loopback S2S (same VM, same shared bearer the doorway already uses to call
     us). Cached briefly; ANY failure returns [] — the rail just shows less,
@@ -72,7 +74,7 @@ def pool_pending_items():
     token = settings.GOVKIT_S2S_TOKEN
     if not (base and token):
         return []
-    cached = cache.get("doorway-pool-pending")
+    cached = cache.get("doorway-attention")
     if cached is not None:
         return cached
     items = []
@@ -81,24 +83,44 @@ def pool_pending_items():
             f"{base}/api/wall/pending/", headers={"Authorization": f"Bearer {token}"}
         )
         with urllib.request.urlopen(req, timeout=_DOORWAY_TIMEOUT) as resp:  # nosec B310
-            rows = json.loads(resp.read().decode("utf-8")).get("pending", [])
-        items = [
-            {
-                "kind": "pool_pending",
-                "id": r.get("id"),
-                "title": f"{r.get('person_name') or 'Someone'} is waiting at the door"
-                + (f" ({r['role']})" if r.get("role") else ""),
-                "detail": "",
-                "email": "",
-                "since": r.get("created_at", ""),
-                "done": False,
-                # The approval action lives in the doorway's own admin.
-                "url": r.get("approve_url", ""),
-                "org_slug": "",
-            }
-            for r in rows
-        ]
+            payload = json.loads(resp.read().decode("utf-8"))
+        for r in payload.get("pending", []):
+            items.append(
+                {
+                    "kind": "pool_pending",
+                    "id": r.get("id"),
+                    "title": f"{r.get('person_name') or 'Someone'} is waiting at the door"
+                    + (f" ({r['role']})" if r.get("role") else ""),
+                    "detail": "",
+                    "email": "",
+                    "since": r.get("created_at", ""),
+                    "done": False,
+                    # The approval action lives in the doorway's own admin.
+                    "url": r.get("approve_url", ""),
+                    "org_slug": "",
+                }
+            )
+        for r in payload.get("recent", []):
+            who = r.get("person_name") or "Someone"
+            role = f" ({r['role']})" if r.get("role") else ""
+            detail = f"invited by {r['inviter']}" if r.get("inviter") else (
+                "invited" if r.get("invited") else "walk-up, approved"
+            )
+            items.append(
+                {
+                    "kind": "wall_joined",
+                    "id": r.get("id"),
+                    "title": f"{who} joined the wall{role}",
+                    "detail": detail,
+                    "email": "",
+                    "since": r.get("created_at", ""),
+                    # Nothing to do — renders dimmed, below the actionable rows.
+                    "done": True,
+                    "url": "",
+                    "org_slug": "",
+                }
+            )
     except Exception as e:
-        logger.warning("attention: doorway pending unreachable: %s", e)
-    cache.set("doorway-pool-pending", items, _DOORWAY_CACHE_SECONDS)
+        logger.warning("attention: doorway unreachable: %s", e)
+    cache.set("doorway-attention", items, _DOORWAY_CACHE_SECONDS)
     return items
