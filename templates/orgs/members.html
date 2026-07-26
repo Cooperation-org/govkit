@@ -76,9 +76,6 @@
     </form>
   </div>
 
-  {# Sponsors hold equity here but are not members, so they have no row above.
-     Granting is done here, at any point in the org's life — settling what an outside
-     backer holds usually happens well after the venture exists. #}
   <div class="gk-card">
     <h2>Sponsors</h2>
     {% if sponsor_slices %}
@@ -237,8 +234,6 @@
           </div>
         </div>
 
-        {# The founding split. Filled in for you from this org's standing offer; clear
-           the sponsor box for a venture you are not putting anything into. #}
         <h3>What it starts with</h3>
         <div class="gk-form-grid">
           <div class="gk-field">
@@ -351,9 +346,6 @@
 
   <script>
     (function () {
-      // The venture group belongs ONLY to the BYOV invite type ("Founder
-      // bringing their own venture") — never a plain org-membership or pool
-      // invite. A founder invited as a co-founder of THIS org sees no venture.
       var kind = document.getElementById("{{ invite_form.kind.id_for_label }}");
       var founderFields = document.getElementById("gk-founder-fields");
       function syncFounder() {
@@ -362,8 +354,6 @@
       kind.addEventListener("change", syncFounder);
       syncFounder();
 
-      // Say the split back in slices as it is typed. A percent is easy to misjudge;
-      // the two actual numbers are not.
       var sponsor = document.getElementById("{{ invite_form.sponsor.id_for_label }}");
       var total = document.getElementById("{{ invite_form.founding_value.id_for_label }}");
       var pct = document.getElementById("{{ invite_form.sponsor_pct.id_for_label }}");
@@ -388,7 +378,6 @@
       });
       syncSplit();
 
-      // Copy buttons: swap the two-page glyph for a check on success.
       var CHECK = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
       document.querySelectorAll(".gk-copy").forEach(function (btn) {
         var glyph = btn.innerHTML;

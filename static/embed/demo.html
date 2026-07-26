@@ -1,15 +1,5 @@
 <!doctype html>
-<!--
-  Manual test page for the GovKit embed bundle (static/embed/govkit.js).
 
-  Serve it from a running GovKit (e.g. /static/embed/demo.html), sign in as a member
-  of the org you test with, enter the org slug and mount. No data is baked in: every
-  card comes from the live API with your own session; components you're not allowed
-  to see simply stay hidden (the dash contract).
-
-  To exercise the CORS path, open this file from a different origin that is on
-  GovKit's CORS_ALLOWED_ORIGINS and point "GovKit base URL" at GovKit.
--->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -49,8 +39,6 @@
 <script>
   (function () {
     'use strict';
-    // Default data-up: the origin (+ any base path) this page was served from —
-    // /static/embed/demo.html is two path segments under the GovKit root.
     var here = new URL('.', window.location.href);
     var basePath = here.pathname.replace(/\/static\/embed\/$/, '');
     document.getElementById('f-up').value = here.origin + basePath;
@@ -85,7 +73,6 @@
         }
         card.appendChild(comp);
         cards.appendChild(card);
-        // Hide the wrapper card whenever the component hides itself.
         new MutationObserver(function () { card.hidden = comp.hidden; })
           .observe(comp, { attributes: true, attributeFilter: ['hidden'] });
       });

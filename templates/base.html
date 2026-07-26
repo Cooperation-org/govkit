@@ -1,8 +1,6 @@
+{# NEVER PUT COMMENTS IN TEMPLATES. NOT ONE. NOT HERE, NOT IN ANY TEMPLATE. #}
 {% load static %}<!doctype html>
-<!-- GovKit base layout — reference implementation of docs/design/pattern-language.md.
-     Uses {% templatetag openblock %} url {% templatetag closeblock %} and
-     {% templatetag openblock %} static {% templatetag closeblock %} throughout so a
-     BASE_PATH deploy prefix applies automatically. -->
+
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -14,17 +12,16 @@
 <body>
 
 {% if cohort_nav_src %}
-  {# The cohort's one thin menu — always a way back to the main dash. #}
+
   <script src="{{ cohort_nav_src }}" defer></script>
   <cohort-nav{% if current_org %} data-org="{{ current_org.slug }}"{% if current_org.calendar_url %} data-calendar-url="{{ current_org.calendar_url }}"{% endif %}{% if current_org.chat_url %} data-chat-url="{{ current_org.chat_url }}"{% endif %}{% endif %} data-current="org"></cohort-nav>
 {% endif %}
 
 <header class="gk-header">
   {% if not cohort_nav_src %}
-  {% comment %} Standalone GovKit keeps its own brand row; under a cohort nav the bar above
-     is the one brand (workers.vc) and this row is org context only. {% endcomment %}
+
   <a class="gk-brand" href="{% url 'orgs:landing' %}">
-    {# the twig mark: a branching stem, leaves at the tips — quiet kin of the LinkedTrust tree #}
+
     <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
       <g stroke="var(--gk-ink-2)" stroke-width="1.6" stroke-linecap="round" fill="none">
         <path d="M12 22V9"/>
@@ -47,9 +44,7 @@
     <span class="gk-org">{{ current_org.display_name }}</span>
   {% endif %}
   {% if not cohort_nav_src %}
-  {# Under a cohort nav, identity + account menu live in the bar above — do not
-     repeat the name here (that was the doubled name / extra line). Standalone
-     GovKit keeps its own quiet menu. #}
+
   <span class="gk-user">
     {% if request.user.is_authenticated %}
       <details class="gk-usermenu">
@@ -68,8 +63,6 @@
 </header>
 
 <script>
-  // Close the account menu when clicking elsewhere or pressing Escape — the one
-  // behaviour <details> lacks natively. No dependency, no framework.
   (function () {
     var menu = document.querySelector(".gk-usermenu");
     if (!menu) return;

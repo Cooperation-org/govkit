@@ -1,11 +1,7 @@
 {% extends "base.html" %}
 {% block title %}You're invited — {{ org.display_name }} — GovKit{% endblock %}
 {% block content %}
-  {% comment %}
-    17 · THE DOOR IS PLAIN — who invited you, as what, one way in. The invite code
-    is a bearer capability (apps/orgs/invites.py): the primary action needs no
-    sign-in. Existing accounts take the quiet side door through login.
-  {% endcomment %}
+
   <div class="gk-door">
     <svg width="36" height="36" viewBox="0 0 24 24" aria-hidden="true">
       <g stroke="var(--gk-ink-2)" stroke-width="1.6" stroke-linecap="round" fill="none">
@@ -26,7 +22,7 @@
     </p>
 
     {% if invite.drafted_statement and invite.status == 'created' %}
-      {# Post-wall arrivals already wrote their own words — no need to replay the draft. #}
+
       <div class="gk-invite-words">
         <p class="gk-invite-words-from">From your inviter</p>
         <p>{{ invite.drafted_statement }}</p>

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ page_title }} — {{ current_org.display_name }}{% endblock %}
 {% block content %}
-  {# 14 · THE PIE IS A PIE — circular chart + ledger, every row traceable (pattern 8). #}
+
   <div class="gk-pagehead">
     <h1>{{ page_title }}</h1>
     <a href="{% url 'pie:standing' org_slug=current_org.slug %}">My standing &rarr;</a>
@@ -106,7 +106,7 @@
                         </table>
                       {% endif %}
                       {% if s.stakes %}
-                        {# A sponsor's share: what they put in, and what it was for. #}
+
                         <table>
                           <thead>
                             <tr><th>Sponsor stake</th><th>Source</th><th class="gk-num">Value</th></tr>

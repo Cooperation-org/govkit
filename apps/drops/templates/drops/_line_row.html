@@ -1,9 +1,4 @@
-{% comment %}
-Single line row. Rendered inside review.html AND returned on its own by the HTMX
-adjust view (hx-swap=outerHTML on the <tr>), so it must be a self-contained <tr>.
-When the run is open and the viewer is a steward the adjustment/reason/final cells become
-one inline HTMX form; once approved (or for non-stewards) it is read-only.
-{% endcomment %}
+
 <tr id="line-{{ line.pk }}" class="gk-line-row">
   <td>{{ line.membership.user.get_short_name }}</td>
   <td class="gk-num">{{ line.computed_value }}</td>

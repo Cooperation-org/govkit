@@ -1,10 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Set up an organization — GovKit{% endblock %}
 {% block content %}
-  {# 19 · DETAILS UNFOLD — two questions visible, everything else folded with defaults. #}
+
   <style>
-    /* CSS-only reveal: initial valuation appears when "existing" is chosen (no JS, no motion).
-       Browsers without :has() simply always show the field — harmless. */
+
     #gk-start .gk-iv { display: none; }
     #gk-start:has(input[value="existing"]:checked) .gk-iv { display: block; }
   </style>
