@@ -160,9 +160,10 @@ class Org(models.Model):
     # after it is what the team still owes the outside pie.
     pie_url = models.URLField(blank=True)
     pie_as_of = models.DateField(null=True, blank=True)
-    # The pie board offers a founder one optional setup step: set the venture's starting
-    # value and hand a slice to a sponsor. It is theirs to skip — ticking "done" puts the
-    # offer away for good; leaving it alone keeps it there for whenever they get to it.
+    # The pie board offers an optional setup step: give the founding team their starting
+    # amounts and hand a slice to a sponsor. A venture usually arrives as several people,
+    # so this is not one sitting — they invite, grant, invite again. Ticking "done" puts
+    # the offer away; leaving it alone keeps it there for whenever they get back to it.
     initial_shares_done = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

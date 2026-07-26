@@ -127,8 +127,14 @@ def test_accepting_a_byov_invite_starts_an_empty_pie(byov_invite, user_factory):
     assert pie.sponsor_count == 0
 
 
-def test_the_founder_settles_the_starting_shares_themselves(byov_invite, user_factory, sponsor):
-    """The whole flow, through the pages the founder actually uses."""
+def test_the_team_settles_its_own_starting_shares(
+    byov_invite, user_factory, membership_factory, sponsor
+):
+    """The whole flow, through the pages the founding team actually uses.
+
+    A venture arriving is usually several people who already built something together,
+    so this runs in the order they do it: invite the others, then grant each of them.
+    """
     venture = _accept(byov_invite, user_factory(email="founder@example.com"))
     founder = Membership.objects.get(org=venture)
     from django.test import Client
@@ -136,15 +142,18 @@ def test_the_founder_settles_the_starting_shares_themselves(byov_invite, user_fa
     client = Client()
     client.force_login(founder.user)
 
-    # Their own starting amount, for the work that predates the pie.
-    resp = client.post(
-        reverse(
-            "orgs:member_grant_value",
-            kwargs={"org_slug": venture.slug, "membership_id": founder.id},
-        ),
-        {"value": "50000"},
-    )
-    assert resp.status_code == 302
+    # The two people who built it before the pie existed, one grant each.
+    cofounder = membership_factory(org=venture, user=user_factory(email="cofounder@example.com"))
+    for membership, amount in ((founder, "30000"), (cofounder, "20000")):
+        resp = client.post(
+            reverse(
+                "orgs:member_grant_value",
+                kwargs={"org_slug": venture.slug, "membership_id": membership.id},
+            ),
+            {"value": amount},
+        )
+        assert resp.status_code == 302
+
     # Then half of what that makes the venture, to the company backing it.
     resp = client.post(
         reverse("orgs:sponsor_grant", kwargs={"org_slug": venture.slug}),
@@ -155,7 +164,8 @@ def test_the_founder_settles_the_starting_shares_themselves(byov_invite, user_fa
     pie = compute_pie(venture)
     assert pie.total == Decimal("100000.00")
     assert _share_by_label(pie) == {
-        "founder": Decimal("50.00"),
+        "founder": Decimal("30.00"),
+        "cofounder": Decimal("20.00"),
         "Sponsor Co": Decimal("50.00"),
     }
 
@@ -229,7 +239,7 @@ def test_an_ordinary_invite_keeps_the_role_it_was_given(accel, client):
         {
             "name": "Member Four",
             "email": "four@example.com",
-            "audience": "member",
+            "audience": "mentor",
             "kind": InviteKind.ORG,
             "role": MembershipRole.MEMBER,
         },

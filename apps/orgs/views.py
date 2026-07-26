@@ -399,12 +399,10 @@ def invite_create(request, org_slug):
         return redirect("orgs:members", org_slug=request.org.slug)
 
     data = form.cleaned_data
-    # BYOV founders own their venture — they land as its admin (create_venture_org
-    # makes them admin regardless), so the invite records Admin, not the dropdown default.
-    role = MembershipRole.ADMIN if data["kind"] == InviteKind.BYOV else data["role"]
     invite = Invite.objects.create(
         org=request.org,
-        role=role,
+        # BYOV overrides this to Admin on save: a founder owns the venture they bring.
+        role=data["role"],
         audience=data["audience"],
         kind=data["kind"],
         name=data.get("name", ""),
@@ -413,11 +411,6 @@ def invite_create(request, org_slug):
         image_url=data.get("image_url", ""),
         venture_name=data.get("venture_name", ""),
         venture_url=data.get("venture_url", ""),
-        # The founding split as offered. The invite is the record of the terms, so a
-        # later change to the org's defaults never rewrites what this person was told.
-        sponsor=data.get("sponsor"),
-        founding_value=data.get("founding_value"),
-        sponsor_pct=data.get("sponsor_pct"),
         drafted_statement=data.get("drafted_statement", ""),
         drafted_social_post=data.get("drafted_social_post", ""),
         doorway=bool(settings.DOORWAY_BASE_URL),  # one flow: doorway whenever configured
@@ -429,17 +422,10 @@ def invite_create(request, org_slug):
         # provisioned on accept, and login attaches them to their existing account.
         invite.mark_committed(claim_id=data.get("committed_claim_id"))
     skipped = " (attestation skipped — already committed)" if data.get("already_committed") else ""
-    # Say the terms back, so a mistyped split is caught here and not on a live pie.
-    terms = (
-        f" {invite.sponsor.display_name} keeps {invite.sponsor_pct}% of "
-        f"{invite.founding_value}, the founder gets {invite.founder_value}."
-        if invite.seeds_founding_split
-        else ""
-    )
     messages.success(
         request,
         f"Invite minted for {invite.name or invite.email or 'your invitee'}{skipped} — "
-        f"here is the link to share.{terms}",
+        f"here is the link to share.",
     )
     url = reverse("orgs:members", kwargs={"org_slug": request.org.slug})
     return redirect(f"{url}?minted={invite.code}")
@@ -608,10 +594,11 @@ def sponsor_grant(request, org_slug):
 @login_required
 @require_POST
 def initial_shares_done(request, org_slug):
-    """Put away the pie board's one-time offer to set what the venture started with.
+    """Put away the pie board's offer to set what the venture started with.
 
-    Nothing is written to the pie: this only records that the founder is finished with
-    the question, so the offer stops asking. Unticking it brings the offer back.
+    Nothing is written to the pie: this only records that the team is finished with the
+    question, so the offer stops asking. Unticking it brings the offer back — settling a
+    founding team's shares takes as many sittings as it takes.
     """
     _require_admin(request)
     request.org.initial_shares_done = "done" in request.POST

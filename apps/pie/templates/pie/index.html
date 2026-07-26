@@ -18,13 +18,17 @@
     <div class="gk-card gk-offer">
       <h2>Starting shares</h2>
       <p>
-        Optional. If this venture was worth something before the pie existed, you can give
-        yourself a starting amount for that work, and give a company a share for money or
-        an idea it put in. Everything dilutes normally from there as people earn.
+        Optional. If this venture was built before the pie existed, you can give each
+        person who built it a starting amount for that work, and give a company a share
+        for money or an idea it put in. Everything dilutes normally from there as people
+        earn.
       </p>
-      <p class="gk-muted">Most teams invite their people first and come back to this.</p>
+      <p class="gk-muted">
+        Invite your people first, then set their amounts — you can come back as often as
+        you like. Tick the box when the founding team is all in.
+      </p>
       <p>
-        <a href="{% url 'orgs:members' org_slug=current_org.slug %}#starting-shares">Set starting shares &rarr;</a>
+        <a href="{% url 'orgs:members' org_slug=current_org.slug %}#starting-shares">Invite people and set starting shares &rarr;</a>
       </p>
       <form method="post" action="{% url 'orgs:initial_shares_done' org_slug=current_org.slug %}">
         {% csrf_token %}
