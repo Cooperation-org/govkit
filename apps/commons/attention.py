@@ -61,6 +61,50 @@ def all_open_interest_items():
     return [_interest_item(i, with_org_name=True) for i in rows]
 
 
+def invite_accepted_items():
+    """Recent invite accepts — awareness for the accelerator rail. Direct
+    invites (no commit ceremony, no wall card) would otherwise be invisible
+    the moment they happen; this is where they show. Last 7 days; rows
+    accepted before accepted_at existed stay silent."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from apps.orgs.models import Invite, InviteStatus
+
+    rows = (
+        Invite.objects.filter(
+            status=InviteStatus.ACCEPTED,
+            accepted_at__gte=timezone.now() - timedelta(days=7),
+        )
+        .select_related("org", "accepted_by")
+        .order_by("-accepted_at")[:10]
+    )
+    items = []
+    for inv in rows:
+        who = (
+            (inv.accepted_by and (inv.accepted_by.get_full_name() or inv.accepted_by.email))
+            or inv.name
+            or "Someone"
+        )
+        items.append(
+            {
+                "kind": "invite_accepted",
+                "id": inv.id,
+                "title": f"{who} accepted a {inv.get_audience_display().lower()} invite"
+                + (f" to {inv.org.display_name}" if inv.org else ""),
+                "detail": inv.get_kind_display(),
+                "email": "",
+                "since": inv.accepted_at.isoformat(),
+                # Awareness only — the join already happened.
+                "done": True,
+                "url": "",
+                "org_slug": "",
+            }
+        )
+    return items
+
+
 def doorway_items():
     """The doorway's side of the rail: walk-ups pending approval (actionable)
     and recent approved joins (awareness — invited people are auto-approved,

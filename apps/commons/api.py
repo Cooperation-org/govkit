@@ -171,7 +171,11 @@ class OrgAttentionView(APIView):
             from apps.orgs.views import _is_accelerator_admin
 
             if _is_accelerator_admin(request.user):
-                items = attention.all_open_interest_items() + attention.doorway_items()
+                items = (
+                    attention.all_open_interest_items()
+                    + attention.doorway_items()
+                    + attention.invite_accepted_items()
+                )
         # Unanswered first, oldest first — one rule for every kind.
         items.sort(key=lambda i: (i["done"], i["since"]))
         return Response({"org_slug": request.org.slug, "items": items})

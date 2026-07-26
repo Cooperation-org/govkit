@@ -346,6 +346,9 @@ class Invite(models.Model):
         related_name="invites_accepted",
     )
 
+    # When the accept happened (the attention rail's awareness read). Null on
+    # rows accepted before this field existed — they simply predate the feed.
+    accepted_at = models.DateTimeField(null=True, blank=True)
     expires_at = models.DateTimeField(default=default_invite_expiry)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -417,7 +420,8 @@ class Invite(models.Model):
     def mark_accepted(self, by=None):
         self.status = InviteStatus.ACCEPTED
         self.accepted_by = by
-        self.save(update_fields=["status", "accepted_by"])
+        self.accepted_at = timezone.now()
+        self.save(update_fields=["status", "accepted_by", "accepted_at"])
 
     def mark_revoked(self):
         """Kill the link at any pre-accept point (no-op once accepted — the join stands)."""
