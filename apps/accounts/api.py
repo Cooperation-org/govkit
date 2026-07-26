@@ -21,7 +21,7 @@ from rest_framework.response import Response
 from rest_framework.routers import DefaultRouter
 from rest_framework.views import APIView
 
-from apps.orgs.models import Invite, InviteStatus, Membership
+from apps.orgs.models import Invite, InviteKind, InviteStatus, Membership
 
 from .models import ProfileLink
 
@@ -67,6 +67,12 @@ class MeView(APIView):
                 "avatar_url": user.avatar_url,
                 "auth_provider": user.auth_provider,
                 "is_superuser": user.is_superuser,
+                # Screened into the applicant pool (an accepted pool invite IS the
+                # pool state — no membership anywhere). The workers.vc router splits
+                # pool from supporter on this.
+                "pool": Invite.objects.filter(
+                    accepted_by=user, status=InviteStatus.ACCEPTED, kind=InviteKind.POOL
+                ).exists(),
                 "memberships": _MembershipSummarySerializer(
                     memberships,
                     many=True,
