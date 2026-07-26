@@ -61,4 +61,7 @@ def nav(request):
         "nav_tabs": tabs,
         # The cohort's thin cross-app menu (workers.vc ships it); empty = not mounted.
         "cohort_nav_src": settings.COHORT_NAV_SRC,
+        # Stamped as data-vc-org so the menu knows which org is the accelerator
+        # (its dash carries a Ventures entry; teams' dashes don't).
+        "accelerator_org_slug": settings.ACCELERATOR_ORG_SLUG,
     }
