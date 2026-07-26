@@ -9,6 +9,9 @@
 //   <govkit-checklist>  genesis checklist modules + items  (orgs/<org>/checklist/)
 //   <govkit-tasks>      open tracker work                  (tasksources/orgs/<org>/tasks/open/)
 //   <govkit-money>      project portfolio + totals         (projects/orgs/<org>/portfolio/)
+//   <govkit-activity>   who wants to join this venture     (commons/orgs/<org>/interest/)
+//   <govkit-ventures>   venture cards + raise-a-hand       (commons/ventures/; data-up only,
+//                       no data-org — it lists every venture for a person in the pool)
 //
 // Contract with the host page:
 //   - Every component takes data-up (GovKit origin, e.g. https://dash.workers.vc —
@@ -106,6 +109,28 @@
       'govkit-money .totals { display: flex; gap: 16px; font-size: 13px; margin-bottom: 8px; flex-wrap: wrap; }',
       'govkit-money .totals .lbl { opacity: 0.65; margin-right: 4px; }',
       'govkit-money .kind { font-size: 12px; opacity: 0.65; white-space: nowrap; }',
+      'govkit-activity .row { padding: 8px 0; border-bottom: 1px solid rgba(127,127,127,0.2); }',
+      'govkit-activity .row:last-child { border-bottom: none; }',
+      'govkit-activity .row.answered { opacity: 0.55; }',
+      'govkit-activity .head { display: flex; align-items: baseline; gap: 8px; }',
+      'govkit-activity .who { font-weight: 600; font-size: 13.5px; }',
+      'govkit-activity .when { margin-left: auto; font-size: 12px; opacity: 0.65; white-space: nowrap; }',
+      'govkit-activity .note { font-size: 13px; margin: 3px 0 5px; }',
+      'govkit-activity .mail { font-size: 12.5px; }',
+      'govkit-activity .mail a { color: inherit; }',
+      'govkit-activity button { font: inherit; font-size: 12.5px; cursor: pointer; border: 1px solid rgba(127,127,127,0.4); background: none; color: inherit; border-radius: 6px; padding: 3px 10px; }',
+      'govkit-activity button:hover { background: rgba(127,127,127,0.12); }',
+      'govkit-ventures .vcard { padding: 10px 0; border-bottom: 1px solid rgba(127,127,127,0.2); }',
+      'govkit-ventures .vcard:last-child { border-bottom: none; }',
+      'govkit-ventures .vhead { display: flex; align-items: baseline; gap: 8px; }',
+      'govkit-ventures .vname { font-weight: 600; font-size: 14px; }',
+      'govkit-ventures .vname a { color: inherit; }',
+      'govkit-ventures .vsize { margin-left: auto; font-size: 12px; opacity: 0.65; white-space: nowrap; }',
+      'govkit-ventures .vpitch { font-size: 13px; margin: 3px 0 6px; }',
+      'govkit-ventures .state { font-size: 12.5px; opacity: 0.75; }',
+      'govkit-ventures button { font: inherit; font-size: 12.5px; cursor: pointer; border: 1px solid rgba(127,127,127,0.4); background: none; color: inherit; border-radius: 6px; padding: 3px 10px; }',
+      'govkit-ventures button:hover { background: rgba(127,127,127,0.12); }',
+      'govkit-ventures textarea { width: 100%; font: inherit; font-size: 13px; margin: 6px 0; border-radius: 6px; border: 1px solid rgba(127,127,127,0.4); background: none; color: inherit; padding: 6px 8px; box-sizing: border-box; }',
     ].join('\n');
     document.head.appendChild(s);
   }
@@ -544,6 +569,151 @@
     host.appendChild(table);
   }
 
+  // --- <govkit-activity> ---------------------------------------------------
+  // The venture's waiting list: who raised a hand, unanswered first (server
+  // order). Any member can mark a row answered — after actually replying.
+
+  function fmtDay(iso) {
+    var d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  function renderActivity(host, d, c) {
+    var rows = d.interests || [];
+    var limit = parseInt(host.dataset.limit || '8', 10);
+    rows = rows.slice(0, limit > 0 ? limit : 8);
+    if (!rows.length) return false;
+
+    rows.forEach(function (r) {
+      var row = el('div', r.responded_at ? 'row answered' : 'row');
+      var head = el('div', 'head');
+      head.appendChild(el('span', 'who', (r.person && r.person.display_name) || 'Someone'));
+      head.appendChild(el('span', 'when', fmtDay(r.created_at)));
+      row.appendChild(head);
+      if (r.note) row.appendChild(el('div', 'note', r.note));
+      if (r.person && r.person.email) {
+        var mail = el('div', 'mail');
+        var a = el('a', null, r.person.email);
+        a.href = 'mailto:' + r.person.email;
+        mail.appendChild(a);
+        row.appendChild(mail);
+      }
+      if (!r.responded_at) {
+        var btn = el('button', null, 'Mark answered');
+        btn.addEventListener('click', function () {
+          btn.disabled = true;
+          fetch(c.up + '/api/v1/commons/orgs/' + c.org + '/interest/' + r.id + '/respond/', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'X-Govkit-Embed': '1' },
+          })
+            .then(function (resp) { if (!resp.ok) throw new Error(resp.status); })
+            .then(function () {
+              row.className = 'row answered';
+              btn.remove();
+            })
+            .catch(function () { btn.disabled = false; });
+        });
+        row.appendChild(btn);
+      }
+      host.appendChild(row);
+    });
+  }
+
+  // --- <govkit-ventures> ---------------------------------------------------
+  // Venture cards for a person in the pool: pitch, size, raise a hand.
+  // Not org-scoped: takes data-up only, so it gets its own mount below.
+
+  function ventureButton(card, v, base) {
+    var state = el('div');
+    card.appendChild(state);
+
+    function showJoined(answered) {
+      state.replaceChildren();
+      state.appendChild(el('div', 'state', answered
+        ? 'You raised a hand — the team has answered.'
+        : 'You raised a hand — the team will get back to you.'));
+    }
+
+    if (v.is_member) {
+      state.appendChild(el('div', 'state', "You're on this team."));
+      return;
+    }
+    if (v.my_interest) {
+      showJoined(v.my_interest.answered);
+      return;
+    }
+
+    var btn = el('button', null, 'I want to join');
+    state.appendChild(btn);
+    btn.addEventListener('click', function () {
+      // First click opens the note box; the send is a second, deliberate click.
+      state.replaceChildren();
+      var ta = document.createElement('textarea');
+      ta.rows = 2;
+      ta.placeholder = 'Optional: a line about why, in your own words.';
+      var send = el('button', null, 'Send');
+      state.appendChild(ta);
+      state.appendChild(send);
+      send.addEventListener('click', function () {
+        send.disabled = true;
+        fetch(base + '/api/v1/commons/ventures/' + encodeURIComponent(v.slug) + '/interest/', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'X-Govkit-Embed': '1', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ note: ta.value.trim() }),
+        })
+          .then(function (resp) { if (!resp.ok) throw new Error(resp.status); })
+          .then(function () { showJoined(false); })
+          .catch(function () { send.disabled = false; });
+      });
+    });
+  }
+
+  function mountVentures(host) {
+    ensureStyles();
+    var up = host.dataset.up && host.dataset.up.replace(/\/+$/, '');
+    if (!up) {
+      console.warn('[govkit] missing data-up on govkit-ventures');
+      return goDark(host);
+    }
+    jget(up + '/api/v1/commons/ventures/')
+      .then(function (d) {
+        host.replaceChildren();
+        var ventures = d.ventures || [];
+        var limit = parseInt(host.dataset.limit || '0', 10);
+        if (limit > 0) ventures = ventures.slice(0, limit);
+        if (!ventures.length) return goDark(host);
+        ventures.forEach(function (v) {
+          var card = el('div', 'vcard');
+          var head = el('div', 'vhead');
+          var name = el('span', 'vname');
+          var site = safeHref(v.website);
+          if (site) {
+            var a = el('a', null, v.display_name);
+            a.href = site;
+            a.target = '_blank';
+            a.rel = 'noopener';
+            name.appendChild(a);
+          } else {
+            name.textContent = v.display_name;
+          }
+          head.appendChild(name);
+          head.appendChild(el('span', 'vsize',
+            v.member_count + ' member' + (v.member_count === 1 ? '' : 's')));
+          card.appendChild(head);
+          if (v.pitch) card.appendChild(el('div', 'vpitch', v.pitch));
+          ventureButton(card, v, up);
+          host.appendChild(card);
+        });
+        host.hidden = false;
+      })
+      .catch(function (err) {
+        console.warn('[govkit] govkit-ventures:', err.message || err);
+        goDark(host);
+      });
+  }
+
   // --- element registration ------------------------------------------------
 
   function define(tag, path, render) {
@@ -558,4 +728,10 @@
   define('govkit-checklist', 'orgs/{org}/checklist/', renderChecklist);
   define('govkit-tasks', 'tasksources/orgs/{org}/tasks/open/', renderTasks);
   define('govkit-money', 'projects/orgs/{org}/portfolio/', renderMoney);
+  define('govkit-activity', 'commons/orgs/{org}/interest/', renderActivity);
+  if (!customElements.get('govkit-ventures')) {
+    customElements.define('govkit-ventures', class extends HTMLElement {
+      connectedCallback() { mountVentures(this); }
+    });
+  }
 })();

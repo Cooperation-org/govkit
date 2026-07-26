@@ -367,6 +367,11 @@ class OrgSettingsForm(forms.Form):
     """
 
     display_name = forms.CharField(max_length=255, label="Team name")
+    pitch = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 4}),
+        label="Pitch (your own words: mission, thesis, what you're building)",
+    )
     website = forms.CharField(max_length=500, required=False, label="Website")
     socials = forms.CharField(
         required=False,

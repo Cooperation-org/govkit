@@ -45,6 +45,14 @@ env = environ.Env(
     # The accelerator org's slug (e.g. "vc"). Its admins get the cross-org
     # "All teams" oversight page. Empty => only superusers see it.
     ACCELERATOR_ORG_SLUG=(str, ""),
+    # Outbound mail (venture-interest notifications). All empty by default =>
+    # nothing is ever sent; the feeds carry the signal until SMTP is configured.
+    EMAIL_HOST=(str, ""),
+    EMAIL_PORT=(int, 587),
+    EMAIL_HOST_USER=(str, ""),
+    EMAIL_HOST_PASSWORD=(str, ""),
+    EMAIL_USE_TLS=(bool, True),
+    DEFAULT_FROM_EMAIL=(str, ""),
 )
 
 # Load a local .env if present (dev). In prod, real env vars win.
@@ -76,6 +84,16 @@ COHORT_NAV_SRC = env("COHORT_NAV_SRC")
 PUBLIC_BASE_URL = env("PUBLIC_BASE_URL").rstrip("/")
 ORG_APPLY_URL = env("ORG_APPLY_URL")
 ACCELERATOR_ORG_SLUG = env("ACCELERATOR_ORG_SLUG")
+
+# --- Outbound mail ---
+# Unset EMAIL_HOST (the default) means GovKit sends no mail at all — callers must
+# check settings.EMAIL_HOST before attempting a send (apps.commons.mail does).
+EMAIL_HOST = env("EMAIL_HOST")
+EMAIL_PORT = env("EMAIL_PORT")
+EMAIL_HOST_USER = env("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
+EMAIL_USE_TLS = env("EMAIL_USE_TLS")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 CORS_ALLOW_CREDENTIALS = True
 CORS_URLS_REGEX = r"^/api/"
 # The dash's one write (checklist toggle) authenticates with the session cookie

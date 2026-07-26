@@ -140,6 +140,9 @@ class Org(models.Model):
         Cohort, null=True, blank=True, on_delete=models.SET_NULL, related_name="teams"
     )
     # Public org profile, edited on the org settings page. All optional/additive.
+    # The pitch is the team's own words — mission / thesis / what they're building —
+    # shown on the venture's public card and page. Never generated.
+    pitch = models.TextField(blank=True, help_text="The team's own words. Never generated.")
     website = models.URLField(blank=True)
     # List of {"label": str, "url": str}.
     socials = models.JSONField(default=list, blank=True)

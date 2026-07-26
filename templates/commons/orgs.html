@@ -1,24 +1,43 @@
 {% extends "base.html" %}
-{% block title %}Orgs — GovKit{% endblock %}
+{% block title %}Ventures — GovKit{% endblock %}
 {% block content %}
-  <h1>Orgs</h1>
+  <h1>Ventures</h1>
 
-  <div class="gk-card">
-    <table>
-      <thead>
-        <tr><th>Org</th><th>Members</th><th>Since</th></tr>
-      </thead>
-      <tbody>
-        {% for org in orgs %}
-          <tr>
-            <td><span class="gk-leaf gk-cat-{% cycle '0' '1' '2' '3' '4' '5' %}"></span>{{ org.display_name }}</td>
-            <td>{{ org.member_count }}</td>
-            <td>{{ org.created_at|date:"M j, Y" }}</td>
-          </tr>
-        {% empty %}
-          <tr><td colspan="3" class="gk-placeholder">No orgs yet.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  {% for org in orgs %}
+    <div class="gk-card">
+      <h2><span class="gk-leaf gk-cat-{% cycle '0' '1' '2' '3' '4' '5' %}"></span>{{ org.display_name }}</h2>
+      {% if org.pitch %}<p>{{ org.pitch|linebreaksbr }}</p>{% endif %}
+      <p class="gk-placeholder">
+        {{ org.member_count }} member{{ org.member_count|pluralize }}
+        · since {{ org.created_at|date:"M j, Y" }}
+        {% if org.website %} · <a href="{{ org.website }}" rel="noopener">{{ org.website }}</a>{% endif %}
+      </p>
+      {% if org.is_member %}
+        <p class="gk-placeholder">You're on this team.</p>
+      {% elif org.my_interest %}
+        <p>
+          {% if org.my_interest.responded_at %}
+            You raised a hand — the team has answered.
+          {% else %}
+            You raised a hand — the team will get back to you.
+          {% endif %}
+        </p>
+        {% if not org.my_interest.responded_at %}
+          <form method="post" action="{% url 'commons:venture_interest' slug=org.slug %}">
+            {% csrf_token %}
+            <button type="submit" name="withdraw" value="1">Withdraw</button>
+          </form>
+        {% endif %}
+      {% else %}
+        <form method="post" action="{% url 'commons:venture_interest' slug=org.slug %}">
+          {% csrf_token %}
+          <p><textarea name="note" rows="2"
+                       placeholder="Optional: a line about why, in your own words."></textarea></p>
+          <button type="submit">I want to join</button>
+        </form>
+      {% endif %}
+    </div>
+  {% empty %}
+    <div class="gk-card"><p class="gk-placeholder">No ventures yet.</p></div>
+  {% endfor %}
 {% endblock %}

@@ -339,6 +339,7 @@ def org_profile(request, org_slug):
         {
             "slug": org.slug,
             "display_name": org.display_name,
+            "pitch": org.pitch,
             "website": org.website,
             "socials": org.socials or [],
             "repos": org.repos or [],

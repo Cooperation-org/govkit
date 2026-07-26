@@ -348,6 +348,7 @@ def _settings_initial(org):
     other = "\n".join(r["url"] for r in repos if r["url"] != main)
     return {
         "display_name": org.display_name,
+        "pitch": org.pitch,
         "website": org.website,
         "socials": socials,
         "main_repo": main,
@@ -371,6 +372,7 @@ def org_settings(request, org_slug):
         form = OrgSettingsForm(request.POST)
         if form.is_valid():
             org.display_name = form.cleaned_data["display_name"].strip() or org.display_name
+            org.pitch = form.cleaned_data["pitch"].strip()
             org.website = form.cleaned_data["website"]
             org.socials = form.socials_list()
             org.repos = form.repos_list()
@@ -384,6 +386,7 @@ def org_settings(request, org_slug):
             org.save(
                 update_fields=[
                     "display_name",
+                    "pitch",
                     "website",
                     "socials",
                     "repos",

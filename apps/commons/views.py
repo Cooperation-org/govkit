@@ -11,14 +11,49 @@ from django.views.decorators.http import require_POST
 from apps.accounts.models import ProfileLink
 from apps.orgs.models import Invite, InviteKind, InviteStatus, Org
 
-from .models import Idea, IdeaInterest, IdeaInterestKind
+from .mail import notify_venture_interest
+from .models import Idea, IdeaInterest, IdeaInterestKind, VentureInterest
 
 
 @login_required
 def orgs_view(request):
-    """Every org in the cohort, with size — the places a person could land."""
+    """Every venture in the cohort, with pitch and a raise-your-hand button —
+    the places a person in the pool could land."""
+    from django.conf import settings as django_settings
+
     orgs = Org.objects.annotate(member_count=Count("memberships")).order_by("display_name")
+    if django_settings.ACCELERATOR_ORG_SLUG:
+        orgs = orgs.exclude(slug=django_settings.ACCELERATOR_ORG_SLUG)
+    mine = {i.org_id: i for i in VentureInterest.objects.filter(user=request.user)}
+    member_of = set(request.user.memberships.values_list("org_id", flat=True))
+    for org in orgs:
+        org.my_interest = mine.get(org.id)
+        org.is_member = org.id in member_of
     return render(request, "commons/orgs.html", {"orgs": orgs})
+
+
+@login_required
+@require_POST
+def venture_interest(request, slug):
+    """Raise (or lower) a hand for a venture. Same row the dash feeds read."""
+    org = get_object_or_404(Org, slug=slug)
+    if org.memberships.filter(user=request.user).exists():
+        return redirect("commons:orgs")
+    if request.POST.get("withdraw"):
+        VentureInterest.objects.filter(
+            org=org, user=request.user, responded_at__isnull=True
+        ).delete()
+        return redirect("commons:orgs")
+    note = (request.POST.get("note") or "").strip()
+    interest, created = VentureInterest.objects.get_or_create(
+        org=org, user=request.user, defaults={"note": note}
+    )
+    if not created and interest.responded_at is None and note and note != interest.note:
+        interest.note = note
+        interest.save(update_fields=["note"])
+    if created:
+        notify_venture_interest(interest)
+    return redirect("commons:orgs")
 
 
 @login_required

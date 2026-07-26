@@ -43,6 +43,57 @@ class Idea(models.Model):
         super().save(*args, **kwargs)
 
 
+class VentureInterest(models.Model):
+    """One person's standing interest in joining one venture (org).
+
+    The public-side twin of IdeaInterest: made by someone who is NOT a member,
+    from the commons or the workers.vc doorway. This row is the ONE home of the
+    fact — feeds (the venture's dash rail, the accelerator's oversight list,
+    an amebo claw) are views over it and store nothing themselves.
+
+    `responded_at` is the supervision hook: unanswered rows float to the top of
+    every feed until someone from the venture marks them replied. No further
+    workflow — acceptance happens through the normal invite paths.
+    """
+
+    org = models.ForeignKey("orgs.Org", on_delete=models.CASCADE, related_name="interests")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="venture_interests"
+    )
+    note = models.TextField(
+        blank=True, help_text="Optional 'why me', in the person's own words. Never generated."
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    responded_at = models.DateTimeField(null=True, blank=True)
+    responded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="venture_interests_answered",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["org", "user"], name="one_interest_per_user_per_org"),
+        ]
+        # Unanswered first (Postgres puts NULLs last on a plain ASC), oldest first —
+        # the same order every feed shows, so "top of the list" always means
+        # "waiting longest with no reply".
+        ordering = [models.F("responded_at").asc(nulls_first=True), "created_at"]
+
+    def __str__(self):
+        state = "answered" if self.responded_at else "open"
+        return f"{self.user.email} → {self.org.slug} ({state})"
+
+    def mark_responded(self, by_user):
+        """Idempotent: the first reply wins; a second click changes nothing."""
+        if self.responded_at is None:
+            self.responded_at = timezone.now()
+            self.responded_by = by_user
+            self.save(update_fields=["responded_at", "responded_by"])
+
+
 class IdeaInterestKind(models.TextChoices):
     SUPPORT = "support", "Supports it"
     BUILD = "build", "Wants to build it"
