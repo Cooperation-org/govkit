@@ -240,14 +240,6 @@ def _invite_payload(invite: Invite, request) -> dict:
         "image_url": invite.image_url,
         "venture_name": invite.venture_name,
         "venture_url": invite.venture_url,
-        # The founding split, so the doorway can state the terms BEFORE the founder
-        # accepts. All four are null on an invite with no sponsor, which is most of them.
-        "sponsor_name": invite.sponsor.display_name if invite.sponsor_id else None,
-        "sponsor_url": invite.sponsor.url if invite.sponsor_id else None,
-        "founding_value": str(invite.founding_value) if invite.seeds_founding_split else None,
-        "sponsor_pct": str(invite.sponsor_pct) if invite.seeds_founding_split else None,
-        "sponsor_value": str(invite.sponsor_value) if invite.seeds_founding_split else None,
-        "founder_value": str(invite.founder_value) if invite.seeds_founding_split else None,
         "role": invite.role,
         "audience": invite.audience,
         "drafted_statement": invite.drafted_statement,

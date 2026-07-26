@@ -214,35 +214,6 @@ class InviteForm(forms.Form):
         help_text="Founder invites: what they are launching. Their card centers it.",
     )
     venture_url = forms.URLField(required=False, assume_scheme="https", label="Venture link")
-    # The founding split (BYOV only). Three inputs that state one offer: the venture's
-    # pie on day one, and how much of it the sponsor keeps. They prefill from the org's
-    # defaults so the usual invite is no typing at all.
-    sponsor = forms.ModelChoiceField(
-        queryset=ExternalHolder.objects.all(),
-        required=False,
-        label="Sponsor",
-        empty_label="No sponsor",
-        help_text="The outside company taking a share, if any. Blank means the founder owns "
-        "all of it.",
-    )
-    founding_value = forms.DecimalField(
-        required=False,
-        min_value=Decimal("0"),
-        max_digits=16,
-        decimal_places=2,
-        label="Starting value",
-        help_text="The venture's whole pie on day one. It sets how fast new people earn in: "
-        "the lower it is, the faster new work dilutes the founders.",
-    )
-    sponsor_pct = forms.DecimalField(
-        required=False,
-        min_value=Decimal("0"),
-        max_value=Decimal("100"),
-        max_digits=5,
-        decimal_places=2,
-        label="Sponsor keeps (%)",
-        help_text="The rest is the founder's. Both shares dilute normally from there.",
-    )
     audience = forms.ChoiceField(
         choices=InviteAudience.choices, initial=InviteAudience.SUPPORTER, label="Audience"
     )
@@ -286,31 +257,6 @@ class InviteForm(forms.Form):
         # No venture/kind validation (golda 2026-07-24): just let them submit. The
         # UI controls what shows (venture fields appear only for BYOV); the accept
         # path does the right thing per kind.
-
-        # The founding split is BYOV-only, like the venture fields: anything typed on
-        # another kind of invite is dropped rather than refused.
-        if data.get("kind") != InviteKind.BYOV:
-            data["sponsor"] = None
-            data["founding_value"] = None
-            data["sponsor_pct"] = None
-        else:
-            # A partly-filled split is the one case worth stopping on. Left alone it
-            # would seed nothing at all, and the first anyone would know is a venture
-            # pie reading zero when it was supposed to hold the sponsor's share.
-            split = {
-                "sponsor": data.get("sponsor"),
-                "founding_value": data.get("founding_value"),
-                "sponsor_pct": data.get("sponsor_pct"),
-            }
-            given = {k: v for k, v in split.items() if v is not None}
-            if given and len(given) < len(split):
-                for name in split:
-                    if split[name] is None:
-                        self.add_error(
-                            name,
-                            "Fill in all three of sponsor, starting value and sponsor "
-                            "percent, or leave all three blank.",
-                        )
 
         # "Already committed" special case: parse the optional existing-claim reference
         # (id or URL) into an int the accept path can link. Only meaningful with the box.
@@ -409,30 +355,6 @@ class OrgSettingsForm(forms.Form):
         required=False,
         label="That pie is current as of",
         widget=forms.DateInput(attrs={"type": "date"}),
-    )
-    # The standing offer this org makes to a venture it sponsors. Set once here and
-    # every BYOV invite comes up already filled in. Changing it only affects invites
-    # minted afterwards.
-    default_sponsor = forms.ModelChoiceField(
-        queryset=ExternalHolder.objects.all(),
-        required=False,
-        label="Sponsor of ventures invited from here",
-        empty_label="No sponsor",
-    )
-    default_founding_value = forms.DecimalField(
-        required=False,
-        min_value=Decimal("0"),
-        max_digits=16,
-        decimal_places=2,
-        label="Starting value of a sponsored venture",
-    )
-    default_sponsor_pct = forms.DecimalField(
-        required=False,
-        min_value=Decimal("0"),
-        max_value=Decimal("100"),
-        max_digits=5,
-        decimal_places=2,
-        label="Percent the sponsor keeps",
     )
 
     def clean_website(self):

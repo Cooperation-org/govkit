@@ -12,6 +12,8 @@ from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from django.shortcuts import render
 
+from apps.orgs.models import MembershipRole
+
 from .services import compute_personal_standing, compute_pie
 
 # Categorical identity is the six-leaf palette (pattern 6 · SIX LEAVES), defined once in
@@ -77,12 +79,22 @@ def _rows_with_cat(pie):
 def index(request, org_slug):
     """Org pie: who holds what share of the org's issued equity, every slice traceable."""
     pie = compute_pie(request.org)
+    membership = request.membership
     context = {
         "page_title": "Pie",
         "org_slug": org_slug,
         "pie": pie,
         "rows": _rows_with_cat(pie),
         "segments": _svg_segments(pie),
+        # The optional starting-shares offer: only an admin can act on it, and only
+        # until they say they are done with it.
+        "offer_initial_shares": (
+            not request.org.initial_shares_done
+            and (
+                request.user.is_superuser
+                or (membership is not None and membership.role == MembershipRole.ADMIN)
+            )
+        ),
     }
     return render(request, "pie/index.html", context)
 

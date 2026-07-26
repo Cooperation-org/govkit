@@ -262,20 +262,6 @@ def _invite_share_link(request, invite):
     return request.build_absolute_uri(reverse("orgs:accept_invite", kwargs={"code": invite.code}))
 
 
-def _invite_split_initial(org) -> dict:
-    """Prefill the BYOV founding split from this org's standing offer.
-
-    Only a convenience: what the invite records is what was submitted, so editing the
-    boxes for one venture never touches the default, and editing the default never
-    touches an invite already minted.
-    """
-    return {
-        "sponsor": org.default_sponsor_id,
-        "founding_value": org.default_founding_value,
-        "sponsor_pct": org.default_sponsor_pct,
-    }
-
-
 @login_required
 def members(request, org_slug):
     """Admin UI: list members with role + rate controls, org-wide rate, and an invite form."""
@@ -314,7 +300,7 @@ def members(request, org_slug):
             "memberships": memberships,
             "roles": MembershipRole.choices,
             "unit_name": request.org.unit_name,
-            "invite_form": InviteForm(initial=_invite_split_initial(request.org)),
+            "invite_form": InviteForm(),
             "invites": invites,
             "minted_invite": minted_invite,
             # Sponsors of THIS org, if any. They hold equity here but no membership, so
@@ -357,9 +343,6 @@ def _settings_initial(org):
         "chat_url": org.chat_url,
         "pie_url": org.pie_url,
         "pie_as_of": org.pie_as_of,
-        "default_sponsor": org.default_sponsor_id,
-        "default_founding_value": org.default_founding_value,
-        "default_sponsor_pct": org.default_sponsor_pct,
     }
 
 
@@ -380,9 +363,6 @@ def org_settings(request, org_slug):
             org.chat_url = form.cleaned_data["chat_url"]
             org.pie_url = form.cleaned_data["pie_url"]
             org.pie_as_of = form.cleaned_data["pie_as_of"]
-            org.default_sponsor = form.cleaned_data["default_sponsor"]
-            org.default_founding_value = form.cleaned_data["default_founding_value"]
-            org.default_sponsor_pct = form.cleaned_data["default_sponsor_pct"]
             org.save(
                 update_fields=[
                     "display_name",
@@ -394,9 +374,6 @@ def org_settings(request, org_slug):
                     "chat_url",
                     "pie_url",
                     "pie_as_of",
-                    "default_sponsor",
-                    "default_founding_value",
-                    "default_sponsor_pct",
                     "updated_at",
                 ]
             )
@@ -626,6 +603,20 @@ def sponsor_grant(request, org_slug):
         f"({value} {request.org.unit_name}). It dilutes as members earn, and it does not vote.",
     )
     return redirect("orgs:members", org_slug=request.org.slug)
+
+
+@login_required
+@require_POST
+def initial_shares_done(request, org_slug):
+    """Put away the pie board's one-time offer to set what the venture started with.
+
+    Nothing is written to the pie: this only records that the founder is finished with
+    the question, so the offer stops asking. Unticking it brings the offer back.
+    """
+    _require_admin(request)
+    request.org.initial_shares_done = "done" in request.POST
+    request.org.save(update_fields=["initial_shares_done", "updated_at"])
+    return redirect("pie:index", org_slug=request.org.slug)
 
 
 @login_required

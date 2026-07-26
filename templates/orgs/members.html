@@ -16,7 +16,7 @@
     </div>
   {% endif %}
 
-  <div class="gk-card">
+  <div class="gk-card" id="starting-shares">
     <h2>Members &amp; roles</h2>
     <table>
       <thead>
@@ -205,7 +205,7 @@
               or the applicant pool (no org)</small></label>
             {{ invite_form.kind }}
           </div>
-          <div class="gk-field">
+          <div class="gk-field" id="gk-role-field">
             <label for="{{ invite_form.role.id_for_label }}">Membership role <small>what they
               can do once in</small></label>
             {{ invite_form.role }}
@@ -233,29 +233,9 @@
             {{ invite_form.venture_url }}
           </div>
         </div>
-
-        <h3>What it starts with</h3>
-        <div class="gk-form-grid">
-          <div class="gk-field">
-            <label for="{{ invite_form.sponsor.id_for_label }}">Sponsor <small>who takes a
-              share for the money and the idea — blank means the founder owns all of it</small></label>
-            {{ invite_form.sponsor }}
-          </div>
-          <div class="gk-field">
-            <label for="{{ invite_form.founding_value.id_for_label }}">Starting value
-              <small>the whole pie on day one, in slices</small></label>
-            {{ invite_form.founding_value }}
-          </div>
-          <div class="gk-field">
-            <label for="{{ invite_form.sponsor_pct.id_for_label }}">Sponsor keeps
-              <small>percent — the rest is the founder's</small></label>
-            {{ invite_form.sponsor_pct }}
-          </div>
-        </div>
-        <p class="gk-muted" id="gk-split-preview" hidden></p>
         <p class="gk-muted">
-          Both starting shares dilute as people earn, the same way every share does. The
-          sponsor's share carries no vote.
+          Their pie starts empty. What the venture is worth on day one, and whether a
+          sponsor holds part of it, is theirs to set on their own pie board.
         </p>
       </div>
 
@@ -348,35 +328,22 @@
     (function () {
       var kind = document.getElementById("{{ invite_form.kind.id_for_label }}");
       var founderFields = document.getElementById("gk-founder-fields");
+      var roleField = document.getElementById("gk-role-field");
+      var role = document.getElementById("{{ invite_form.role.id_for_label }}");
+      var rolePicked = role.value;
       function syncFounder() {
-        founderFields.hidden = kind.value !== "byov";
+        var byov = kind.value === "byov";
+        founderFields.hidden = !byov;
+        roleField.hidden = byov;
+        if (byov) {
+          rolePicked = role.value === "admin" ? rolePicked : role.value;
+          role.value = "admin";
+        } else {
+          role.value = rolePicked;
+        }
       }
       kind.addEventListener("change", syncFounder);
       syncFounder();
-
-      var sponsor = document.getElementById("{{ invite_form.sponsor.id_for_label }}");
-      var total = document.getElementById("{{ invite_form.founding_value.id_for_label }}");
-      var pct = document.getElementById("{{ invite_form.sponsor_pct.id_for_label }}");
-      var preview = document.getElementById("gk-split-preview");
-      function syncSplit() {
-        var name = sponsor.options[sponsor.selectedIndex];
-        var t = parseFloat(total.value);
-        var p = parseFloat(pct.value);
-        if (!sponsor.value || !isFinite(t) || !isFinite(p) || t <= 0) {
-          preview.hidden = true;
-          return;
-        }
-        var theirs = t * p / 100;
-        preview.hidden = false;
-        preview.textContent =
-          "Founder starts with " + (t - theirs).toLocaleString() + " slices, " +
-          (name ? name.text : "the sponsor") + " with " + theirs.toLocaleString() + ".";
-      }
-      [sponsor, total, pct].forEach(function (el) {
-        el.addEventListener("input", syncSplit);
-        el.addEventListener("change", syncSplit);
-      });
-      syncSplit();
 
       var CHECK = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
       document.querySelectorAll(".gk-copy").forEach(function (btn) {

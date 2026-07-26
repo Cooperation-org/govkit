@@ -66,28 +66,6 @@
       </div>
     </div>
 
-    <div class="gk-card">
-      <h2>Sponsoring ventures</h2>
-      <p>What a venture invited from here starts with. These fill in the invite form for
-         you; you can change them on any single invite, and the invite is what counts.
-         Leave the sponsor blank if you are not putting money into your ventures.</p>
-      <div class="gk-field">
-        <label for="{{ form.default_sponsor.id_for_label }}">Sponsor
-          <small>the outside company that takes a share</small></label>
-        {{ form.default_sponsor }}
-      </div>
-      <div class="gk-field">
-        <label for="{{ form.default_founding_value.id_for_label }}">Starting value
-          <small>the venture's whole pie on day one</small></label>
-        {{ form.default_founding_value }}
-      </div>
-      <div class="gk-field">
-        <label for="{{ form.default_sponsor_pct.id_for_label }}">Sponsor keeps
-          <small>percent — the rest is the founder's</small></label>
-        {{ form.default_sponsor_pct }}
-      </div>
-    </div>
-
     <button type="submit">Save settings</button>
   </form>
 {% endblock %}

@@ -75,4 +75,9 @@ urlpatterns = [
         views.sponsor_stake_remove,
         name="sponsor_stake_remove",
     ),
+    path(
+        "o/<slug:org_slug>/initial-shares/done/",
+        views.initial_shares_done,
+        name="initial_shares_done",
+    ),
 ]

@@ -160,33 +160,10 @@ class Org(models.Model):
     # after it is what the team still owes the outside pie.
     pie_url = models.URLField(blank=True)
     pie_as_of = models.DateField(null=True, blank=True)
-    # What this org offers by default when it invites a sponsored venture (accelerator
-    # side). These only prefill the BYOV invite form so the terms are not retyped every
-    # time; the invite records what was actually offered, and the invite is what the
-    # accept honors. Changing a default never touches a venture already created.
-    default_sponsor = models.ForeignKey(
-        "ExternalHolder",
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="orgs_defaulting_to",
-        help_text="Prefills who takes the sponsor share on a BYOV invite from this org.",
-    )
-    default_founding_value = models.DecimalField(
-        max_digits=16,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Prefills the starting value of a sponsored venture's pie. Blank = no default.",
-    )
-    default_sponsor_pct = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Prefills the share of a sponsored venture this org keeps, 0-100. "
-        "Blank = no default.",
-    )
+    # The pie board offers a founder one optional setup step: set the venture's starting
+    # value and hand a slice to a sponsor. It is theirs to skip — ticking "done" puts the
+    # offer away for good; leaving it alone keeps it there for whenever they get to it.
+    initial_shares_done = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -340,40 +317,8 @@ class Invite(models.Model):
     venture_name = models.CharField(max_length=255, blank=True)
     venture_url = models.URLField(blank=True)
 
-    # The founding split, offered on the invite and honored at accept (BYOV only).
-    # All three must be set for anything to be seeded: founding_value is the venture's
-    # pie on day one, sponsor_pct is the part of it `sponsor` keeps for the money and
-    # the idea it put in. The rest is the founder's, as an opening balance for the work
-    # they did before the pie existed. Ordinary dilution takes over from there: every
-    # drop line afterwards grows the total and shrinks both shares in proportion.
-    # A percentage is how the offer is *stated*; it is never stored as a standing claim
-    # on the venture, only used once to size the two starting rows. Blank (the default,
-    # and every non-BYOV invite) seeds nothing at all.
-    #
-    # The sponsor is an ExternalHolder, NOT the inviting org: the company putting money
-    # in is normally outside the cohort entirely.
-    sponsor = models.ForeignKey(
-        "ExternalHolder",
-        null=True,
-        blank=True,
-        on_delete=models.PROTECT,
-        related_name="invites_sponsored",
-        help_text="BYOV: the outside company taking a share of this venture.",
-    )
-    founding_value = models.DecimalField(
-        max_digits=16,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="BYOV: the venture's total pie at genesis, in its own units.",
-    )
-    sponsor_pct = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="BYOV: percent of the founding value the sponsor keeps, 0-100.",
-    )
+    # An invite carries no money terms. What a venture starts with is the founder's to
+    # set, in their own org, after they accept — see Org.initial_shares_done.
 
     # The inviter's authored drafts (never generated); invitee edits before commit.
     drafted_statement = models.TextField(blank=True)
@@ -426,30 +371,16 @@ class Invite(models.Model):
         """Accept is allowed from created OR committed (direct invites skip committed)."""
         return self.status in (InviteStatus.CREATED, InviteStatus.COMMITTED) and not self.is_expired
 
-    @property
-    def seeds_founding_split(self) -> bool:
-        """True when this invite carries a complete, non-zero founding split to seed."""
-        return (
-            self.kind == InviteKind.BYOV
-            and self.sponsor_id is not None
-            and self.founding_value is not None
-            and self.sponsor_pct is not None
-            and self.founding_value > 0
-        )
+    def save(self, *args, **kwargs):
+        """A founder bringing their own venture is always its Admin — they own it.
 
-    @property
-    def sponsor_value(self):
-        """The sponsor's slice of the founding value, or None if none is offered."""
-        if not self.seeds_founding_split:
-            return None
-        return (self.founding_value * self.sponsor_pct / Decimal("100")).quantize(Decimal("0.01"))
-
-    @property
-    def founder_value(self):
-        """The founder's slice: the remainder, so the two always sum to founding_value."""
-        if not self.seeds_founding_split:
-            return None
-        return self.founding_value - self.sponsor_value
+        The rule lives here, not in the form, so every way an invite is minted (the
+        members page, the S2S API, mint_invite, the Django admin) records the same
+        thing the accept then honors.
+        """
+        if self.kind == InviteKind.BYOV:
+            self.role = MembershipRole.ADMIN
+        return super().save(*args, **kwargs)
 
     @property
     def status_label(self) -> str:

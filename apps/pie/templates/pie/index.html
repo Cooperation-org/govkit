@@ -14,6 +14,29 @@
     opening balances.
   </p>
 
+  {% if offer_initial_shares %}
+    <div class="gk-card gk-offer">
+      <h2>Starting shares</h2>
+      <p>
+        Optional. If this venture was worth something before the pie existed, you can give
+        yourself a starting amount for that work, and give a company a share for money or
+        an idea it put in. Everything dilutes normally from there as people earn.
+      </p>
+      <p class="gk-muted">Most teams invite their people first and come back to this.</p>
+      <p>
+        <a href="{% url 'orgs:members' org_slug=current_org.slug %}#starting-shares">Set starting shares &rarr;</a>
+      </p>
+      <form method="post" action="{% url 'orgs:initial_shares_done' org_slug=current_org.slug %}">
+        {% csrf_token %}
+        <label>
+          <input type="checkbox" name="done" value="1" onchange="this.form.submit()">
+          Done — stop showing this
+        </label>
+        <noscript><button type="submit">Save</button></noscript>
+      </form>
+    </div>
+  {% endif %}
+
   {% if pie.total > 0 %}
     <div class="gk-card">
       {% include "pie/_pie_svg.html" %}
