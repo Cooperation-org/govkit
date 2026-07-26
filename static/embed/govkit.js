@@ -9,7 +9,7 @@
 //   <govkit-checklist>  genesis checklist modules + items  (orgs/<org>/checklist/)
 //   <govkit-tasks>      open tracker work                  (tasksources/orgs/<org>/tasks/open/)
 //   <govkit-money>      project portfolio + totals         (projects/orgs/<org>/portfolio/)
-//   <govkit-activity>   who wants to join this venture     (commons/orgs/<org>/interest/)
+//   <govkit-activity>   the org's attention rail           (commons/orgs/<org>/attention/)
 //   <govkit-ventures>   venture cards + raise-a-hand       (commons/ventures/; data-up only,
 //                       no data-org — it lists every venture for a person in the pool)
 //
@@ -570,8 +570,10 @@
   }
 
   // --- <govkit-activity> ---------------------------------------------------
-  // The venture's waiting list: who raised a hand, unanswered first (server
-  // order). Any member can mark a row answered — after actually replying.
+  // The attention rail: one typed list of everything on this org's plate
+  // (commons/orgs/<org>/attention/). Kinds render by shape, not by name, so
+  // new kinds work unseen: `done` dims a row; `org_slug` + venture_interest
+  // gets the mark-answered POST; a `url` gets a link out.
 
   function fmtDay(iso) {
     var d = new Date(iso);
@@ -579,30 +581,41 @@
   }
 
   function renderActivity(host, d, c) {
-    var rows = d.interests || [];
+    var rows = d.items || [];
     var limit = parseInt(host.dataset.limit || '8', 10);
     rows = rows.slice(0, limit > 0 ? limit : 8);
     if (!rows.length) return false;
 
     rows.forEach(function (r) {
-      var row = el('div', r.responded_at ? 'row answered' : 'row');
+      var row = el('div', r.done ? 'row answered' : 'row');
       var head = el('div', 'head');
-      head.appendChild(el('span', 'who', (r.person && r.person.display_name) || 'Someone'));
-      head.appendChild(el('span', 'when', fmtDay(r.created_at)));
+      head.appendChild(el('span', 'who', r.title || 'Something needs attention'));
+      head.appendChild(el('span', 'when', fmtDay(r.since)));
       row.appendChild(head);
-      if (r.note) row.appendChild(el('div', 'note', r.note));
-      if (r.person && r.person.email) {
+      if (r.detail) row.appendChild(el('div', 'note', r.detail));
+      if (r.email) {
         var mail = el('div', 'mail');
-        var a = el('a', null, r.person.email);
-        a.href = 'mailto:' + r.person.email;
+        var a = el('a', null, r.email);
+        a.href = 'mailto:' + r.email;
         mail.appendChild(a);
         row.appendChild(mail);
       }
-      if (!r.responded_at) {
+      var out = safeHref(r.url);
+      if (out) {
+        var link = el('div', 'mail');
+        var la = el('a', null, 'review ↗');
+        la.href = out;
+        la.target = '_blank';
+        la.rel = 'noopener';
+        link.appendChild(la);
+        row.appendChild(link);
+      }
+      if (r.kind === 'venture_interest' && !r.done && r.org_slug) {
         var btn = el('button', null, 'Mark answered');
         btn.addEventListener('click', function () {
           btn.disabled = true;
-          fetch(c.up + '/api/v1/commons/orgs/' + c.org + '/interest/' + r.id + '/respond/', {
+          fetch(c.up + '/api/v1/commons/orgs/' + encodeURIComponent(r.org_slug) +
+                '/interest/' + r.id + '/respond/', {
             method: 'POST',
             credentials: 'include',
             headers: { 'X-Govkit-Embed': '1' },
@@ -728,7 +741,7 @@
   define('govkit-checklist', 'orgs/{org}/checklist/', renderChecklist);
   define('govkit-tasks', 'tasksources/orgs/{org}/tasks/open/', renderTasks);
   define('govkit-money', 'projects/orgs/{org}/portfolio/', renderMoney);
-  define('govkit-activity', 'commons/orgs/{org}/interest/', renderActivity);
+  define('govkit-activity', 'commons/orgs/{org}/attention/', renderActivity);
   if (!customElements.get('govkit-ventures')) {
     customElements.define('govkit-ventures', class extends HTMLElement {
       connectedCallback() { mountVentures(this); }

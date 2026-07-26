@@ -45,6 +45,9 @@ env = environ.Env(
     # The accelerator org's slug (e.g. "vc"). Its admins get the cross-org
     # "All teams" oversight page. Empty => only superusers see it.
     ACCELERATOR_ORG_SLUG=(str, ""),
+    # The workersvc doorway's loopback API (same VM). Empty = the attention
+    # feed simply carries no doorway items (pending walk-ups).
+    DOORWAY_API_URL=(str, ""),
     # Outbound mail (venture-interest notifications). All empty by default =>
     # nothing is ever sent; the feeds carry the signal until SMTP is configured.
     EMAIL_HOST=(str, ""),
@@ -84,6 +87,8 @@ COHORT_NAV_SRC = env("COHORT_NAV_SRC")
 PUBLIC_BASE_URL = env("PUBLIC_BASE_URL").rstrip("/")
 ORG_APPLY_URL = env("ORG_APPLY_URL")
 ACCELERATOR_ORG_SLUG = env("ACCELERATOR_ORG_SLUG")
+
+DOORWAY_API_URL = env("DOORWAY_API_URL").rstrip("/")
 
 # --- Outbound mail ---
 # Unset EMAIL_HOST (the default) means GovKit sends no mail at all — callers must

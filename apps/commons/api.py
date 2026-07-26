@@ -153,6 +153,30 @@ class OrgInterestFeedView(APIView):
         )
 
 
+class OrgAttentionView(APIView):
+    """The dash rail: everything on THIS org's plate, one typed list.
+
+    Members only (middleware). A venture gets its own waiting list. The
+    accelerator org's rail additionally carries the cross-venture view for its
+    admins: every unanswered hand-raise anywhere, plus walk-ups pending at the
+    doorway. New attention kinds append here — the item shape (attention.py)
+    is the contract, the embed renders any kind.
+    """
+
+    def get(self, request, org_slug):
+        from . import attention
+
+        items = attention.org_interest_items(request.org)
+        if request.org.slug == settings.ACCELERATOR_ORG_SLUG:
+            from apps.orgs.views import _is_accelerator_admin
+
+            if _is_accelerator_admin(request.user):
+                items = attention.all_open_interest_items() + attention.pool_pending_items()
+        # Unanswered first, oldest first — one rule for every kind.
+        items.sort(key=lambda i: (i["done"], i["since"]))
+        return Response({"org_slug": request.org.slug, "items": items})
+
+
 class InterestRespondView(APIView):
     """A member marks an interest answered — after actually replying to the person."""
 
@@ -199,6 +223,11 @@ urlpatterns = [
         "orgs/<slug:org_slug>/interest/",
         OrgInterestFeedView.as_view(),
         name="commons-org-interest",
+    ),
+    path(
+        "orgs/<slug:org_slug>/attention/",
+        OrgAttentionView.as_view(),
+        name="commons-org-attention",
     ),
     path(
         "orgs/<slug:org_slug>/interest/<int:pk>/respond/",
