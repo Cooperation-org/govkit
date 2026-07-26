@@ -55,9 +55,7 @@ def org_interest_items(org):
 
 def all_open_interest_items():
     """Every unanswered hand-raise across ventures — the accelerator's read."""
-    rows = VentureInterest.objects.filter(responded_at__isnull=True).select_related(
-        "org", "user"
-    )
+    rows = VentureInterest.objects.filter(responded_at__isnull=True).select_related("org", "user")
     return [_interest_item(i, with_org_name=True) for i in rows]
 
 
@@ -147,8 +145,10 @@ def doorway_items():
         for r in payload.get("recent", []):
             who = r.get("person_name") or "Someone"
             role = f" ({r['role']})" if r.get("role") else ""
-            detail = f"invited by {r['inviter']}" if r.get("inviter") else (
-                "invited" if r.get("invited") else "walk-up, approved"
+            detail = (
+                f"invited by {r['inviter']}"
+                if r.get("inviter")
+                else ("invited" if r.get("invited") else "walk-up, approved")
             )
             items.append(
                 {

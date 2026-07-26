@@ -64,9 +64,7 @@ class VenturesView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        mine = {
-            i.org_id: i for i in VentureInterest.objects.filter(user=request.user)
-        }
+        mine = {i.org_id: i for i in VentureInterest.objects.filter(user=request.user)}
         member_of = set(
             Membership.objects.filter(user=request.user).values_list("org_id", flat=True)
         )
@@ -106,9 +104,7 @@ class VentureInterestView(APIView):
         if org is None:
             return Response({"error": "no such venture"}, status=status.HTTP_404_NOT_FOUND)
         if Membership.objects.filter(org=org, user=request.user).exists():
-            return Response(
-                {"error": "already a member"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "already a member"}, status=status.HTTP_400_BAD_REQUEST)
         note = (request.data.get("note") or "").strip()
         interest, created = VentureInterest.objects.get_or_create(
             org=org, user=request.user, defaults={"note": note}

@@ -26,9 +26,9 @@ def notify_venture_interest(interest) -> None:
     """Tell the venture's admins someone wants to join. No-op without SMTP."""
     if not mail_configured():
         return
-    admins = Membership.objects.filter(
-        org=interest.org, role=MembershipRole.ADMIN
-    ).select_related("user")
+    admins = Membership.objects.filter(org=interest.org, role=MembershipRole.ADMIN).select_related(
+        "user"
+    )
     recipients = [m.user.email for m in admins if m.user.email]
     if not recipients:
         return
