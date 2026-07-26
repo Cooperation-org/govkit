@@ -32,6 +32,7 @@ import json
 import secrets
 
 from django.conf import settings
+from django.db.models import Count
 from django.http import JsonResponse
 from django.urls import path, reverse
 from django.views.decorators.csrf import csrf_exempt
@@ -355,6 +356,42 @@ def org_profile(request, org_slug):
 org_profile.org_context_exempt = True
 
 
+@require_GET
+def ventures_directory(request):
+    """S2S: every venture's public card — slug, name, pitch, site, size.
+
+    The workers.vc apex renders the PUBLIC ventures pages server-side from
+    this (anonymous visitors, so no session auth can apply). Same bearer as
+    the other S2S endpoints. The accelerator org itself is excluded: it runs
+    the cohort, it is not a card on it. Only what a team chose to publish on
+    its settings page — never members, rates, or governance config.
+    """
+    if not _s2s_authorized(request):
+        return JsonResponse({"error": "unauthorized"}, status=401)
+    qs = Org.objects.annotate(member_count=Count("memberships")).order_by("display_name")
+    accel = settings.ACCELERATOR_ORG_SLUG
+    if accel:
+        qs = qs.exclude(slug=accel)
+    return JsonResponse(
+        {
+            "ventures": [
+                {
+                    "slug": o.slug,
+                    "display_name": o.display_name,
+                    "pitch": o.pitch,
+                    "website": o.website,
+                    "socials": o.socials or [],
+                    "member_count": o.member_count,
+                }
+                for o in qs
+            ]
+        }
+    )
+
+
+ventures_directory.org_context_exempt = True
+
+
 class OrgDirectoryView(APIView):
     """Every org on this installation, name + slug only, for a signed-in person
     choosing where to go — the workers.vc /welcome cards for someone with no
@@ -383,6 +420,7 @@ urlpatterns = router.urls + [
         ChecklistToggleView.as_view(),
         name="org-checklist-toggle",
     ),
+    path("ventures/public/", ventures_directory, name="s2s_ventures_directory"),
     path("<slug:org_slug>/profile/", org_profile, name="s2s_org_profile"),
     path("<slug:org_slug>/invites/<str:code>/", invite_detail, name="s2s_invite_detail"),
     path(
