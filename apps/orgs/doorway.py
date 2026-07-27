@@ -60,6 +60,17 @@ def _fetch_wall_people():
     return result
 
 
+def mentors():
+    """(mentors, problem) — the cohort's mentors and the calendars they shared.
+
+    A mentor gave a booking link so teams could actually book them. It is kept
+    off their public wall card on purpose: they shared it with the cohort, not
+    with the open internet. Callers must gate it; this only fetches.
+    """
+    people, problem = _fetch_wall_people()
+    return [p for p in people if p.get("role") == "mentor"], problem
+
+
 def wall_people_without_accounts():
     """(people, problem) for the invite form's picker.
 

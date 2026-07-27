@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Mentors — GovKit{% endblock %}
+{% block head %}
+<script src="https://demos.linkedtrust.us/embed/badge.js" defer></script>
+<style>
+  .gk-mentors { display: grid; gap: 1.25rem; }
+  @media (min-width: 900px) { .gk-mentors { grid-template-columns: 1fr 1fr; } }
+  .gk-mentor { border: 1px solid var(--gk-border); border-radius: var(--gk-radius-card);
+               padding: 1rem; background: var(--gk-surface); }
+  .gk-mentor linked-badge { display: block; }
+  .gk-mentor .gk-book { margin-top: 0.75rem; display: flex; gap: 0.75rem;
+                        align-items: baseline; flex-wrap: wrap; }
+  .gk-mentor .gk-time { color: var(--gk-muted); font-size: 0.85rem; }
+</style>
+{% endblock %}
+{% block content %}
+<section>
+  <h1>Mentors</h1>
+  <p class="gk-muted">Time offered to this cohort. Book directly; a mentor's hours are
+    tracked work, so put what you booked on a task afterwards.</p>
+
+  {% if problem %}<p class="gk-muted"><small>{{ problem }}</small></p>{% endif %}
+
+  <div class="gk-mentors">
+    {% for m in mentors %}
+      <div class="gk-mentor">
+        <linked-badge claim-id="{{ m.claim_id }}" layout="row"></linked-badge>
+        <div class="gk-book">
+          {% if m.calendar_url %}
+            <a class="gk-btn-primary" href="{{ m.calendar_url }}" target="_blank" rel="noopener">Book time</a>
+          {% else %}
+            <span class="gk-muted">No calendar shared.</span>
+          {% endif %}
+          {% if m.time_level %}<span class="gk-time">{{ m.time_level }}</span>{% endif %}
+        </div>
+      </div>
+    {% empty %}
+      {% if not problem %}<p>No mentors on the wall yet.</p>{% endif %}
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

@@ -20,6 +20,8 @@ urlpatterns = [
     path("invites/<str:code>/accept/", views.accept_invite, name="accept_invite"),
     # Accelerator-admin cross-org oversight (not superuser-only).
     path("teams/", views.all_teams, name="all_teams"),
+    # The cohort's mentors + the calendars they shared. Team admins only.
+    path("mentors/", views.mentors, name="mentors"),
     # Cohort-wide: program staff and mentors see every team's curriculum progress.
     path("cohorts/<slug:cohort_slug>/", views.cohort_progress_view, name="cohort_progress"),
     # Public "About <org>" stub — where non-members land (org_context_exempt).

@@ -14,6 +14,10 @@
       <p class="gk-placeholder">You are not a member of any organization yet.</p>
     {% endif %}
     <p><a href="{% url 'orgs:onboarding' %}">Set up a new organization &rarr;</a></p>
+    {% if is_org_admin %}
+      <p><a href="{% url 'orgs:mentors' %}">Mentors &rarr;</a>
+        <span class="gk-muted">(who is offering time, and their calendars)</span></p>
+    {% endif %}
     {% if is_accelerator_admin %}
       <p><a href="{% url 'orgs:all_teams' %}">All teams &rarr;</a> <span class="gk-muted">(accelerator oversight)</span></p>
     {% endif %}

@@ -76,6 +76,8 @@ def landing(request):
         {
             "my_orgs": my_orgs,
             "is_accelerator_admin": _is_accelerator_admin(request.user),
+            # The mentors page is for the people who book mentors.
+            "is_org_admin": _is_any_org_admin(request.user),
         },
     )
 
@@ -111,6 +113,40 @@ def _is_accelerator_admin(user):
     return Membership.objects.filter(org__slug=slug, user=user, role=MembershipRole.ADMIN).exists()
 
 
+def _is_any_org_admin(user):
+    """True for someone who runs a team here (or a superuser).
+
+    Deliberately narrower than membership: pool people and ordinary members do
+    not see mentors' calendars yet (golda 2026-07-27). Widening this is a
+    one-line change when the cohort is ready for it.
+    """
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return Membership.objects.filter(user=user, role=MembershipRole.ADMIN).exists()
+
+
+@login_required
+def mentors(request):
+    """The cohort's mentors, with the calendars they shared.
+
+    A mentor's booking link is not on their public wall card: they offered time
+    to this cohort, not to the internet. So it lives behind sign-in and is shown
+    to the people who run teams — the ones who book mentors.
+    """
+    from .doorway import mentors as fetch_mentors
+
+    if not _is_any_org_admin(request.user):
+        raise PermissionDenied("Mentors' calendars are for team admins.")
+    people, problem = fetch_mentors()
+    return render(
+        request,
+        "orgs/mentors.html",
+        {"mentors": people, "problem": problem, "lt_api": settings.LINKEDTRUST_URL},
+    )
+
+
 @login_required
 def all_teams(request):
     """Cross-org oversight for accelerator admins: every team at a glance.
@@ -122,7 +158,6 @@ def all_teams(request):
     return render(request, "orgs/all_teams.html", {"orgs": orgs})
 
 
-@login_required
 @login_required
 def open_org(request, org_slug):
     """Go to this org, meaning the tool this person was last using in it.
