@@ -37,6 +37,7 @@ env = environ.Env(
     COHORT_NAV_SRC=(str, ""),
     COHORT_FRONT_DOOR=(str, ""),
     COHORT_POOL_LANDING=(str, ""),
+    VENTURE_PAGE_BASE_URL=(str, ""),
     PUBLIC_BASE_URL=(str, ""),
     # Where the public "About <org>" stub sends a non-member's "Request to join"
     # (the cohort's apply/main page, e.g. https://workers.vc/). Falls back to the
@@ -93,6 +94,12 @@ CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 # The cohort's thin cross-app menu (a <cohort-nav> script the doorway serves);
 # empty (default) mounts nothing — self-hosted GovKit stays standalone.
 COHORT_NAV_SRC = env("COHORT_NAV_SRC")
+
+# Where a team's public join page lives — the cohort's public site, not GovKit.
+# The share link is f"{VENTURE_PAGE_BASE_URL}/{org.slug}/", e.g.
+# https://workers.vc/ventures. Empty hides the share link and the copy button;
+# the setup screen still works, there is just nothing to share yet.
+VENTURE_PAGE_BASE_URL = env("VENTURE_PAGE_BASE_URL").rstrip("/")
 
 # Browser-facing base for URLs handed to OTHER SERVERS to relay (S2S invite
 # payloads): loopback callers must never leak http://127.0.0.1 links to real

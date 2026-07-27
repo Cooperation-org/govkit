@@ -25,6 +25,7 @@ from .doorway import wall_people_without_accounts
 from .forms import (
     GrantValueForm,
     InviteForm,
+    JoinPageForm,
     MemberUpdateForm,
     OnboardingForm,
     OrgRateForm,
@@ -32,6 +33,7 @@ from .forms import (
     SponsorGrantForm,
 )
 from .genesis import MODULES, module_of, modules_for, start_genesis, toggle_item
+from .sitepull import SiteUnreachable, fetch_profile
 from .invites import (
     SESSION_KEY,
     InviteError,
@@ -449,6 +451,122 @@ def org_settings(request, org_slug):
     else:
         form = OrgSettingsForm(initial=_settings_initial(org))
     return render(request, "orgs/settings.html", {"form": form, "org": org})
+
+
+def _join_page_initial(org):
+    """Prefill the join-page form from the stored profile."""
+    return {
+        "display_name": org.display_name,
+        "tagline": org.tagline,
+        "pitch": org.pitch,
+        "looking_for": "\n".join(
+            f"{a['role']}: {a['detail']}" if a["detail"] else a["role"] for a in org.asks
+        ),
+        "website": org.website,
+        "logo_url": org.logo_url,
+        "cover_image_url": org.cover_image_url,
+        "socials": "\n".join(
+            (s.get("label", "") + " " + s.get("url", "")).strip()
+            for s in (org.socials or [])
+            if isinstance(s, dict) and s.get("url")
+        ),
+    }
+
+
+def _join_page_url(org):
+    """The one link the team shares. It lives on workers.vc, not here."""
+    base = (settings.VENTURE_PAGE_BASE_URL or "").rstrip("/")
+    return f"{base}/{org.slug}/" if base else ""
+
+
+def _render_join_page(request, org, form, pulled_from=""):
+    return render(
+        request,
+        "orgs/join_page.html",
+        {
+            "form": form,
+            "org": org,
+            "gaps": org.join_page_gaps(),
+            "share_url": _join_page_url(org),
+            "pulled_from": pulled_from,
+        },
+    )
+
+
+@login_required
+def join_page_setup(request, org_slug):
+    """Set up the page the team shares to bring people in.
+
+    GET shows the fields next to a live preview of the real page. POST saves.
+    Everything is optional: a team that fills two fields gets a page with two
+    fields, not a validation wall.
+    """
+    _require_admin(request)
+    org = request.org
+    if request.method == "POST":
+        form = JoinPageForm(request.POST)
+        if form.is_valid():
+            org.display_name = form.cleaned_data["display_name"].strip() or org.display_name
+            org.tagline = form.cleaned_data["tagline"].strip()
+            org.pitch = form.cleaned_data["pitch"].strip()
+            org.looking_for = form.looking_for_list()
+            org.website = form.cleaned_data["website"]
+            org.logo_url = form.cleaned_data["logo_url"]
+            org.cover_image_url = form.cleaned_data["cover_image_url"]
+            org.socials = form.socials_list()
+            org.save(
+                update_fields=[
+                    "display_name",
+                    "tagline",
+                    "pitch",
+                    "looking_for",
+                    "website",
+                    "logo_url",
+                    "cover_image_url",
+                    "socials",
+                    "updated_at",
+                ]
+            )
+            messages.success(request, "Saved. Your page is live.")
+            return redirect("orgs:join_page", org_slug=org.slug)
+        messages.error(request, "Please check the page details and try again.")
+        return _render_join_page(request, org, form)
+    return _render_join_page(request, org, JoinPageForm(initial=_join_page_initial(org)))
+
+
+@login_required
+@require_POST
+def join_page_pull(request, org_slug):
+    """Read the team's own site and put the drafts in the form, unsaved.
+
+    Nothing is written here. The admin sees their own words in editable fields
+    and presses save, or does not. A pull never overwrites a field the team has
+    already filled in on this screen.
+    """
+    _require_admin(request)
+    org = request.org
+    typed = JoinPageForm(request.POST)
+    typed.is_valid()  # populates cleaned_data; every field is optional
+    current = {**_join_page_initial(org), **{k: v for k, v in typed.data.items()}}
+    source = (typed.data.get("website") or org.website or "").strip()
+
+    try:
+        drafted = fetch_profile(source)
+    except SiteUnreachable as exc:
+        messages.error(request, str(exc))
+        return _render_join_page(request, org, JoinPageForm(initial=current))
+
+    # Only fill what is empty. Their edits win over anything we read.
+    for field in ("display_name", "tagline", "pitch", "website", "logo_url", "cover_image_url"):
+        if not (current.get(field) or "").strip() and drafted.get(field):
+            current[field] = drafted[field]
+    if not (current.get("socials") or "").strip() and drafted.get("socials"):
+        current["socials"] = "\n".join(f"{s['label']} {s['url']}" for s in drafted["socials"])
+
+    messages.success(request, "Pulled from your site. Edit anything, then save.")
+    return _render_join_page(
+        request, org, JoinPageForm(initial=current), pulled_from=drafted.get("website", "")
+    )
 
 
 @login_required

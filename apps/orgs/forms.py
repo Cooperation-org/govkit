@@ -408,6 +408,71 @@ class OrgSettingsForm(forms.Form):
         return out
 
 
+class JoinPageForm(forms.Form):
+    """The team's public join page: what a stranger sees when the link is shared.
+
+    Separate from OrgSettingsForm on purpose. Settings is plumbing the team sets
+    once (repos, calendar, where the pie lives); this is the one screen that
+    decides whether a shared link brings anyone in, so it stands alone with its
+    own preview. Both write to the same Org row — one home per fact.
+
+    Nothing is required. A half-filled page is better than a form nobody finishes.
+    """
+
+    display_name = forms.CharField(max_length=255, label="Name")
+    tagline = forms.CharField(
+        max_length=255,
+        required=False,
+        label="One line: what this is",
+    )
+    pitch = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 5}),
+        label="What you are building, in your own words",
+    )
+    looking_for = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 5}),
+        label="Who you are looking for",
+    )
+    website = forms.CharField(max_length=500, required=False, label="Website")
+    logo_url = forms.CharField(max_length=500, required=False, label="Logo image")
+    cover_image_url = forms.CharField(
+        max_length=500, required=False, label="Link preview picture"
+    )
+    socials = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        label="Socials",
+    )
+
+    def clean_website(self):
+        return _norm_url(self.cleaned_data.get("website", ""))
+
+    def clean_logo_url(self):
+        return _norm_url(self.cleaned_data.get("logo_url", ""))
+
+    def clean_cover_image_url(self):
+        return _norm_url(self.cleaned_data.get("cover_image_url", ""))
+
+    def looking_for_list(self) -> list:
+        """One ask per line, `role: what they would do`. The detail is optional."""
+        out = []
+        for line in (self.cleaned_data.get("looking_for") or "").splitlines():
+            line = line.strip().lstrip("-•*").strip()
+            if not line:
+                continue
+            role, _, detail = line.partition(":")
+            role = role.strip()
+            if role:
+                out.append({"role": role[:120], "detail": detail.strip()[:300]})
+        return out
+
+    # Socials parse identically to the settings form — same stored shape, so the
+    # parsing lives in one place and both forms call it.
+    socials_list = OrgSettingsForm.socials_list
+
+
 class GrantValueForm(forms.Form):
     """Admin grants a member a starting stake for work done before the pie —
     recorded as an OpeningBalance (the historical-equity target). Additive:
