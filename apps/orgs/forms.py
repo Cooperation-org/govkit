@@ -13,6 +13,7 @@ from decimal import Decimal
 
 from django import forms
 from django.db import transaction
+from django.db.models import Sum
 from django.utils.text import slugify
 
 from .models import (
@@ -431,34 +432,6 @@ class SponsorGrantForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.org = org
 
-    def clean(self):
-        cleaned = super().clean()
-        pct = cleaned.get("target_pct")
-        value = cleaned.get("value")
-        if pct is None and value is None:
-            raise forms.ValidationError("Give a share of the pie or an amount.")
-        if pct is not None:
-            if pct <= 0 or pct >= Decimal("100"):
-                raise forms.ValidationError("A share has to be above 0 and below 100 percent.")
-            from django.db.models import Sum
-
-            from apps.orgs.models import OrgStake, PiePhase
-
-            if value is None and self.org is not None and self.org.pie_phase != PiePhase.LOCKED:
-                already = (
-                    OrgStake.objects.filter(org=self.org, value__isnull=True).aggregate(
-                        t=Sum("target_pct")
-                    )["t"]
-                    or Decimal("0")
-                )
-                if already + pct >= Decimal("100"):
-                    raise forms.ValidationError(
-                        f"Percent stakes already promise {already}% of the starting "
-                        "split — this would take it to 100% or more, leaving the "
-                        "team nothing."
-                    )
-        return cleaned
-
     sponsor = forms.ModelChoiceField(
         queryset=ExternalHolder.objects.all(),
         label="Company",
@@ -500,4 +473,38 @@ class SponsorGrantForm(forms.Form):
             )
         if pct is not None and not (Decimal("0") < pct < Decimal("100")):
             self.add_error("target_pct", "A share has to be above 0 and below 100 percent.")
+        # Before lock-in, percent stakes all describe the same starting split, so
+        # together they cannot promise out the whole of it — the team must keep
+        # something. (After lock-in a percent is minted against the live pie and
+        # value_for_target_share enforces its own bounds.)
+        if pct is not None and value is None and self.org is not None:
+            from apps.orgs.models import OpeningBalance, OrgStake, PiePhase
+
+            if self.org.pie_phase != PiePhase.LOCKED:
+                # A pre-lock percent is a share of the STARTING split, so there has to
+                # be one: starting values for the team, or another fixed stake. On an
+                # org whose only value is earned drops, a percent of the start means
+                # nothing — record starting values first, or give an amount.
+                openings = OpeningBalance.objects.filter(org=self.org).aggregate(t=Sum("value"))[
+                    "t"
+                ] or Decimal("0")
+                fixed = OrgStake.objects.filter(org=self.org, value__isnull=False).aggregate(
+                    t=Sum("value")
+                )["t"] or Decimal("0")
+                if openings + fixed <= Decimal("0"):
+                    self.add_error(
+                        "target_pct",
+                        "There is no starting split yet for this to be a percent of. "
+                        "Record the team's starting values first, or give an amount.",
+                    )
+                already = OrgStake.objects.filter(org=self.org, value__isnull=True).aggregate(
+                    t=Sum("target_pct")
+                )["t"] or Decimal("0")
+                if already + pct >= Decimal("100"):
+                    self.add_error(
+                        "target_pct",
+                        f"Percent stakes already promise {already}% of the starting "
+                        "split — this would take it to 100% or more, leaving the "
+                        "team nothing.",
+                    )
         return data

@@ -82,3 +82,32 @@ def test_a_non_member_gets_nothing(client, accel_org, joiner, user_factory):
     resp = client.get(f"/api/v1/commons/orgs/{accel_org.slug}/attention/")
 
     assert resp.status_code in (403, 404)
+
+
+class TestWallPickerSaysWhyItIsEmpty:
+    """A picker that renders nothing looks exactly like one that never shipped."""
+
+    def test_an_unwired_doorway_says_so(self, settings):
+        from apps.orgs.doorway import wall_people_without_accounts
+
+        settings.DOORWAY_API_URL = ""
+        settings.GOVKIT_S2S_TOKEN = "s2s"
+
+        people, problem = wall_people_without_accounts()
+
+        assert people == []
+        assert "DOORWAY_API_URL" in problem
+
+    def test_an_unreachable_doorway_names_the_host(self, settings):
+        from django.core.cache import cache
+
+        from apps.orgs.doorway import wall_people_without_accounts
+
+        cache.clear()
+        settings.DOORWAY_API_URL = "http://127.0.0.1:1"  # nothing listens here
+        settings.GOVKIT_S2S_TOKEN = "s2s"
+
+        people, problem = wall_people_without_accounts()
+
+        assert people == []
+        assert "127.0.0.1:1" in problem

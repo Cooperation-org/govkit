@@ -181,9 +181,7 @@ class Org(models.Model):
     # starting numbers stay adjustable — nothing is final until the team locks it in by
     # majority decision (a work-weighted vote; money doesn't vote). LOCKED: the split is
     # the record. The vote itself lives in apps.pie (PieLockVote).
-    pie_phase = models.CharField(
-        max_length=12, choices=PiePhase.choices, default="setup"
-    )
+    pie_phase = models.CharField(max_length=12, choices=PiePhase.choices, default="setup")
     pie_locked_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

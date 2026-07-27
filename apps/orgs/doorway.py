@@ -31,40 +31,50 @@ _CACHE_KEY = "doorway-wall-people"
 
 
 def _fetch_wall_people():
+    """(people, problem). `problem` is a sentence to show, or "" when fine.
+
+    A picker that silently renders nothing is indistinguishable from a picker
+    that was never deployed, which is exactly how an afternoon gets lost. So
+    every way this can come back empty says which way it was.
+    """
     base = settings.DOORWAY_API_URL
     token = settings.GOVKIT_S2S_TOKEN
     if not (base and token):
-        return []
+        return [], (
+            "The wall is not wired up here: DOORWAY_API_URL or GOVKIT_S2S_TOKEN "
+            "is unset in this app's environment."
+        )
     cached = cache.get(_CACHE_KEY)
     if cached is not None:
         return cached
-    people = []
     try:
         req = urllib.request.Request(
             f"{base}/api/wall/people/", headers={"Authorization": f"Bearer {token}"}
         )
         with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:  # nosec B310
-            people = json.loads(resp.read().decode("utf-8")).get("people", [])
-    except Exception:
-        logger.warning("wall people unavailable; invite form renders without the picker")
-        people = []
-    cache.set(_CACHE_KEY, people, _CACHE_SECONDS)
-    return people
+            result = json.loads(resp.read().decode("utf-8")).get("people", []), ""
+    except Exception as e:
+        logger.warning("wall people unreachable at %s: %s", base, e, exc_info=True)
+        result = [], f"Could not read the wall at {base}: {e}"
+    cache.set(_CACHE_KEY, result, _CACHE_SECONDS)
+    return result
 
 
 def wall_people_without_accounts():
-    """Wall people nobody has signed in as yet — the ones worth inviting.
+    """(people, problem) for the invite form's picker.
 
-    Someone whose claim rides an accepted invite already has an account, so
-    offering them again would mint a second link for a person who is in.
+    People here have a claim and no account. Someone whose claim rides an
+    accepted invite already signed in, so offering them again would mint a
+    second link for a person who is in.
     """
-    people = _fetch_wall_people()
+    people, problem = _fetch_wall_people()
     if not people:
-        return []
+        return [], problem or "Everyone on the wall already has an account."
     claim_ids = [p.get("claim_id") for p in people if p.get("claim_id")]
     signed_in = set(
         Invite.objects.filter(
             committed_claim_id__in=claim_ids, accepted_by__isnull=False
         ).values_list("committed_claim_id", flat=True)
     )
-    return [p for p in people if p.get("claim_id") not in signed_in]
+    left = [p for p in people if p.get("claim_id") not in signed_in]
+    return left, "" if left else "Everyone on the wall already has an account."

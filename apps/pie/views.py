@@ -115,9 +115,7 @@ def index(request, org_slug):
         my_choice = ballot.choice if ballot else None
 
     cohort = org.cohort
-    cohort_ended = bool(
-        cohort and cohort.ends_on and cohort.ends_on <= timezone.localdate()
-    )
+    cohort_ended = bool(cohort and cohort.ends_on and cohort.ends_on <= timezone.localdate())
 
     context = {
         "page_title": "Pie",
@@ -211,9 +209,7 @@ def lock_close(request, org_slug):
         return redirect("pie:index", org_slug=org_slug)
     lock = close_lock_vote(lock)
     if lock.locked:
-        messages.success(
-            request, "Locked in by majority decision — this split is the record."
-        )
+        messages.success(request, "Locked in by majority decision — this split is the record.")
     else:
         messages.info(
             request,

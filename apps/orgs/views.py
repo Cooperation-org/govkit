@@ -268,6 +268,7 @@ def _invite_share_link(request, invite):
 def members(request, org_slug):
     """Admin UI: list members with role + rate controls, org-wide rate, and an invite form."""
     _require_admin(request)
+    wall_people, wall_problem = wall_people_without_accounts()
     memberships = (
         Membership.objects.filter(org=request.org)
         .select_related("user", "org")
@@ -308,7 +309,8 @@ def members(request, org_slug):
             # People already on the wall who have no account yet. Picking one
             # fills the form from what they wrote there and ties the invite to
             # the claim they made, so nobody is asked to attest twice.
-            "wall_people": wall_people_without_accounts(),
+            "wall_people": wall_people,
+            "wall_problem": wall_problem,
             # Sponsors of THIS org, if any. They hold equity here but no membership, so
             # they have no row in the table above and would otherwise be invisible to
             # the admin looking at who owns what.

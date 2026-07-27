@@ -86,9 +86,7 @@ def test_entry_order_does_not_matter(org_factory, user_factory, membership_facto
     shares = []
     for order in ("pct-first", "pct-last"):
         org = org_factory()
-        m = membership_factory(
-            org=org, user=user_factory(), role=MembershipRole.ADMIN
-        )
+        m = membership_factory(org=org, user=user_factory(), role=MembershipRole.ADMIN)
         if order == "pct-first":
             OrgStake.objects.create(org=org, holder=sponsor, target_pct=Decimal("25"))
             _grant(org, m, "75000")
@@ -96,9 +94,7 @@ def test_entry_order_does_not_matter(org_factory, user_factory, membership_facto
             _grant(org, m, "75000")
             OrgStake.objects.create(org=org, holder=sponsor, target_pct=Decimal("25"))
         pie = compute_pie(org)
-        shares.append(
-            {("sponsor" if s.is_sponsor else "member"): s.share_pct for s in pie.slices}
-        )
+        shares.append({("sponsor" if s.is_sponsor else "member"): s.share_pct for s in pie.slices})
     assert shares[0] == shares[1]
     assert shares[0]["sponsor"] == Decimal("25.00")
 
@@ -132,9 +128,7 @@ def test_starting_split_cannot_promise_out_everything(venture, sponsor):
 
     org, admin, member = venture
     OrgStake.objects.create(org=org, holder=sponsor, target_pct=Decimal("60"))
-    form = SponsorGrantForm(
-        {"sponsor": sponsor.id, "target_pct": "40"}, org=org
-    )
+    form = SponsorGrantForm({"sponsor": sponsor.id, "target_pct": "40"}, org=org)
     assert not form.is_valid()
 
 

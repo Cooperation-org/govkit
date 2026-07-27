@@ -416,8 +416,11 @@ def test_target_share_refuses_a_hundred_percent(venture_with_work):
 
 
 def test_grant_by_percent_on_a_running_venture(venture_with_work, sponsor, client):
-    """The case that actually happens: the venture is built, then the deal is struck."""
+    """The venture is built, then the deal is struck — once the split is LOCKED,
+    a percent is minted against the live pie and everyone dilutes."""
     org, member = venture_with_work
+    org.pie_phase = "locked"
+    org.save(update_fields=["pie_phase"])
     client.force_login(member.user)
 
     resp = client.post(
@@ -433,6 +436,21 @@ def test_grant_by_percent_on_a_running_venture(venture_with_work, sponsor, clien
         "Sponsor Co": Decimal("50.00"),
     }
     assert OrgStake.objects.get(org=org).source_note == "Cash and the idea"
+
+
+def test_percent_before_lockin_needs_a_starting_split(venture_with_work, sponsor, client):
+    """Before lock-in a percent is a share of the STARTING split. On a venture whose
+    only value is earned drops there is no starting split yet, so refuse and say so
+    rather than resolve a percent of nothing."""
+    org, member = venture_with_work  # launched phase is not set; org is in setup
+    client.force_login(member.user)
+
+    resp = client.post(
+        reverse("orgs:sponsor_grant", kwargs={"org_slug": org.slug}),
+        {"sponsor": sponsor.id, "target_pct": "50", "source_note": "Cash and the idea"},
+    )
+    assert resp.status_code == 302
+    assert not OrgStake.objects.filter(org=org).exists()
 
 
 def test_grant_by_amount_works_on_an_empty_pie(

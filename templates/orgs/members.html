@@ -178,10 +178,12 @@
       <div class="gk-fieldgroup">
         <h3>Who</h3>
         <div class="gk-form-grid">
-          {% if wall_people %}
           <div class="gk-field gk-span-2">
             <label for="wall-pick">From the wall <small>they wrote a card but have no
               account yet — picking one fills this form and keeps their claim</small></label>
+            {% if not wall_people %}
+              <p class="gk-muted"><small>{{ wall_problem }}</small></p>
+            {% else %}
             <select id="wall-pick">
               <option value="">Someone new</option>
               {% for p in wall_people %}
@@ -192,8 +194,8 @@
                         data-role="{{ p.role }}">{{ p.person_name|default:p.claim_id }}{% if p.role %} ({{ p.role }}){% endif %}</option>
               {% endfor %}
             </select>
+            {% endif %}
           </div>
-          {% endif %}
           <div class="gk-field">
             <label for="{{ invite_form.name.id_for_label }}">Name</label>
             {{ invite_form.name }}
