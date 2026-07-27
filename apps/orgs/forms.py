@@ -202,24 +202,32 @@ class InviteForm(forms.Form):
     name = forms.CharField(max_length=255, required=False, label="Invitee name")
     email = forms.EmailField(required=False, label="Email")
     link = forms.URLField(
+        max_length=1000,
         required=False,
         assume_scheme="https",
         label="Their link",
         help_text="Optional. Their LinkedIn or website.",
     )
-    image_url = forms.URLField(required=False, assume_scheme="https", label="Image URL")
+    image_url = forms.URLField(
+        max_length=1000, required=False, assume_scheme="https", label="Image URL"
+    )
     venture_name = forms.CharField(
         max_length=255,
         required=False,
         label="Venture",
         help_text="Founder invites: what they are launching. Their card centers it.",
     )
-    venture_url = forms.URLField(required=False, assume_scheme="https", label="Venture link")
+    venture_url = forms.URLField(
+        max_length=1000, required=False, assume_scheme="https", label="Venture link"
+    )
+    # Founder + pool is what most invites actually are (golda 2026-07-27): the
+    # common act is screening someone into the applicant pool, not handing out
+    # membership. The rarer, heavier choices stay one selection away.
     audience = forms.ChoiceField(
-        choices=InviteAudience.choices, initial=InviteAudience.SUPPORTER, label="Audience"
+        choices=InviteAudience.choices, initial=InviteAudience.FOUNDER, label="Audience"
     )
     kind = forms.ChoiceField(
-        choices=InviteKind.choices, initial=InviteKind.ORG, label="Invite type"
+        choices=InviteKind.choices, initial=InviteKind.POOL, label="Invite type"
     )
     role = forms.ChoiceField(choices=MembershipRole.choices, initial=MembershipRole.MEMBER)
     drafted_statement = forms.CharField(
