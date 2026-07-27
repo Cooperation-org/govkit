@@ -1181,3 +1181,16 @@ move ("help push the buzz"). The item shape in apps/commons/attention.py is
 the seam — every kind already carries title/detail/since. Wall cards already
 have share cards + joinable posts on the doorway side; this would reuse that
 rather than invent a second publisher.
+
+## CURRICULUM — where it lives, and where golda wants it (2026-07-27)
+Two homes, both code, neither editable from a UI:
+- The checklist itself: `apps/orgs/genesis.py` MODULES (key, title, order,
+  items). The dash rail and cohort progress read this.
+- The readable companion: workers.vc `doorway/templates/curriculum.html`.
+
+NOT BUILT, GOLDA WANTS IT LATER: curriculum items should be real tasks on the
+board, and should pop out (open in place) rather than being a static list.
+That also answers "where do I edit it" — a task is editable where it lives.
+Tasks already come from TaskSourceConfig per org, so the question to settle
+first is whether genesis seeds tasks into the board on start, or the board
+grows a curriculum source.
