@@ -152,11 +152,14 @@ class OrgInterestFeedView(APIView):
 class OrgAttentionView(APIView):
     """The dash rail: everything on THIS org's plate, one typed list.
 
-    Members only (middleware). A venture gets its own waiting list. The
-    accelerator org's rail additionally carries the cross-venture view for its
-    admins: every unanswered hand-raise anywhere, plus walk-ups pending at the
-    doorway. New attention kinds append here — the item shape (attention.py)
-    is the contract, the embed renders any kind.
+    Members only (middleware). A venture gets its own waiting list. On the
+    accelerator's rail everyone sees who has been joining — the cohort filling
+    up is the whole cohort's news, not the admins' (golda 2026-07-27). What
+    stays with admins is the work only they can do: every unanswered hand-raise
+    across ventures, and walk-ups pending approval at the doorway.
+
+    New attention kinds append here — the item shape (attention.py) is the
+    contract, the embed renders any kind.
     """
 
     def get(self, request, org_slug):
@@ -166,6 +169,7 @@ class OrgAttentionView(APIView):
         if request.org.slug == settings.ACCELERATOR_ORG_SLUG:
             from apps.orgs.views import _is_accelerator_admin
 
+            items = items + attention.invite_accepted_items()
             if _is_accelerator_admin(request.user):
                 items = (
                     attention.all_open_interest_items()

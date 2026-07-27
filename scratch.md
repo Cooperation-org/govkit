@@ -1165,3 +1165,19 @@ fields folded per DETAILS UNFOLD, done_statuses as comma-separated text,
 cross-org pks 404. No schema changes. Labels factual-only; no helper
 sentences — "blank keeps the existing token" wording is Golda's to add.
 — tasksources session (Fable)
+
+## ACTIVITY RAIL (2026-07-27) — everyone sees the joins
+The dash Activity card was gated two ways and so read as a missing column:
+an archetype gate (`data-not-for="mentor funder supporter pool"`) on the
+workers.vc dash template, and autohide-on-empty. Golda: everyone should see
+it when there are things, for their orgs or for the accelerator. Archetype
+gate removed; autohide kept. On the accelerator rail every member now gets
+`invite_accepted_items()` (who is joining). Admin-only still: cross-venture
+hand-raises and doorway walk-ups pending approval — that is their work, not
+news. A venture's rail is unchanged, its own waiting list.
+
+NOT BUILT, GOLDA WANTS IT LATER: turn a rail item into a social post in one
+move ("help push the buzz"). The item shape in apps/commons/attention.py is
+the seam — every kind already carries title/detail/since. Wall cards already
+have share cards + joinable posts on the doorway side; this would reuse that
+rather than invent a second publisher.
