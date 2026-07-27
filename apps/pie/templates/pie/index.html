@@ -60,7 +60,7 @@
         <a href="{% url 'orgs:members' org_slug=current_org.slug %}#starting-shares">starting split</a>,
         which can still be adjusted. Nothing is final until lock-in by majority
         decision: a vote weighted by each member's stake — what they've earned plus
-        their starting balance. Money doesn't vote.
+        their starting balance. Money doesn't vote; it gets preferred shares in the SAFE.
       </p>
       {% if cohort_ended and not lock %}
         <p><strong>The cohort has ended. Ready to lock in?</strong>

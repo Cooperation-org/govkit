@@ -156,7 +156,7 @@ def lock_start(request, org_slug):
         messages.success(
             request,
             "Lock-in vote open. A majority of the members' stake makes this split "
-            "the record. Money doesn't vote.",
+            "the record. Money doesn't vote; it gets preferred shares in the SAFE.",
         )
     except LockError as exc:
         messages.error(request, str(exc))
