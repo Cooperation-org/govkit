@@ -1191,6 +1191,12 @@ Two homes, both code, neither editable from a UI:
 NOT BUILT, GOLDA WANTS IT LATER: curriculum items should be real tasks on the
 board, and should pop out (open in place) rather than being a static list.
 That also answers "where do I edit it" — a task is editable where it lives.
+And the point of making them tasks: **people earn equity for doing them**
+(golda 2026-07-27). Curriculum work is real work — hours on a task, peer
+reviewed, into the pie like anything else. That is the argument for tasks
+over a checklist: a checkbox earns nobody anything.
+
 Tasks already come from TaskSourceConfig per org, so the question to settle
 first is whether genesis seeds tasks into the board on start, or the board
-grows a curriculum source.
+grows a curriculum source. Either way the valuation path is the one that
+already exists — no separate equity rule for curriculum work.
