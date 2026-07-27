@@ -11,7 +11,7 @@ endpoints use `org_slug` so the middleware enforces membership for free.
 
 Reads/writes ride the member's own session from the workers.vc dash (CORS
 allowlist + the X-Govkit-Embed preflight gate, same contract as the checklist
-toggle — see apps.orgs.api.EmbedSessionAuthentication).
+toggle — see apps.orgs.embed_auth).
 """
 
 from django.conf import settings
@@ -23,7 +23,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.orgs.api import EmbedSessionAuthentication
+from apps.orgs.embed_auth import EmbedSessionAuthentication
 from apps.orgs.models import Membership, Org
 
 from .mail import notify_venture_interest

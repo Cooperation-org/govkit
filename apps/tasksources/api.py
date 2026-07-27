@@ -11,7 +11,12 @@ Endpoints:
   GET  /api/v1/tasksources/orgs/<org_slug>/tasks/                 tracked tasks for the org
   GET  /api/v1/tasksources/orgs/<org_slug>/tasks/missing_value/   the missing-value queue
   GET  /api/v1/tasksources/orgs/<org_slug>/tasks/open/            live open work (proxied)
+  GET  /api/v1/tasksources/orgs/<org_slug>/tasks/<external_id>/   one task, with its body
+  POST /api/v1/tasksources/orgs/<org_slug>/tasks/<external_id>/   edit that task
   POST /api/v1/tasksources/orgs/<org_slug>/sync/                  run a sync (steward/admin)
+
+Route order matters: ``tasks/missing_value/`` and ``tasks/open/`` are declared before
+the ``<external_id>`` route so those words are never read as a task id.
 """
 
 import urllib.error
@@ -27,6 +32,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.orgs.embed_auth import EmbedSessionAuthentication
 from apps.orgs.models import MembershipRole
 
 from .adapters import get_adapter
@@ -130,6 +136,109 @@ class OpenTasksView(APIView):
         return Response(payload)
 
 
+class TaskDetailView(APIView):
+    """One task, read and edited where it lives (the dash opens it in place).
+
+    The org's OWN task sources are the only ones tried, so the credentials bound to
+    this org are what reach the tracker: passing another team's story id finds
+    nothing rather than reaching across. Any member may edit — the board is the
+    team's, and the tracker stays the authority on what a task says.
+
+    Nothing is persisted here. The tracker is the record; TrackedTask remains the
+    valuation mirror and is refreshed by sync, not by an edit.
+    """
+
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [EmbedSessionAuthentication]
+
+    def _sources(self, request):
+        return list(TaskSourceConfig.objects.for_org(request.org))
+
+    def _payload(self, detail, source):
+        return {
+            "external_id": detail.external_id,
+            "subject": detail.subject,
+            "description": detail.description,
+            "status": detail.status,
+            "external_url": detail.external_url,
+            "assignee_label": detail.assignee_label,
+            "ref": detail.ref,
+            "project_slug": detail.project_slug,
+            "version": detail.version,
+            "is_closed": detail.is_closed,
+            "source": source.pk,
+        }
+
+    def _find(self, request, external_id):
+        """Return (adapter, source, detail) for the first source that has this task."""
+        unsupported = False
+        for source in self._sources(request):
+            adapter = get_adapter(source)
+            try:
+                return adapter, source, adapter.fetch_task(external_id)
+            except LookupError:
+                continue
+            except NotImplementedError:
+                unsupported = True
+                continue
+        if unsupported:
+            raise NotImplementedError
+        raise LookupError
+
+    def get(self, request, org_slug=None, external_id=None):
+        try:
+            _adapter, source, detail = self._find(request, external_id)
+        except LookupError:
+            return Response({"detail": "No such task."}, status=status.HTTP_404_NOT_FOUND)
+        except NotImplementedError:
+            return Response(
+                {"detail": "This tracker cannot open a single task."},
+                status=status.HTTP_501_NOT_IMPLEMENTED,
+            )
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            return Response(
+                {"detail": f"Task tracker unavailable: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response(self._payload(detail, source))
+
+    def post(self, request, org_slug=None, external_id=None):
+        subject = request.data.get("subject")
+        description = request.data.get("description")
+        if subject is None and description is None:
+            return Response(
+                {"detail": "Nothing to change."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        if subject is not None and not str(subject).strip():
+            return Response(
+                {"detail": "A task needs a title."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            adapter, source, detail = self._find(request, external_id)
+            updated = adapter.update_task(
+                external_id,
+                subject=None if subject is None else str(subject).strip(),
+                description=None if description is None else str(description),
+                version=detail.version,
+            )
+        except LookupError:
+            return Response({"detail": "No such task."}, status=status.HTTP_404_NOT_FOUND)
+        except NotImplementedError:
+            return Response(
+                {"detail": "This tracker is read-only."},
+                status=status.HTTP_501_NOT_IMPLEMENTED,
+            )
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            return Response(
+                {"detail": f"Task tracker unavailable: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        # The open-tasks card is cached; an edit the person just made must not be
+        # missing from the next paint.
+        cache.delete(f"tasksources:open_tasks:{request.org.pk}")
+        return Response(self._payload(updated, source))
+
+
 class SyncView(APIView):
     """Trigger a sync of every task source for the org (steward/admin only)."""
 
@@ -174,6 +283,11 @@ urlpatterns = [
         "orgs/<slug:org_slug>/tasks/open/",
         OpenTasksView.as_view(),
         name="trackedtask-open",
+    ),
+    path(
+        "orgs/<slug:org_slug>/tasks/<str:external_id>/",
+        TaskDetailView.as_view(),
+        name="trackedtask-detail-live",
     ),
     path(
         "orgs/<slug:org_slug>/sync/",

@@ -91,6 +91,31 @@ class OpenTaskDTO:
     project_slug: Optional[str] = None  # tracker project slug, for board deep links
 
 
+@dataclass
+class TaskDetailDTO:
+    """ONE task, with the body text — what a person needs to read and edit it.
+
+    Separate from OpenTaskDTO because the list deliberately does not carry
+    descriptions (a board's worth of body text on every dash paint). This is
+    fetched one at a time, when someone opens a task.
+
+    ``version`` is the tracker's optimistic-concurrency stamp and must be sent
+    back on update: without it Taiga rejects the PATCH, and with a stale one it
+    refuses rather than silently clobbering someone else's edit.
+    """
+
+    external_id: str
+    subject: str = ""
+    description: str = ""
+    status: str = ""  # human-readable status name
+    external_url: str = ""
+    assignee_label: Optional[str] = None
+    ref: Optional[int] = None
+    project_slug: Optional[str] = None
+    version: Optional[int] = None
+    is_closed: bool = False
+
+
 class TaskSourceAdapter(abc.ABC):
     """Base class for tracker adapters (Taiga first; GitHub Issues / Linear can follow)."""
 
@@ -113,6 +138,36 @@ class TaskSourceAdapter(abc.ABC):
         NotImplementedError. Read-only — nothing is persisted.
         """
         raise NotImplementedError(f"{type(self).__name__} does not report open tasks")
+
+    def fetch_task(self, external_id: str) -> TaskDetailDTO:
+        """Return ONE task with its body text, or raise LookupError if it is gone.
+
+        Optional capability: adapters without single-task read raise NotImplementedError.
+        """
+        raise NotImplementedError(f"{type(self).__name__} does not read single tasks")
+
+    def update_task(
+        self,
+        external_id: str,
+        *,
+        subject: Optional[str] = None,
+        description: Optional[str] = None,
+        version: Optional[int] = None,
+    ) -> TaskDetailDTO:
+        """Apply an edit to ONE task on the tracker and return it as it now stands.
+
+        Only the fields passed are sent. Optional capability: adapters that cannot
+        write raise NotImplementedError, so a read-only tracker degrades to a link out
+        rather than an editor that silently drops what a person typed.
+        """
+        raise NotImplementedError(f"{type(self).__name__} cannot write tasks")
+
+    def create_task(self, subject: str, description: str = "") -> TaskDetailDTO:
+        """Create ONE task on the tracker and return it.
+
+        Optional capability: adapters that cannot write raise NotImplementedError.
+        """
+        raise NotImplementedError(f"{type(self).__name__} cannot write tasks")
 
 
 class TaigaAdapter(TaskSourceAdapter):
@@ -156,6 +211,27 @@ class TaigaAdapter(TaskSourceAdapter):
             resp_headers = {k.lower(): v for k, v in response.headers.items()}
         data = json.loads(payload) if payload else None
         return data, resp_headers
+
+    def _send(self, path: str, method: str, body: dict):
+        """POST/PATCH a JSON body and return the parsed response.
+
+        Same HTTP boundary as ``_get`` (tests mock urlopen), with the write verbs kept
+        here so no caller hand-rolls a request against a config-supplied base_url.
+        """
+        url = self._url(path)
+        headers = self._headers()
+        headers["Content-Type"] = "application/json"
+        request = urllib.request.Request(
+            url,
+            data=json.dumps(body).encode("utf-8"),
+            headers=headers,
+            method=method,
+        )
+        with urllib.request.urlopen(
+            request, timeout=10
+        ) as response:  # nosec B310 - config-supplied base_url
+            payload = response.read().decode("utf-8")
+        return json.loads(payload) if payload else None
 
     # -- Taiga concept resolution ------------------------------------------------------
 
@@ -325,6 +401,81 @@ class TaigaAdapter(TaskSourceAdapter):
                     )
                 )
         return results
+
+    # -- one task: read, edit, create ---------------------------------------------------
+
+    def _story_detail(self, story: dict) -> TaskDetailDTO:
+        """Normalize one Taiga story row, resolving its status id to a readable name."""
+        project_id = story.get("project")
+        status_row = {}
+        if project_id is not None:
+            status_row = self._statuses(str(project_id)).get(str(story.get("status"))) or {}
+        extra = story.get("assigned_to_extra_info") or {}
+        project_extra = story.get("project_extra_info") or {}
+        ref = story.get("ref")
+        version = story.get("version")
+        return TaskDetailDTO(
+            external_id=str(story["id"]),
+            subject=story.get("subject", "") or "",
+            description=story.get("description", "") or "",
+            status=status_row.get("name") or status_row.get("slug", "") or "",
+            external_url=story.get("permalink", "") or "",
+            assignee_label=extra.get("username") or None,
+            ref=ref if isinstance(ref, int) else None,
+            project_slug=project_extra.get("slug") or None,
+            version=version if isinstance(version, int) else None,
+            is_closed=bool(status_row.get("is_closed", False)),
+        )
+
+    def _story(self, external_id: str) -> dict:
+        try:
+            data, _ = self._get(f"/api/v1/userstories/{urllib.parse.quote(str(external_id))}")
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                raise LookupError(f"story {external_id} not found") from exc
+            raise
+        if not data:
+            raise LookupError(f"story {external_id} not found")
+        return data
+
+    def fetch_task(self, external_id: str) -> TaskDetailDTO:
+        return self._story_detail(self._story(external_id))
+
+    def update_task(
+        self,
+        external_id: str,
+        *,
+        subject: Optional[str] = None,
+        description: Optional[str] = None,
+        version: Optional[int] = None,
+    ) -> TaskDetailDTO:
+        body: dict = {}
+        if subject is not None:
+            body["subject"] = subject
+        if description is not None:
+            body["description"] = description
+        if not body:
+            return self.fetch_task(external_id)
+        # Taiga requires the version it last handed out. Read it now when the caller
+        # did not carry one, so an edit from a page opened a while ago still lands.
+        body["version"] = version if version is not None else self._story(external_id).get("version")
+        story = self._send(
+            f"/api/v1/userstories/{urllib.parse.quote(str(external_id))}", "PATCH", body
+        )
+        return self._story_detail(story or self._story(external_id))
+
+    def create_task(self, subject: str, description: str = "") -> TaskDetailDTO:
+        project_ids = self._project_ids()
+        if not project_ids:
+            raise ValueError("task source has no project selected; cannot create a task")
+        story = self._send(
+            "/api/v1/userstories",
+            "POST",
+            {"project": int(project_ids[0]), "subject": subject, "description": description},
+        )
+        if not story:
+            raise ValueError("tracker accepted the task but returned nothing")
+        return self._story_detail(story)
 
 
 # adapter_type value -> adapter class. Add GitHub/Linear here as they are built.

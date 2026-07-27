@@ -17,8 +17,10 @@
 //   - Every component takes data-up (GovKit origin, e.g. https://dash.workers.vc —
 //     include the base path if GovKit is deployed under one) and data-org (org slug).
 //   - <govkit-feed data-limit="8">; <govkit-tasks data-limit="6"
-//     data-tasks-app="https://marten.workers.vc"> (row links prefer the tasks-app
-//     board deep link, falling back to the tracker's own URL).
+//     data-tasks-app="https://marten.workers.vc"> — a row OPENS THE TASK in place
+//     (title and detail editable, saved to the team's own board); the way out to
+//     the board lives inside the sheet and prefers the tasks-app deep link,
+//     falling back to the tracker's own URL.
 //   - <govkit-checklist data-reading="https://.../curriculum"> — optional. When
 //     set, each module's panel links to the reading doc at
 //     <data-reading>#chapter-<module-key>. A pointer keyed by module key, never a
@@ -73,6 +75,56 @@
       'govkit-feed .who { display: flex; align-items: center; gap: 8px; white-space: nowrap; }',
       'govkit-feed .pdot { width: 8px; height: 8px; border-radius: 50%; flex: none; }',
       'govkit-feed .val, govkit-money .num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; opacity: 0.85; }',
+      // The task sheet. Lives on <body>, so it reads the host page's own tokens
+      // (--surface / --ink / --hairline / --font-head) and falls back to warm
+      // paper. NOTHING MOVES: no transition, no fade, no shadow — a hairline and
+      // a breath of space, per the pattern language.
+      '.gk-sheet-backdrop {',
+      '  position: fixed; inset: 0; z-index: 9999; background: rgba(23,19,16,0.5);',
+      '  display: flex; align-items: center; justify-content: center; padding: 24px;',
+      '}',
+      '.gk-sheet {',
+      '  background: var(--surface, #fffdf7); color: var(--ink, #26221c);',
+      '  border: 1px solid var(--hairline, #e6e1d8); border-radius: 10px;',
+      '  width: min(880px, 100%); max-height: 100%; overflow: auto;',
+      '  font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.5;',
+      '}',
+      '@media (max-width: 560px) { .gk-sheet-backdrop { padding: 0; } .gk-sheet { border-radius: 0; height: 100%; } }',
+      '.gk-sheet-head {',
+      '  display: flex; align-items: flex-start; gap: 12px;',
+      '  padding: 18px 20px 12px; border-bottom: 1px solid var(--hairline, #e6e1d8);',
+      '}',
+      '.gk-sheet-title { margin: 0; flex: 1; font-family: var(--font-head, Georgia, serif); font-size: 20px; font-weight: 600; }',
+      '.gk-sheet-close {',
+      '  flex: none; background: none; border: 1px solid transparent; color: inherit;',
+      '  font-size: 20px; line-height: 1; padding: 2px 8px; border-radius: 6px; cursor: pointer;',
+      '}',
+      '.gk-sheet-close:hover { border-color: var(--hairline, #e6e1d8); }',
+      '.gk-sheet-body { padding: 16px 20px 20px; display: grid; gap: 14px; }',
+      '.gk-field { display: block; }',
+      '.gk-flabel {',
+      '  display: block; margin-bottom: 5px; font-size: 11px; font-weight: 700;',
+      '  letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted, #736b5c);',
+      '}',
+      '.gk-field input, .gk-field textarea {',
+      '  width: 100%; box-sizing: border-box; font: inherit; color: inherit;',
+      '  background: var(--page, #faf9f6); border: 1px solid var(--hairline, #e6e1d8);',
+      '  border-radius: 6px; padding: 8px 10px; resize: vertical;',
+      '}',
+      '.gk-field input:focus, .gk-field textarea:focus { outline: none; border-color: var(--accent, #0f766e); }',
+      '.gk-sheet-meta {',
+      '  display: flex; flex-wrap: wrap; align-items: center; gap: 14px;',
+      '  padding-top: 12px; border-top: 1px solid var(--hairline, #e6e1d8);',
+      '  font-size: 13px; color: var(--muted, #736b5c);',
+      '}',
+      // STATUS IS A WORD, NOT A COLOR.
+      '.gk-sheet-status { font-weight: 600; color: var(--ink, #26221c); }',
+      '.gk-sheet-note { padding: 0 20px 16px; font-size: 13px; color: var(--ink, #26221c); }',
+      'govkit-tasks .rowopen {',
+      '  background: none; border: none; padding: 0; font: inherit; color: inherit;',
+      '  text-align: left; cursor: pointer; text-decoration: underline;',
+      '  text-underline-offset: 2px; text-decoration-thickness: 1px;',
+      '}',
       'govkit-checklist .module { margin: 0 0 2px; }',
       'govkit-checklist .module-head {',
       '  display: flex; align-items: center; gap: 8px; width: 100%;',
@@ -484,7 +536,7 @@
   // Open tracker work. Row links prefer the tasks-app board deep link
   // (<data-tasks-app>/p/<project_slug>/board?story=<ref>), else external_url.
 
-  function renderTasks(host, d) {
+  function renderTasks(host, d, c) {
     var tasks = d.tasks || [];
     var limit = parseInt(host.dataset.limit || '6', 10);
     tasks = tasks.slice(0, limit > 0 ? limit : 6);
@@ -496,27 +548,36 @@
     tasks.forEach(function (t) {
       var tr = el('tr');
       var tdSubject = el('td');
-      var href = null;
-      if (tasksApp && t.project_slug && t.ref != null) {
-        href = safeHref(tasksApp + '/p/' + encodeURIComponent(t.project_slug) +
-          '/board?story=' + encodeURIComponent(t.ref));
-      }
-      if (!href && tasksApp) {
-        // The tasks app IS the team's front end — never send people to the
-        // raw tracker when one is configured (Golda 2026-07-19).
-        href = safeHref(t.project_slug
-          ? tasksApp + '/p/' + encodeURIComponent(t.project_slug) + '/board'
-          : tasksApp + '/tasks');
-      }
-      if (!href) href = safeHref(t.external_url);
-      if (href) {
-        var a = el('a', null, t.subject || t.external_id);
-        a.setAttribute('href', href);
-        a.setAttribute('target', '_blank');
-        a.setAttribute('rel', 'noopener');
-        tdSubject.appendChild(a);
+      // The row opens the task here, in place, rather than throwing the person
+      // out to the tracker. The way back out lives inside the sheet.
+      if (c && t.external_id != null) {
+        var open = el('button', 'rowopen', t.subject || t.external_id);
+        open.type = 'button';
+        open.addEventListener('click', function () { openTaskSheet(c, t, tasksApp); });
+        tdSubject.appendChild(open);
       } else {
-        tdSubject.textContent = t.subject || t.external_id;
+        var href = null;
+        if (tasksApp && t.project_slug && t.ref != null) {
+          href = safeHref(tasksApp + '/p/' + encodeURIComponent(t.project_slug) +
+            '/board?story=' + encodeURIComponent(t.ref));
+        }
+        if (!href && tasksApp) {
+          // The tasks app IS the team's front end — never send people to the
+          // raw tracker when one is configured (Golda 2026-07-19).
+          href = safeHref(t.project_slug
+            ? tasksApp + '/p/' + encodeURIComponent(t.project_slug) + '/board'
+            : tasksApp + '/tasks');
+        }
+        if (!href) href = safeHref(t.external_url);
+        if (href) {
+          var a = el('a', null, t.subject || t.external_id);
+          a.setAttribute('href', href);
+          a.setAttribute('target', '_blank');
+          a.setAttribute('rel', 'noopener');
+          tdSubject.appendChild(a);
+        } else {
+          tdSubject.textContent = t.subject || t.external_id;
+        }
       }
       tr.appendChild(tdSubject);
       tr.appendChild(el('td', 'assignee', t.assignee_label || ''));
@@ -525,6 +586,150 @@
     });
     table.appendChild(tbody);
     host.appendChild(table);
+  }
+
+  // --- the task sheet ------------------------------------------------------
+  // A task opened over the page at nearly full size, editable where it sits.
+  // Mirrors amebo's TaskSheet so a person meets ONE task editor across the
+  // cohort: not a cramped strip inside the row, not a small modal. Fields save
+  // when you leave them, and only when the text actually changed. Esc closes.
+  //
+  // The tracker stays the record: every save is a write to the team's own board
+  // through GovKit, and nothing is kept here.
+
+  var sheetOpen = null;  // the live sheet, so a second click replaces it
+
+  function fieldRow(label, value, multiline, onSave) {
+    var wrap = el('label', 'gk-field');
+    wrap.appendChild(el('span', 'gk-flabel', label));
+    var input = multiline ? el('textarea') : el('input');
+    if (!multiline) input.type = 'text';
+    input.value = value || '';
+    if (multiline) input.rows = 12;
+    input.addEventListener('blur', function () {
+      if (input.value === (value || '')) return;
+      onSave(input.value, input);
+    });
+    wrap.appendChild(input);
+    return wrap;
+  }
+
+  function closeSheet() {
+    if (!sheetOpen) return;
+    var restore = sheetOpen.restore;
+    document.removeEventListener('keydown', sheetOpen.onKey, true);
+    sheetOpen.backdrop.remove();
+    sheetOpen = null;
+    if (restore && restore.focus) restore.focus();
+  }
+
+  function openTaskSheet(c, task, tasksApp) {
+    closeSheet();
+    ensureStyles();
+
+    var backdrop = el('div', 'gk-sheet-backdrop');
+    var panel = el('div', 'gk-sheet');
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('aria-label', task.subject || 'Task');
+
+    var head = el('div', 'gk-sheet-head');
+    // The row's own words paint immediately; the body arrives when it arrives.
+    var heading = el('h2', 'gk-sheet-title', task.subject || '');
+    head.appendChild(heading);
+    var closeBtn = el('button', 'gk-sheet-close', '×');
+    closeBtn.type = 'button';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.addEventListener('click', closeSheet);
+    head.appendChild(closeBtn);
+    panel.appendChild(head);
+
+    var body = el('div', 'gk-sheet-body');
+    panel.appendChild(body);
+    var note = el('div', 'gk-sheet-note');
+    note.hidden = true;
+    panel.appendChild(note);
+
+    backdrop.appendChild(panel);
+    backdrop.addEventListener('mousedown', function (e) {
+      if (e.target === backdrop) closeSheet();
+    });
+    document.body.appendChild(backdrop);
+
+    function onKey(e) {
+      if (e.key === 'Escape') { e.stopPropagation(); closeSheet(); }
+    }
+    document.addEventListener('keydown', onKey, true);
+    sheetOpen = { backdrop: backdrop, onKey: onKey, restore: document.activeElement };
+
+    var url = c.up + '/api/v1/tasksources/orgs/' + c.org + '/tasks/' +
+      encodeURIComponent(task.external_id) + '/';
+
+    function say(message) {
+      note.textContent = message;
+      note.hidden = !message;
+    }
+
+    function save(fields, input) {
+      input.disabled = true;
+      say('');
+      fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'X-Govkit-Embed': '1', 'Content-Type': 'application/json' },
+        body: JSON.stringify(fields),
+      })
+        .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function (d) { render(d); })
+        .catch(function () {
+          // Keep what the person typed; tell them plainly it is not on the board.
+          say('Not saved. Your text is still here — try again, or open it on the board.');
+        })
+        .then(function () { input.disabled = false; });
+    }
+
+    function render(d) {
+      heading.textContent = d.subject || task.subject || '';
+      body.replaceChildren();
+
+      body.appendChild(fieldRow('Task', d.subject || '', false, function (v, input) {
+        save({ subject: v }, input);
+      }));
+      body.appendChild(fieldRow('Detail', d.description || '', true, function (v, input) {
+        save({ description: v }, input);
+      }));
+
+      var meta = el('div', 'gk-sheet-meta');
+      if (d.status) meta.appendChild(el('span', 'gk-sheet-status', d.status));
+      if (d.assignee_label) meta.appendChild(el('span', null, d.assignee_label));
+      var href = null;
+      if (tasksApp && d.project_slug && d.ref != null) {
+        href = safeHref(tasksApp + '/p/' + encodeURIComponent(d.project_slug) +
+          '/board?story=' + encodeURIComponent(d.ref));
+      }
+      if (!href) href = safeHref(d.external_url);
+      if (href) {
+        var a = el('a', null, 'Open on the board');
+        a.setAttribute('href', href);
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener');
+        meta.appendChild(a);
+      }
+      if (meta.childNodes.length) body.appendChild(meta);
+    }
+
+    // NOT jget: that dedupes per URL for the life of the page, which would serve
+    // a stale body to anyone who opened this task before editing it.
+    fetch(url, { credentials: 'include', headers: { 'X-Govkit-Embed': '1' } })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (d) {
+        render(d);
+        var first = panel.querySelector('input, textarea');
+        if (first) first.focus();
+      })
+      .catch(function () {
+        say('This task could not be opened. It may have been removed from the board.');
+      });
   }
 
   // --- <govkit-money> ------------------------------------------------------
