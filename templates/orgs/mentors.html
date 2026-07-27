@@ -1,39 +1,77 @@
 {% extends "base.html" %}
 {% block title %}Mentors — GovKit{% endblock %}
 {% block head %}
-<script src="https://demos.linkedtrust.us/embed/badge.js" defer></script>
 <style>
-  .gk-mentors { display: grid; gap: 1.25rem; }
-  @media (min-width: 900px) { .gk-mentors { grid-template-columns: 1fr 1fr; } }
-  .gk-mentor { border: 1px solid var(--gk-border); border-radius: var(--gk-radius-card);
-               padding: 1rem; background: var(--gk-surface); }
-  .gk-mentor linked-badge { display: block; }
-  .gk-mentor .gk-book { margin-top: 0.75rem; display: flex; gap: 0.75rem;
-                        align-items: baseline; flex-wrap: wrap; }
-  .gk-mentor .gk-time { color: var(--gk-muted); font-size: 0.85rem; }
+  /* One card per mentor, in the house language: warm paper, hairline, ink.
+     A face, their own words, and the one thing you came to do. */
+  .gk-mentors { display: grid; gap: 1rem; margin-top: 1.5rem; }
+  @media (min-width: 40rem) { .gk-mentors { grid-template-columns: 1fr 1fr; } }
+
+  .gk-mentor {
+    display: flex; flex-direction: column; gap: 0.75rem;
+    padding: 1.1rem 1.2rem;
+    background: var(--gk-surface); border: 1px solid var(--gk-border);
+    border-radius: var(--gk-radius-card);
+  }
+  .gk-mentor-head { display: flex; gap: 0.8rem; align-items: center; }
+  .gk-mentor-face {
+    width: 46px; height: 46px; flex: 0 0 46px; border-radius: 50%;
+    object-fit: cover; background: var(--gk-neutral-soft);
+  }
+  .gk-mentor-initial {
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 650; font-size: 1.1rem; color: var(--gk-muted);
+  }
+  .gk-mentor-name { font-weight: 650; line-height: 1.2; }
+  .gk-mentor-since { font-size: 0.8rem; color: var(--gk-muted); }
+  .gk-mentor-words {
+    margin: 0; font-size: 0.92rem; line-height: 1.5; color: var(--gk-ink-2);
+  }
+  .gk-mentor-foot {
+    display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap;
+    margin-top: auto; padding-top: 0.2rem;
+  }
+  .gk-mentor-time { font-size: 0.8rem; color: var(--gk-muted); }
+  .gk-mentor-nocal { font-size: 0.85rem; color: var(--gk-muted); }
 </style>
 {% endblock %}
 {% block content %}
 <section>
   <h1>Mentors</h1>
-  <p class="gk-muted">Time offered to this cohort. Book directly; a mentor's hours are
-    tracked work, so put what you booked on a task afterwards.</p>
+  <p class="gk-muted">Time offered to this cohort. Book it directly. A mentor's hours are
+    tracked work like anyone else's, so put what you booked on a task afterwards.</p>
 
   {% if problem %}<p class="gk-muted"><small>{{ problem }}</small></p>{% endif %}
 
   <div class="gk-mentors">
     {% for m in mentors %}
-      <div class="gk-mentor">
-        <linked-badge claim-id="{{ m.claim_id }}" layout="row"></linked-badge>
-        <div class="gk-book">
-          {% if m.calendar_url %}
-            <a class="gk-btn-primary" href="{{ m.calendar_url }}" target="_blank" rel="noopener">Book time</a>
+      <article class="gk-mentor">
+        <div class="gk-mentor-head">
+          {% if m.image %}
+            <img class="gk-mentor-face" src="{{ m.image }}" alt="">
           {% else %}
-            <span class="gk-muted">No calendar shared.</span>
+            <span class="gk-mentor-face gk-mentor-initial" aria-hidden="true">{{ m.person_name|first|upper }}</span>
           {% endif %}
-          {% if m.time_level %}<span class="gk-time">{{ m.time_level }}</span>{% endif %}
+          <div>
+            <div class="gk-mentor-name">
+              {% if m.link %}<a href="{{ m.link }}" target="_blank" rel="noopener">{{ m.person_name }}</a>
+              {% else %}{{ m.person_name }}{% endif %}
+            </div>
+            {% if m.date %}<div class="gk-mentor-since">mentoring since {{ m.date }}</div>{% endif %}
+          </div>
         </div>
-      </div>
+
+        {% if m.statement %}<p class="gk-mentor-words">{{ m.statement }}</p>{% endif %}
+
+        <div class="gk-mentor-foot">
+          {% if m.calendar_url %}
+            <a class="gk-btn" href="{{ m.calendar_url }}" target="_blank" rel="noopener">Book time</a>
+          {% else %}
+            <span class="gk-mentor-nocal">No calendar shared yet.</span>
+          {% endif %}
+          {% if m.time_level %}<span class="gk-mentor-time">{{ m.time_level }}</span>{% endif %}
+        </div>
+      </article>
     {% empty %}
       {% if not problem %}<p>No mentors on the wall yet.</p>{% endif %}
     {% endfor %}

@@ -22,6 +22,9 @@ MENTORS = [
         "calendar_url": "https://cal.example/mentor",
         "time_level": "an hour a week",
         "link": "https://linkedin.com/in/mentor",
+        "image": "https://img.example/mentor.jpg",
+        "statement": "I will help teams find their first customers.",
+        "date": "2026-07-02",
     }
 ]
 
@@ -53,6 +56,10 @@ def test_a_team_admin_gets_the_booking_link(
 
     assert "https://cal.example/mentor" in body
     assert "an hour a week" in body
+    # Drawn as our own card: their face and their words, no embedded component.
+    assert "https://img.example/mentor.jpg" in body
+    assert "I will help teams find their first customers." in body
+    assert "linked-badge" not in body
 
 
 def test_only_mentors_are_listed(client, org_factory, user_factory, membership_factory, wall):
@@ -60,8 +67,8 @@ def test_only_mentors_are_listed(client, org_factory, user_factory, membership_f
 
     body = client.get(reverse("orgs:mentors")).content.decode()
 
-    assert 'claim-id="124728"' in body
-    assert 'claim-id="1"' not in body
+    assert "A Mentor" in body
+    assert "A Founder" not in body
 
 
 def test_an_ordinary_member_does_not_see_calendars_yet(
