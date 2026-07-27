@@ -142,7 +142,9 @@ def test_pull_makes_image_urls_absolute_and_skips_bare_share_links():
     assert drafted["cover_image_url"] == "https://acme.test/og.jpg"
     assert drafted["logo_url"] == "https://acme.test/logo.png"
     # x.com with no path is a share button, not their profile.
-    assert drafted["socials"] == [{"label": "LinkedIn", "url": "https://www.linkedin.com/company/acme"}]
+    assert drafted["socials"] == [
+        {"label": "LinkedIn", "url": "https://www.linkedin.com/company/acme"}
+    ]
 
 
 # --- The setup screen ---------------------------------------------------------------------
@@ -158,7 +160,9 @@ def admin_org(org_factory, user_factory, membership_factory, client):
 
 
 @pytest.mark.django_db
-def test_only_an_admin_reaches_the_setup_screen(org_factory, user_factory, membership_factory, client):
+def test_only_an_admin_reaches_the_setup_screen(
+    org_factory, user_factory, membership_factory, client
+):
     org = org_factory(slug="acme", display_name="Acme")
     user = user_factory()
     membership_factory(org, user, role=MembershipRole.MEMBER)

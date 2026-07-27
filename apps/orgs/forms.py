@@ -437,9 +437,7 @@ class JoinPageForm(forms.Form):
     )
     website = forms.CharField(max_length=500, required=False, label="Website")
     logo_url = forms.CharField(max_length=500, required=False, label="Logo image")
-    cover_image_url = forms.CharField(
-        max_length=500, required=False, label="Link preview picture"
-    )
+    cover_image_url = forms.CharField(max_length=500, required=False, label="Link preview picture")
     socials = forms.CharField(
         required=False,
         widget=forms.Textarea(attrs={"rows": 3}),

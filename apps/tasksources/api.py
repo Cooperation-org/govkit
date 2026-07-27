@@ -206,13 +206,9 @@ class TaskDetailView(APIView):
         subject = request.data.get("subject")
         description = request.data.get("description")
         if subject is None and description is None:
-            return Response(
-                {"detail": "Nothing to change."}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": "Nothing to change."}, status=status.HTTP_400_BAD_REQUEST)
         if subject is not None and not str(subject).strip():
-            return Response(
-                {"detail": "A task needs a title."}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": "A task needs a title."}, status=status.HTTP_400_BAD_REQUEST)
         try:
             adapter, source, detail = self._find(request, external_id)
             updated = adapter.update_task(

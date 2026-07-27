@@ -29,7 +29,7 @@ from html import unescape
 from html.parser import HTMLParser
 from urllib.error import URLError
 from urllib.parse import urljoin, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 TIMEOUT = 8
 MAX_BYTES = 1_000_000
