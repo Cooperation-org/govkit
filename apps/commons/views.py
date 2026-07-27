@@ -18,12 +18,12 @@ from .models import Idea, IdeaInterest, IdeaInterestKind, VentureInterest
 @login_required
 def orgs_view(request):
     """Every venture in the cohort, with pitch and a raise-your-hand button —
-    the places a person in the pool could land."""
-    from django.conf import settings as django_settings
+    the places a person in the pool could land.
 
+    The accelerator is listed with the rest: it runs the program AND it is a
+    venture of its own, with work, equity and people who can want in (golda
+    2026-07-27). It gets extra items on its dash rail, never a smaller list."""
     orgs = Org.objects.annotate(member_count=Count("memberships")).order_by("display_name")
-    if django_settings.ACCELERATOR_ORG_SLUG:
-        orgs = orgs.exclude(slug=django_settings.ACCELERATOR_ORG_SLUG)
     mine = {i.org_id: i for i in VentureInterest.objects.filter(user=request.user)}
     member_of = set(request.user.memberships.values_list("org_id", flat=True))
     for org in orgs:

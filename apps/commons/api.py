@@ -31,12 +31,12 @@ from .models import VentureInterest
 
 
 def _ventures_qs():
-    """Every venture on this install: all orgs except the accelerator itself."""
-    qs = Org.objects.annotate(member_count=Count("memberships"))
-    accel = settings.ACCELERATOR_ORG_SLUG
-    if accel:
-        qs = qs.exclude(slug=accel)
-    return qs.order_by("display_name")
+    """Every venture on this install — the accelerator included.
+
+    It raises money, it has a business model, it has people who can want in.
+    Running the cohort is a view it ALSO has, not a reason to leave it off the
+    list people can back or join (golda 2026-07-27)."""
+    return Org.objects.annotate(member_count=Count("memberships")).order_by("display_name")
 
 
 def _interest_payload(i, include_person=False):
