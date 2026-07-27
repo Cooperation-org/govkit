@@ -66,9 +66,39 @@ def mentors():
     A mentor gave a booking link so teams could actually book them. It is kept
     off their public wall card on purpose: they shared it with the cohort, not
     with the open internet. Callers must gate it; this only fetches.
+
+    A mentor who has since signed in also has a profile here, which they can
+    edit and their wall claim they cannot: a claim is signed and immutable. So
+    the profile wins wherever it has something — photo, the name they go by,
+    and their own words — and the wall fills in for everyone who has not
+    signed in yet.
     """
     people, problem = _fetch_wall_people()
-    return [p for p in people if p.get("role") == "mentor"], problem
+    people = [p for p in people if p.get("role") == "mentor"]
+    accounts = _accounts_by_claim([p.get("claim_id") for p in people])
+    return [{**p, "profile": accounts.get(p.get("claim_id"))} for p in people], problem
+
+
+def _accounts_by_claim(claim_ids):
+    """claim_id -> that person's profile here, for the ones who have signed in.
+
+    The link is the invite that carried their claim and was accepted; there is
+    no other join between a wall claim and an account.
+    """
+    ids = [c for c in claim_ids if c]
+    if not ids:
+        return {}
+    rows = Invite.objects.filter(
+        committed_claim_id__in=ids, accepted_by__isnull=False
+    ).select_related("accepted_by")
+    return {
+        r.committed_claim_id: {
+            "display_name": r.accepted_by.get_full_name(),
+            "avatar_url": r.accepted_by.avatar_url,
+            "bio": r.accepted_by.bio,
+        }
+        for r in rows
+    }
 
 
 def wall_people_without_accounts():

@@ -46,22 +46,25 @@
   <div class="gk-mentors">
     {% for m in mentors %}
       <article class="gk-mentor">
+        {% firstof m.profile.display_name m.person_name as shown_name %}
         <div class="gk-mentor-head">
-          {% if m.image %}
-            <img class="gk-mentor-face" src="{{ m.image }}" alt="">
+          {% firstof m.profile.avatar_url m.image as face %}
+          {% if face %}
+            <img class="gk-mentor-face" src="{{ face }}" alt="">
           {% else %}
-            <span class="gk-mentor-face gk-mentor-initial" aria-hidden="true">{{ m.person_name|first|upper }}</span>
+            <span class="gk-mentor-face gk-mentor-initial" aria-hidden="true">{{ shown_name|first|upper }}</span>
           {% endif %}
           <div>
             <div class="gk-mentor-name">
-              {% if m.link %}<a href="{{ m.link }}" target="_blank" rel="noopener">{{ m.person_name }}</a>
-              {% else %}{{ m.person_name }}{% endif %}
+              {% if m.link %}<a href="{{ m.link }}" target="_blank" rel="noopener">{{ shown_name }}</a>
+              {% else %}{{ shown_name }}{% endif %}
             </div>
             {% if m.date %}<div class="gk-mentor-since">mentoring since {{ m.date }}</div>{% endif %}
           </div>
         </div>
 
-        {% if m.statement %}<p class="gk-mentor-words">{{ m.statement }}</p>{% endif %}
+        {% firstof m.profile.bio m.statement as words %}
+        {% if words %}<p class="gk-mentor-words">{{ words }}</p>{% endif %}
 
         <div class="gk-mentor-foot">
           {% if m.calendar_url %}

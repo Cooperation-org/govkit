@@ -106,3 +106,57 @@ def test_an_unreadable_wall_says_so_instead_of_looking_empty(
         body = client.get(reverse("orgs:mentors")).content.decode()
 
     assert "Could not read the wall" in body
+
+
+def test_their_profile_words_win_over_what_they_joined_with(
+    client, org_factory, user_factory, membership_factory, wall
+):
+    """A claim is signed and immutable; a profile is theirs to keep current."""
+    from apps.orgs.models import Invite, InviteStatus
+
+    org = org_factory(slug="a")
+    mentor = user_factory(email="mentor@example.com")
+    mentor.display_name = "Goes By This"
+    mentor.bio = "What I actually help with now."
+    mentor.avatar_url = "https://img.example/newer.jpg"
+    mentor.save()
+    Invite.objects.create(
+        org=org, committed_claim_id=124728, accepted_by=mentor, status=InviteStatus.ACCEPTED
+    )
+    _as(client, user_factory, membership_factory, org, MembershipRole.ADMIN)
+
+    body = client.get(reverse("orgs:mentors")).content.decode()
+
+    assert "What I actually help with now." in body
+    assert "I will help teams find their first customers." not in body
+    assert "Goes By This" in body
+    assert "https://img.example/newer.jpg" in body
+
+
+def test_someone_who_never_signed_in_still_shows_their_wall_words(
+    client, org_factory, user_factory, membership_factory, wall
+):
+    _as(client, user_factory, membership_factory, org_factory(slug="a"), MembershipRole.ADMIN)
+
+    body = client.get(reverse("orgs:mentors")).content.decode()
+
+    assert "I will help teams find their first customers." in body
+    assert "A Mentor" in body
+
+
+def test_an_empty_bio_falls_back_to_the_wall_rather_than_nothing(
+    client, org_factory, user_factory, membership_factory, wall
+):
+    """Signing in must never blank out the words they already gave."""
+    from apps.orgs.models import Invite, InviteStatus
+
+    org = org_factory(slug="a")
+    mentor = user_factory(email="quiet@example.com")
+    Invite.objects.create(
+        org=org, committed_claim_id=124728, accepted_by=mentor, status=InviteStatus.ACCEPTED
+    )
+    _as(client, user_factory, membership_factory, org, MembershipRole.ADMIN)
+
+    body = client.get(reverse("orgs:mentors")).content.decode()
+
+    assert "I will help teams find their first customers." in body
