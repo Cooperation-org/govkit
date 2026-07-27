@@ -162,7 +162,7 @@ def admin_org(org_factory, user_factory, membership_factory, client):
 
 
 @pytest.mark.django_db
-def test_only_an_admin_reaches_the_settings_screen(
+def test_a_member_may_look_at_the_page_but_gets_no_form(
     org_factory, user_factory, membership_factory, client
 ):
     org = org_factory(slug="acme", display_name="Acme")
@@ -170,7 +170,25 @@ def test_only_an_admin_reaches_the_settings_screen(
     membership_factory(org, user, role=MembershipRole.MEMBER)
     client.force_login(user)
     resp = client.get(reverse("orgs:settings", kwargs={"org_slug": "acme"}))
-    assert resp.status_code == 403
+    assert resp.status_code == 200
+    assert b"Fill this in from my website" not in resp.content
+
+
+@pytest.mark.django_db
+def test_someone_from_another_team_cannot_see_this_page(
+    org_factory, user_factory, membership_factory, client
+):
+    org_factory(slug="acme", display_name="Acme")
+    other = org_factory(slug="other", display_name="Other")
+    user = user_factory()
+    membership_factory(other, user, role=MembershipRole.ADMIN)
+    client.force_login(user)
+    resp = client.get(reverse("orgs:settings", kwargs={"org_slug": "acme"}), follow=True)
+    # Org context sends a non-member to that org's public about page, not here.
+    assert resp.status_code == 200
+    assert resp.redirect_chain
+    assert "/settings/" not in resp.redirect_chain[-1][0]
+    assert b"Fill this in from my website" not in resp.content
 
 
 @pytest.mark.django_db

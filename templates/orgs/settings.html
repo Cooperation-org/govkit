@@ -1,16 +1,16 @@
 {% extends "base.html" %}
-{% block title %}Settings — {{ current_org.display_name }} — GovKit{% endblock %}
+{% block title %}Your page — {{ current_org.display_name }} — GovKit{% endblock %}
 {% block content %}
-  <h1>Settings — {{ current_org.display_name }}</h1>
+  <h1>Your page — {{ current_org.display_name }}</h1>
 
-
-  <form method="post" action="{% url 'orgs:settings' org_slug=current_org.slug %}">
-    {% csrf_token %}
-
-    <div class="gk-card" id="your-page">
-      <h2>Your page, for people who want to join you</h2>
-      <p>This is what someone sees when you share your link. Edit below, save, and
-         it changes here.</p>
+  <div class="gk-card" id="your-page">
+      <h2>The page people see when you share your link</h2>
+      {% if can_edit %}
+        <p>Fill it in below, save, and it changes here.</p>
+      {% else %}
+        <p>Share it with anyone you want on this team. An admin can change what
+           is on it.</p>
+      {% endif %}
       <ul class="gk-todo">
         {% for label, done in checklist %}<li class="{% if done %}done{% endif %}">{{ label }}</li>{% endfor %}
       </ul>
@@ -32,7 +32,11 @@
         </p>
         <p><small>Paste that link in Slack or LinkedIn. Anyone can open it and raise a hand.</small></p>
       {% endif %}
-    </div>
+  </div>
+
+  {% if can_edit %}
+  <form method="post" action="{% url 'orgs:settings' org_slug=current_org.slug %}">
+    {% csrf_token %}
 
     <div class="gk-card">
       <h2>Team profile</h2>
@@ -131,5 +135,6 @@
 
     <button type="submit">Save</button>
   </form>
+  {% endif %}
 
 {% endblock %}

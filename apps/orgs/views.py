@@ -310,12 +310,17 @@ def onboarding(request):
 # --- Member / roles admin --------------------------------------------------------------
 
 
+def _is_org_admin(request):
+    """True for org admins and superusers."""
+    if request.user.is_authenticated and request.user.is_superuser:
+        return True
+    membership = request.membership
+    return membership is not None and membership.role == MembershipRole.ADMIN
+
+
 def _require_admin(request):
     """Allow org admins (and superusers). Raise PermissionDenied otherwise."""
-    if request.user.is_authenticated and request.user.is_superuser:
-        return
-    membership = request.membership
-    if membership is None or membership.role != MembershipRole.ADMIN:
+    if not _is_org_admin(request):
         raise PermissionDenied("Only organization admins may manage members.")
 
 
@@ -427,9 +432,15 @@ def _settings_initial(org):
 
 @login_required
 def org_settings(request, org_slug):
-    """Admin edits the org profile: name, site, socials, repos. Additive; nothing required."""
-    _require_admin(request)
+    """The team's join page: name, site, what you are building, who you need.
+
+    Admins edit it. Any member may LOOK — the team's dash points everyone here,
+    and a member who followed that link should see their team's page and the
+    link to share, not a permission error. Saving stays admin-only.
+    """
     org = request.org
+    if not _is_org_admin(request):
+        return _render_settings(request, org, OrgSettingsForm(initial=_settings_initial(org)))
     if request.method == "POST":
         form = OrgSettingsForm(request.POST)
         if form.is_valid():
@@ -510,6 +521,7 @@ def _render_settings(request, org, form, pulled_from=""):
             "profile_ready": org.profile_ready,
             "join_page_url": _join_page_url(org),
             "pulled_from": pulled_from,
+            "can_edit": _is_org_admin(request),
         },
     )
 

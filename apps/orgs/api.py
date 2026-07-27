@@ -319,14 +319,24 @@ def org_profile(request, org_slug):
     """S2S: the org profile the cohort top bar needs (calendar/chat/site + repos).
 
     Same shared-bearer auth as the invite endpoints. workers.vc reads this
-    (cached) to stamp the Calendar / Chat links onto the nav. No members, rates,
-    or governance config — just the public-facing profile the team set.
+    (cached) to stamp the Calendar / Chat links onto the nav, and to say on the
+    team's dash whether their join page is ready and where to work on it. No
+    members, rates, or governance config — just the public-facing profile the
+    team set.
+
+    Both URLs are built HERE. The dash is where a team lands, but GovKit owns
+    where its own screens live, so the doorway is handed links rather than
+    assembling GovKit paths of its own.
     """
     if not _s2s_authorized(request):
         return JsonResponse({"error": "unauthorized"}, status=401)
     org = Org.objects.filter(slug=org_slug).first()
     if org is None:
         return JsonResponse({"error": "not_found"}, status=404)
+    from .views import _join_page_url
+
+    public_base = (settings.PUBLIC_BASE_URL or "").rstrip("/")
+    settings_path = reverse("orgs:settings", kwargs={"org_slug": org.slug})
     return JsonResponse(
         {
             "slug": org.slug,
@@ -340,6 +350,13 @@ def org_profile(request, org_slug):
             "chat_url": org.chat_url,
             "pie_url": org.pie_url,
             "pie_as_of": org.pie_as_of.isoformat() if org.pie_as_of else None,
+            # The join page: the link the team shares, whether it is worth
+            # sharing yet, and where they go to work on it.
+            "join_page_url": _join_page_url(org),
+            "join_page_ready": org.profile_ready,
+            "join_page_edit_url": (
+                f"{public_base}{settings_path}#your-page" if public_base else ""
+            ),
         }
     )
 

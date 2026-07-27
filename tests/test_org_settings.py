@@ -126,13 +126,30 @@ def test_admin_saves_calendar_and_chat(client, admin_org):
     assert org.chat_url == "https://discord.gg/abc123"
 
 
-def test_non_admin_cannot_open_settings(client, admin_org, user_factory, membership_factory):
+def test_a_member_sees_the_page_but_cannot_change_it(
+    client, admin_org, user_factory, membership_factory
+):
+    """The team's dash points everyone at this screen, so a member who follows
+    that link sees their team's page and the link to share. Saving is admin-only."""
     org, _ = admin_org
     member = user_factory(email="member@example.com")
     membership_factory(org=org, user=member, role=MembershipRole.MEMBER)
     client.force_login(member)
-    resp = client.get(reverse("orgs:settings", kwargs={"org_slug": org.slug}))
-    assert resp.status_code == 403
+    url = reverse("orgs:settings", kwargs={"org_slug": org.slug})
+
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert b"An admin can change what" in resp.content
+    assert b'<button type="submit">Save</button>' not in resp.content
+
+    org.display_name = "Before"
+    org.save(update_fields=["display_name"])
+    posted = client.post(url, {"display_name": "After", "website": "", "tagline": "",
+                               "pitch": "", "looking_for": "", "logo_url": "",
+                               "cover_image_url": "", "socials": ""})
+    org.refresh_from_db()
+    assert posted.status_code == 200
+    assert org.display_name == "Before"
 
 
 def test_context_repo_is_exposed_in_org_api(client, admin_org):
@@ -165,6 +182,39 @@ def test_s2s_profile_returns_calendar_and_chat(client, admin_org, settings):
     body = resp.json()
     assert body["calendar_url"] == "https://calendar.google.com/team.ics"
     assert body["chat_url"] == "https://discord.gg/abc123"
+
+
+def test_s2s_profile_carries_the_join_page_so_the_dash_can_point_at_it(
+    client, admin_org, settings
+):
+    """The team lands on the workers.vc dash, so the dash has to be able to say
+    'your page is not set up yet, here is where you do it' — and hand over the
+    link once it is. Both URLs are built here; the dash assembles no GovKit paths."""
+    settings.GOVKIT_S2S_TOKEN = "s2s-secret"
+    settings.VENTURE_PAGE_BASE_URL = "https://workers.vc/ventures"
+    settings.PUBLIC_BASE_URL = "https://dash.workers.vc"
+    org, _ = admin_org
+
+    body = client.get(
+        f"/api/v1/orgs/{org.slug}/profile/", HTTP_AUTHORIZATION="Bearer s2s-secret"
+    ).json()
+
+    assert body["join_page_url"] == f"https://workers.vc/ventures/{org.slug}/"
+    assert body["join_page_edit_url"] == f"https://dash.workers.vc/o/{org.slug}/settings/#your-page"
+    assert body["join_page_ready"] is False
+
+    org.website = "https://acme.test"
+    org.tagline = "A thing"
+    org.pitch = "What we are building."
+    org.looking_for = [{"role": "Designer", "detail": "our screens are ugly"}]
+    org.logo_url = "https://acme.test/logo.png"
+    org.cover_image_url = "https://acme.test/og.png"
+    org.save()
+
+    body = client.get(
+        f"/api/v1/orgs/{org.slug}/profile/", HTTP_AUTHORIZATION="Bearer s2s-secret"
+    ).json()
+    assert body["join_page_ready"] is True
 
 
 def test_s2s_profile_rejects_bad_token(client, admin_org, settings):
