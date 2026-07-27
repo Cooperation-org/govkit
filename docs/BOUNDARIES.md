@@ -52,6 +52,15 @@ docs/design/       pattern-language.md — how it should look
 
 Business logic goes in `services.py`, not in a view and not in a serializer.
 
+## How your work lands
+
+**Open a pull request.** Don't push to `main`. The shared-VM rule about
+committing straight to main is for the people who own the repo; anyone else
+works on a branch and opens a PR, so someone sees it before it deploys. Small
+PRs, often, beat one big one.
+
+Pushing to `main` deploys. That is another reason to open a PR instead.
+
 ## Ask, don't guess
 
 These are not forbidden. They are the things where guessing makes a mess that
