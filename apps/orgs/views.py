@@ -9,6 +9,8 @@ with `_require_admin`. Every UI action here has a matching DRF endpoint in api.p
 
 from __future__ import annotations
 
+import logging
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -19,6 +21,8 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
+
+from apps.commons import storage
 
 from .amebo import provision_membership
 from .doorway import wall_people_without_accounts
@@ -53,6 +57,8 @@ from .models import (
     OrgStake,
     PiePhase,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def landing(request):
@@ -442,14 +448,29 @@ def org_settings(request, org_slug):
     if not _is_org_admin(request):
         return _render_settings(request, org, OrgSettingsForm(initial=_settings_initial(org)))
     if request.method == "POST":
-        form = OrgSettingsForm(request.POST)
+        form = OrgSettingsForm(request.POST, request.FILES)
         if form.is_valid():
+            logo_url = form.cleaned_data["logo_url"]
+            upload = form.cleaned_data.get("logo")
+            if upload:
+                # An uploaded logo replaces whatever URL was in the field: the
+                # admin just chose the picture, and two answers to one question
+                # would have to be resolved by guessing. Same as a member photo.
+                try:
+                    logo_url = storage.store_image(upload, prefix=f"org-logos/{org.slug}")
+                except Exception:
+                    logger.exception("org logo upload failed for %s", org.slug)
+                    messages.error(
+                        request,
+                        "Your logo did not upload. Nothing else was changed — try again.",
+                    )
+                    return _render_settings(request, org, form)
             org.display_name = form.cleaned_data["display_name"].strip() or org.display_name
             org.website = form.cleaned_data["website"]
             org.tagline = form.cleaned_data["tagline"].strip()
             org.pitch = form.cleaned_data["pitch"].strip()
             org.looking_for = form.looking_for_list()
-            org.logo_url = form.cleaned_data["logo_url"]
+            org.logo_url = logo_url
             org.cover_image_url = form.cleaned_data["cover_image_url"]
             org.socials = form.socials_list()
             org.repos = form.repos_list()
@@ -522,6 +543,9 @@ def _render_settings(request, org, form, pulled_from=""):
             "join_page_url": _join_page_url(org),
             "pulled_from": pulled_from,
             "can_edit": _is_org_admin(request),
+            # No bucket configured means no upload control — better than a
+            # picker that always answers "uploads are not set up".
+            "uploads_on": storage.configured(),
         },
     )
 

@@ -16,6 +16,8 @@ from django.db import transaction
 from django.db.models import Sum
 from django.utils.text import slugify
 
+from apps.commons import storage
+
 from .models import (
     BudgetEnforcement,
     BudgetPeriod,
@@ -334,6 +336,16 @@ class OrgSettingsForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 5}),
         label="Who you are looking for",
     )
+    # A team's logo is a file on someone's laptop far more often than it is a
+    # URL they can produce, so the upload is the first control and the URL field
+    # stays underneath for anyone who does have a link. Same bucket and same
+    # checks as a member's photo (apps.commons.storage).
+    logo = forms.FileField(
+        required=False,
+        label="Upload your logo",
+        help_text="JPEG, PNG, WebP or GIF, up to 5MB.",
+        widget=forms.ClearableFileInput(attrs={"accept": "image/*"}),
+    )
     logo_url = forms.CharField(max_length=500, required=False, label="Logo image")
     cover_image_url = forms.CharField(max_length=500, required=False, label="Picture for your link")
     socials = forms.CharField(
@@ -376,6 +388,19 @@ class OrgSettingsForm(forms.Form):
 
     def clean_website(self):
         return _norm_url(self.cleaned_data.get("website", ""))
+
+    def clean_logo(self):
+        upload = self.cleaned_data.get("logo")
+        if not upload:
+            return None
+        problem = storage.check_image(upload)
+        if problem:
+            raise forms.ValidationError(problem)
+        if not storage.configured():
+            raise forms.ValidationError(
+                "Uploads are not set up on this server yet. Paste a logo URL instead."
+            )
+        return upload
 
     def clean_logo_url(self):
         return _norm_url(self.cleaned_data.get("logo_url", ""))

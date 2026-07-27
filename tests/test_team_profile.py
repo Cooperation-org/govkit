@@ -268,3 +268,78 @@ def test_the_page_never_shows_template_source_to_a_person(admin_org, client):
     resp = client.get(reverse("orgs:settings", kwargs={"org_slug": "acme"}))
     assert b"{#" not in resp.content
     assert b"{%" not in resp.content
+
+
+# --- Uploading a logo ---------------------------------------------------------------------
+
+
+def _png():
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    return SimpleUploadedFile("my logo.png", b"\x89PNG\r\n\x1a\n" + b"0" * 64, "image/png")
+
+
+@pytest.mark.django_db
+def test_an_uploaded_logo_goes_to_the_bucket_and_becomes_the_logo(admin_org, client, settings):
+    settings.GOVKIT_STORAGE_BUCKET = "bucket"
+    settings.GOVKIT_STORAGE_KEY = "k"
+    settings.GOVKIT_STORAGE_SECRET = "s"
+    with patch("apps.orgs.views.storage.store_image", return_value="https://cdn.test/x.png") as put:
+        resp = client.post(
+            reverse("orgs:settings", kwargs={"org_slug": "acme"}),
+            {"display_name": "Acme", "website": "", "tagline": "", "pitch": "",
+             "looking_for": "", "logo_url": "", "cover_image_url": "", "socials": "",
+             "logo": _png()},
+        )
+    assert resp.status_code == 302
+    admin_org.refresh_from_db()
+    assert admin_org.logo_url == "https://cdn.test/x.png"
+    # Never the name they gave the file — that is their words, not a URL.
+    assert put.call_args.kwargs["prefix"] == "org-logos/acme"
+
+
+@pytest.mark.django_db
+def test_an_upload_that_fails_changes_nothing_and_says_so(admin_org, client, settings):
+    settings.GOVKIT_STORAGE_BUCKET = "bucket"
+    settings.GOVKIT_STORAGE_KEY = "k"
+    settings.GOVKIT_STORAGE_SECRET = "s"
+    admin_org.tagline = "Before"
+    admin_org.save(update_fields=["tagline"])
+    with patch("apps.orgs.views.storage.store_image", side_effect=RuntimeError("bucket gone")):
+        resp = client.post(
+            reverse("orgs:settings", kwargs={"org_slug": "acme"}),
+            {"display_name": "Acme", "website": "", "tagline": "After", "pitch": "",
+             "looking_for": "", "logo_url": "", "cover_image_url": "", "socials": "",
+             "logo": _png()},
+        )
+    admin_org.refresh_from_db()
+    assert resp.status_code == 200
+    assert admin_org.tagline == "Before"
+    assert b"did not upload" in resp.content
+
+
+@pytest.mark.django_db
+def test_a_pdf_is_refused_before_anything_is_stored(admin_org, client, settings):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    settings.GOVKIT_STORAGE_BUCKET = "bucket"
+    settings.GOVKIT_STORAGE_KEY = "k"
+    settings.GOVKIT_STORAGE_SECRET = "s"
+    with patch("apps.orgs.views.storage.store_image") as put:
+        resp = client.post(
+            reverse("orgs:settings", kwargs={"org_slug": "acme"}),
+            {"display_name": "Acme", "website": "", "tagline": "", "pitch": "",
+             "looking_for": "", "logo_url": "", "cover_image_url": "", "socials": "",
+             "logo": SimpleUploadedFile("deck.pdf", b"%PDF-1.4", "application/pdf")},
+        )
+    assert resp.status_code == 200
+    assert put.call_count == 0
+    assert b"JPEG, PNG, WebP or GIF" in resp.content
+
+
+@pytest.mark.django_db
+def test_with_no_bucket_there_is_no_upload_control_only_the_url_field(admin_org, client, settings):
+    settings.GOVKIT_STORAGE_BUCKET = ""
+    resp = client.get(reverse("orgs:settings", kwargs={"org_slug": "acme"}))
+    assert b'type="file"' not in resp.content
+    assert b'name="logo_url"' in resp.content
