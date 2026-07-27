@@ -28,6 +28,10 @@
         {{ form.photo }}
         <small>{{ form.photo.help_text }}</small>
         {% for e in form.photo.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+      {% else %}
+        <small class="gk-muted">Uploading is not switched on for this server yet
+          (GOVKIT_STORAGE_BUCKET, _KEY and _SECRET are unset). Paste a photo URL
+          below in the meantime.</small>
       {% endif %}
     </p>
 
