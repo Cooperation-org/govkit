@@ -45,7 +45,7 @@ MODULES = [
                 "exist.chat",
                 "Find your team's channel in the LinkedTrust Discord — or set your own chat in Settings",
             ),
-            ("exist.join-page", "Set up your join page and share the link"),
+            ("exist.join-page", "Fill in your page and share the link so people can join you"),
             ("exist.prior-art", "Prior art: find who already does this, before building anything"),
             ("exist.paragraph", "Write one plain paragraph: what this is and why now"),
             ("exist.who-else", "List who is working on this today"),

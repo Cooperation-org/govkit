@@ -206,6 +206,7 @@ def dashboard(request, org_slug):
             # everyone: the whole team benefits from it being filled in, and
             # a member who cannot edit it can still tell an admin.
             "profile_todo": not request.org.profile_ready,
+            "profile_checklist": request.org.profile_checklist(),
             "join_page_url": _join_page_url(request.org),
             "pie": pie if pie.total > 0 else None,
             "segments": _svg_segments(pie) if pie.total > 0 else [],

@@ -4,7 +4,9 @@
 
   <div class="gk-pagehead">
     <h1>{{ page_title }}</h1>
-    <a href="{% url 'pie:standing' org_slug=current_org.slug %}">My standing &rarr;</a>
+    {% if request.membership %}
+      <a href="{% url 'pie:standing' org_slug=current_org.slug %}">My standing &rarr;</a>
+    {% endif %}
   </div>
   <p class="gk-muted">
     Live shares of <strong>{{ pie.total }} {{ pie.unit_name }}</strong> of issued equity

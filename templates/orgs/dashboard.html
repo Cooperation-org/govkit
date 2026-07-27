@@ -4,22 +4,28 @@
   <h1>{{ current_org.display_name }}</h1>
 
   {% if profile_todo %}
-    <div class="gk-card">
-      <h2>Get people to join you</h2>
-      <p>Fill in your page and share the link. It takes a few minutes and most of
-         it comes straight off your website.</p>
-      <a class="gk-btn" href="{% url 'orgs:settings' org_slug=current_org.slug %}">Set up your page</a>
-      {% if join_page_url %}
-        <a href="{{ join_page_url }}" target="_blank" rel="noopener">See it ↗</a>
-      {% endif %}
+    <div class="gk-card gk-firstthing">
+      <h2>Your page</h2>
+      <p class="gk-lede">The page you send people so they can join you. Not filled
+         in yet, so there is nothing to send.</p>
+      <ul class="gk-todo">
+        {% for label, done in profile_checklist %}<li class="{% if done %}done{% endif %}">{{ label }}</li>{% endfor %}
+      </ul>
+      <div class="gk-actions">
+        <a class="gk-btn" href="{% url 'orgs:settings' org_slug=current_org.slug %}#your-page">Fill it in</a>
+        {% if join_page_url %}
+          <a href="{{ join_page_url }}" target="_blank" rel="noopener">See how it looks now ↗</a>
+        {% endif %}
+      </div>
+      <p><small>Paste your website there and most of it fills in from your own words.</small></p>
     </div>
   {% elif join_page_url %}
-    <div class="gk-card">
-      <h2>Share your page</h2>
+    <div class="gk-card gk-firstthing">
+      <h2>Your page</h2>
       <div class="gk-sharelink">
         <input readonly value="{{ join_page_url }}" aria-label="Your page link" onclick="this.select()">
         <a href="{{ join_page_url }}" target="_blank" rel="noopener">Open ↗</a>
-        <a href="{% url 'orgs:settings' org_slug=current_org.slug %}">Edit</a>
+        <a href="{% url 'orgs:settings' org_slug=current_org.slug %}#your-page">Edit</a>
       </div>
     </div>
   {% endif %}

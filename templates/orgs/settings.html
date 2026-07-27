@@ -3,32 +3,11 @@
 {% block content %}
   <h1>Settings — {{ current_org.display_name }}</h1>
 
-  <style>
-    .gk-todo { list-style: none; margin: 0 0 1rem; padding: 0; }
-    .gk-todo li { padding: 0.3rem 0 0.3rem 1.8rem; position: relative; }
-    .gk-todo li::before {
-      content: ""; position: absolute; left: 0; top: 0.45rem;
-      width: 15px; height: 15px; border-radius: 4px;
-      border: 1.5px solid var(--gk-border-strong); background: var(--gk-surface);
-    }
-    .gk-todo li.done { color: var(--gk-ink-2); }
-    .gk-todo li.done::before {
-      background: var(--gk-ok); border-color: var(--gk-ok);
-    }
-    .gk-todo li.done::after {
-      content: ""; position: absolute; left: 4px; top: 0.68rem;
-      width: 7px; height: 3.5px; border-left: 2px solid #fff; border-bottom: 2px solid #fff;
-      transform: rotate(-45deg);
-    }
-    .gk-pullrow { display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap; }
-    .gk-pullrow .gk-field { flex: 1 1 18rem; margin: 0; }
-    .gk-previewline { margin: 0.6rem 0 0; }
-  </style>
 
   <form method="post" action="{% url 'orgs:settings' org_slug=current_org.slug %}">
     {% csrf_token %}
 
-    <div class="gk-card">
+    <div class="gk-card" id="your-page">
       <h2>Your page, for people who want to join you</h2>
       <p>This is what someone sees when you share your link. Fill these in and
          share it.</p>
