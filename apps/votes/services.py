@@ -23,7 +23,7 @@ from typing import List, Optional
 from django.db import transaction
 from django.utils import timezone
 
-from apps.orgs.weighting import work_weight_map
+from apps.orgs.weighting import weight_str, work_weight_map
 
 from .models import Ballot, Vote
 
@@ -75,7 +75,7 @@ def create_vote(org, question: str, options: List[str]) -> Vote:
 def _snapshot_weights(org) -> dict:
     """Freeze every member's work weight as JSON: {str(membership_id): str(weight)}."""
     weights = work_weight_map(org, org.valuation_config.weight_window)
-    return {str(mid): str(w) for mid, w in weights.items()}
+    return {str(mid): weight_str(w) for mid, w in weights.items()}
 
 
 @transaction.atomic

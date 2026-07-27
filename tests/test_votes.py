@@ -52,11 +52,13 @@ def test_create_is_draft_then_open_snapshots(org3):
     assert vote.weight_snapshot == {}
     services.open_vote(vote)
     assert services.is_live(vote)
-    # Every member is captured, including the zero-weight one.
+    # Every member is captured, including the zero-weight one, and every weight
+    # is written at the same two places (apps.orgs.weighting.weight_str) so the
+    # audit record does not change shape with the database driver.
     assert vote.weight_snapshot == {
         str(heavy.id): "100.00",
         str(light.id): "30.00",
-        str(zero.id): "0",
+        str(zero.id): "0.00",
     }
 
 

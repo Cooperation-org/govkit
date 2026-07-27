@@ -28,7 +28,7 @@ from typing import Dict, List
 from django.db import transaction
 
 from apps.orgs.models import Membership
-from apps.orgs.weighting import work_weight_map
+from apps.orgs.weighting import weight_str, work_weight_map
 
 from .models import SortitionDraw
 
@@ -104,7 +104,7 @@ def _compute(org, seats: int, window: str, seed: str) -> DrawResult:
         seats=seats,
         seed=seed,
         window=window,
-        weights={str(mid): str(w) for mid, w in weights.items()},
+        weights={str(mid): weight_str(w) for mid, w in weights.items()},
         selected=selected,
         total_weight=sum(weights.values(), ZERO),
         eligible_count=len(weights),
@@ -130,7 +130,7 @@ def run_draw(org, seats: int, window: str, seed: str) -> SortitionDraw:
             "window": result.window,
             "weights": result.weights,
             "selected": result.selected,
-            "total_weight": str(result.total_weight),
+            "total_weight": weight_str(result.total_weight),
             "eligible_count": result.eligible_count,
         },
     )

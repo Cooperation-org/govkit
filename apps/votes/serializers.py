@@ -2,6 +2,8 @@
 
 from rest_framework import serializers
 
+from apps.orgs.weighting import weight_str
+
 from . import services
 from .models import Vote
 
@@ -43,13 +45,13 @@ def tally_dict(t):
         "vote_id": t.vote_id,
         "question": t.question,
         "status": t.status,
-        "weighted_total": str(t.weighted_total),
+        "weighted_total": weight_str(t.weighted_total),
         "raw_total": t.raw_total,
         "winner": t.winner,
         "results": [
             {
                 "option": r.option,
-                "weighted": str(r.weighted),
+                "weighted": weight_str(r.weighted),
                 "raw": r.raw,
                 "weighted_pct": str(r.weighted_pct),
                 "raw_pct": str(r.raw_pct),

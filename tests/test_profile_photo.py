@@ -84,12 +84,18 @@ def test_an_oversized_photo_is_refused(client, me, storage_on):
     store.assert_not_called()
 
 
-def test_without_storage_the_page_says_so_rather_than_failing(client, me, settings):
+def test_without_storage_the_page_offers_a_url_instead_of_failing(client, me, settings):
+    """No bucket: no file picker, and the URL field is still there to paste into.
+
+    Asserted on what the page offers, not on its wording — the sentence
+    explaining it is copy, and copy gets edited.
+    """
     settings.GOVKIT_STORAGE_BUCKET = ""
 
-    resp = _post(client, photo=_photo())
+    body = _post(client, photo=_photo()).content.decode()
 
-    assert "not set up on this server" in resp.content.decode()
+    assert 'type="file"' not in body
+    assert 'name="avatar_url"' in body
 
 
 def test_a_failed_upload_changes_nothing_else(client, me, storage_on):

@@ -42,6 +42,20 @@ from .models import Membership, OpeningBalance, WeightWindow
 ZERO = Decimal("0")
 # "Trailing 12 months" is measured as the last 365 days up to now.
 TRAILING_DAYS = 365
+# Earned value is stored at two decimal places, so a weight is written at two.
+WEIGHT_PLACES = Decimal("0.01")
+
+
+def weight_str(value: Decimal) -> str:
+    """A weight as a string, always at two decimal places.
+
+    Vote and draw snapshots are the audit record of who had what standing, and
+    they are compared and read years later. Plain ``str(Decimal)`` puts whatever
+    scale the database driver happened to return into that record, so the same
+    weight could be written "100.00" by one deploy and "100" by the next, while a
+    member with nothing earned was always the bare "0". One fixed format instead.
+    """
+    return str((value or ZERO).quantize(WEIGHT_PLACES))
 
 
 def _window_cutoff(window):
