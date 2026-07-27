@@ -355,7 +355,9 @@ def ventures_directory(request):
     this (anonymous visitors, so no session auth can apply). Same bearer as
     the other S2S endpoints. The accelerator org itself is excluded: it runs
     the cohort, it is not a card on it. Only what a team chose to publish on
-    its settings page — never members, rates, or governance config.
+    its join page — never members, rates, or governance config. Member names and
+    faces stay out on purpose: a person joined a team, they did not agree to be
+    listed on a public page.
     """
     if not _s2s_authorized(request):
         return JsonResponse({"error": "unauthorized"}, status=401)
@@ -369,8 +371,12 @@ def ventures_directory(request):
                 {
                     "slug": o.slug,
                     "display_name": o.display_name,
+                    "tagline": o.tagline,
                     "pitch": o.pitch,
                     "website": o.website,
+                    "logo_url": o.logo_url,
+                    "cover_image_url": o.cover_image_url,
+                    "asks": o.asks,
                     "socials": o.socials or [],
                     "member_count": o.member_count,
                 }

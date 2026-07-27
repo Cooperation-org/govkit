@@ -458,7 +458,9 @@ class TaigaAdapter(TaskSourceAdapter):
             return self.fetch_task(external_id)
         # Taiga requires the version it last handed out. Read it now when the caller
         # did not carry one, so an edit from a page opened a while ago still lands.
-        body["version"] = version if version is not None else self._story(external_id).get("version")
+        body["version"] = (
+            version if version is not None else self._story(external_id).get("version")
+        )
         story = self._send(
             f"/api/v1/userstories/{urllib.parse.quote(str(external_id))}", "PATCH", body
         )

@@ -158,6 +158,16 @@ class Org(models.Model):
     # shown on the venture's public card and page. Never generated.
     pitch = models.TextField(blank=True, help_text="The team's own words. Never generated.")
     website = models.URLField(max_length=1000, blank=True)
+    # One line saying what this is, shown under the name and in the link preview.
+    # Drafted from the team's own site (apps.orgs.sitepull), theirs to edit.
+    tagline = models.CharField(max_length=255, blank=True)
+    # The team's own logo and the picture their shared link unfurls with. URLs on
+    # the team's own site — we point at them, we don't copy or host them.
+    logo_url = models.URLField(max_length=1000, blank=True)
+    cover_image_url = models.URLField(max_length=1000, blank=True)
+    # What the team needs a person for, as [{"role": str, "detail": str}]. This is
+    # the point of the join page: a stranger joins a named need, never an abstraction.
+    looking_for = models.JSONField(default=list, blank=True)
     # List of {"label": str, "url": str}.
     socials = models.JSONField(default=list, blank=True)
     # List of {"url": str, "is_main": bool}. The is_main one is the team's shared
@@ -203,6 +213,41 @@ class Org(models.Model):
             if isinstance(repo, dict) and repo.get("url"):
                 return repo["url"]
         return ""
+
+    @property
+    def asks(self) -> list:
+        """What the team is looking for, cleaned: [{"role", "detail"}] with a role."""
+        out = []
+        for ask in self.looking_for or []:
+            if isinstance(ask, dict) and (ask.get("role") or "").strip():
+                out.append(
+                    {
+                        "role": ask["role"].strip(),
+                        "detail": (ask.get("detail") or "").strip(),
+                    }
+                )
+        return out
+
+    def join_page_gaps(self) -> list:
+        """The pieces the join page is still missing, worst first.
+
+        Each gap is (field, what a person loses without it) — the page and the
+        setup screen both render from this, so there is one list, not two.
+        """
+        gaps = []
+        if not self.asks:
+            gaps.append(("looking_for", "Nobody can tell what you need a person for."))
+        if not self.pitch.strip():
+            gaps.append(("pitch", "The page says nothing about what you are building."))
+        if not self.tagline.strip():
+            gaps.append(("tagline", "Your shared link has no sentence under the name."))
+        if not self.cover_image_url:
+            gaps.append(("cover_image_url", "Your link unfurls with no picture."))
+        if not self.logo_url:
+            gaps.append(("logo_url", "The page has no logo at the top."))
+        if not self.website:
+            gaps.append(("website", "No way to go look at what you have built."))
+        return gaps
 
 
 class ValuationConfig(models.Model):

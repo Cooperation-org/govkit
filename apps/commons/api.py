@@ -75,8 +75,11 @@ class VenturesView(APIView):
                 {
                     "slug": org.slug,
                     "display_name": org.display_name,
+                    "tagline": org.tagline,
                     "pitch": org.pitch,
                     "website": org.website,
+                    "logo_url": org.logo_url,
+                    "asks": org.asks,
                     "member_count": org.member_count,
                     "is_member": org.id in member_of,
                     "my_interest": (
