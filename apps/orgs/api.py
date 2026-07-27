@@ -353,18 +353,16 @@ def ventures_directory(request):
 
     The workers.vc apex renders the PUBLIC ventures pages server-side from
     this (anonymous visitors, so no session auth can apply). Same bearer as
-    the other S2S endpoints. The accelerator org itself is excluded: it runs
-    the cohort, it is not a card on it. Only what a team chose to publish on
-    its join page — never members, rates, or governance config. Member names and
-    faces stay out on purpose: a person joined a team, they did not agree to be
-    listed on a public page.
+    the other S2S endpoints. The accelerator is a card like the rest: it is a
+    venture itself, raising money and taking people in, and running the cohort
+    is a view it ALSO has (golda 2026-07-27). Only what a team chose to publish
+    on its join page — never members, rates, or governance config. Member names
+    and faces stay out on purpose: a person joined a team, they did not agree to
+    be listed on a public page.
     """
     if not _s2s_authorized(request):
         return JsonResponse({"error": "unauthorized"}, status=401)
     qs = Org.objects.annotate(member_count=Count("memberships")).order_by("display_name")
-    accel = settings.ACCELERATOR_ORG_SLUG
-    if accel:
-        qs = qs.exclude(slug=accel)
     return JsonResponse(
         {
             "ventures": [
