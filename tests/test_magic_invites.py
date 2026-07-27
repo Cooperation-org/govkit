@@ -10,7 +10,8 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.orgs.models import Invite, InviteStatus, Membership, MembershipRole
+from apps.orgs.models import Invite, InviteKind, InviteStatus, Membership, MembershipRole
+from apps.orgs.invites import SESSION_KEY
 
 S2S_TOKEN = "test-s2s-secret"
 
@@ -465,7 +466,32 @@ def test_door_never_signs_into_existing_account(client, invite, user_factory):
 
 
 @pytest.mark.django_db
-def test_door_founder_accept_creates_venture_org(client, admin_org):
+def test_door_founder_accept_goes_through_linkedtrust_first(client, admin_org, settings):
+    """A BYOV founder is sent to LinkedTrust before any account exists.
+
+    The per-team CRM user is provisioned by matching the member's LinkedTrust
+    OIDC sub, so an email-only account could never get CRM access. The code is
+    stashed in the session and the venture is created after the round-trip
+    (apps.orgs.views.accept_invite).
+    """
+    settings.LINKEDTRUST_CLIENT_ID = "test-client"
+    org, _ = admin_org
+    invite = Invite.objects.create(
+        org=org,
+        role=MembershipRole.MEMBER,
+        audience="founder",
+        kind=InviteKind.BYOV,
+        name="Fay Founder",
+        email="fay@example.com",
+        venture_name="Wayfern",
+    )
+    resp = client.post(_accept_url(invite))
+
+    assert resp["Location"] == reverse("accounts:linkedtrust_start")
+    assert client.session[SESSION_KEY] == invite.code
+
+
+def test_signed_in_founder_accept_creates_the_venture(client, admin_org, user_factory):
     from apps.orgs.models import Org
 
     org, _ = admin_org
@@ -473,11 +499,14 @@ def test_door_founder_accept_creates_venture_org(client, admin_org):
         org=org,
         role=MembershipRole.MEMBER,
         audience="founder",
+        kind=InviteKind.BYOV,
         name="Fay Founder",
         email="fay@example.com",
         venture_name="Wayfern",
     )
+    client.force_login(user_factory(email="fay@example.com"))
     resp = client.post(_accept_url(invite))
+
     venture = Org.objects.get(display_name="Wayfern")
     assert resp["Location"] == reverse("orgs:dashboard", kwargs={"org_slug": venture.slug})
     assert Membership.objects.filter(
@@ -719,7 +748,16 @@ def test_admin_mints_pool_invite_from_members_page(client, admin_org):
 
 
 @pytest.mark.django_db
-def test_members_page_pool_invite_refuses_venture(client, admin_org):
+def test_members_page_pool_invite_keeps_the_venture_name_and_ignores_it(client, admin_org):
+    """A pool invite carrying a venture name is minted, not refused.
+
+    The form deliberately does no kind/venture validation (golda 2026-07-24):
+    the mint UI only shows venture fields for BYOV and the accept path does the
+    right thing per kind, so a stray value is inert rather than an error someone
+    has to argue with.
+    """
+    from apps.orgs.models import Org
+
     org, admin = admin_org
     client.force_login(admin)
     client.post(
@@ -732,4 +770,6 @@ def test_members_page_pool_invite_refuses_venture(client, admin_org):
             "venture_name": "Contradiction Inc",
         },
     )
-    assert not Invite.objects.filter(org=org, name="Walk Up").exists()
+    invite = Invite.objects.get(org=org, name="Walk Up")
+    assert invite.kind == InviteKind.POOL
+    assert not Org.objects.filter(display_name="Contradiction Inc").exists()

@@ -23,6 +23,7 @@ from apps.orgs import amebo
 from apps.orgs.models import (
     Invite,
     InviteAudience,
+    InviteKind,
     InviteStatus,
     Membership,
     MembershipRole,
@@ -178,6 +179,7 @@ def test_founder_accept_reports_venture_org_as_admin(
         org=org,
         role=MembershipRole.MEMBER,
         audience=InviteAudience.FOUNDER,
+        kind=InviteKind.BYOV,
         venture_name="Solar Co-op",
     )
 
@@ -187,16 +189,16 @@ def test_founder_accept_reports_venture_org_as_admin(
     venture = Org.objects.get(slug="solar-co-op")
     assert resp["Location"] == reverse("orgs:dashboard", kwargs={"org_slug": venture.slug})
 
-    assert len(calls) == 2
-    (_, _, first), (_, _, second) = calls
-    # First: the invite's org with the role the membership got.
-    assert first["slug"] == "accel"
-    assert first["members"][0]["role"] == "member"
-    # Second: the auto-created venture org, founder as admin.
-    assert second["slug"] == "solar-co-op"
-    assert second["name"] == "Solar Co-op"
-    assert second["members"][0]["role"] == "admin"
-    assert second["members"][0]["lt_sub"] == "lt-sub-123"
+    # One call, not two: a BYOV founder joins their own venture and NOT the
+    # inviting org, so there is only the venture membership to provision.
+    assert len(calls) == 1
+    _, _, payload = calls[0]
+    # The auto-created venture org, founder as admin. Nothing is reported for the
+    # inviting org, because a BYOV founder never joined it.
+    assert payload["slug"] == "solar-co-op"
+    assert payload["name"] == "Solar Co-op"
+    assert payload["members"][0]["role"] == "admin"
+    assert payload["members"][0]["lt_sub"] == "lt-sub-123"
 
 
 # --- No-op / failure isolation ----------------------------------------------------------

@@ -237,7 +237,7 @@ def test_member_cannot_seed_path(client, org_factory, user_factory, membership_f
     membership_factory(org=org, user=member, role=MembershipRole.MEMBER)
     client.force_login(member)
     resp = client.post(f"/o/{org.slug}/checklist/seed/")
-    # A page, so a non-member is sent to the public About stub, not dead-ended.
-    assert resp.status_code == 302
+    # A member of the org, just not an admin: refused outright, not redirected.
+    assert resp.status_code == 403
     org.refresh_from_db()
     assert org.genesis_started_at is None

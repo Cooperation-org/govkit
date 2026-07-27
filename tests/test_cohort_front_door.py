@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 from django.urls import reverse
 
-from apps.orgs.models import Invite, InviteAudience, Membership, MembershipRole
+from apps.orgs.models import Invite, InviteAudience, InviteKind, Membership, MembershipRole
 
 FRONT_DOOR = "https://dash.example/dash/{org_slug}/connect/"
 
@@ -122,6 +122,7 @@ def test_founder_accept_lands_on_the_venture_orgs_front_door(
         org=org,
         role=MembershipRole.MEMBER,
         audience=InviteAudience.FOUNDER,
+        kind=InviteKind.BYOV,
         venture_name="Wayfern",
     )
     client.force_login(user_factory())
