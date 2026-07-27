@@ -51,15 +51,6 @@ def nav(request):
                 "active": view_name == "orgs:members",
             }
         )
-        # The page the team shares to bring people in. Sits next to Members
-        # because it is the other half of the same job: getting people here.
-        tabs.append(
-            {
-                "label": "Join page",
-                "url_name": "orgs:join_page",
-                "active": view_name == "orgs:join_page",
-            }
-        )
         tabs.append(
             {
                 "label": "Settings",

@@ -12,6 +12,7 @@ from apps.orgs.genesis import MODULES
 from apps.orgs.models import (
     ChecklistEvent,
     Invite,
+    InviteKind,
     InviteStatus,
     Membership,
     MembershipRole,
@@ -28,10 +29,14 @@ def accel(org_factory):
 
 @pytest.fixture
 def founder_invite(accel):
+    """A founder bringing their own venture. kind=BYOV is what creates the org:
+    a founder invited as a co-founder of THIS org (kind=ORG) brings no venture
+    (apps.orgs.models.InviteKind, golda 2026-07-24)."""
     return Invite.objects.create(
         org=accel,
         role=MembershipRole.MEMBER,
         audience="founder",
+        kind=InviteKind.BYOV,
         name="Fran Founder",
         venture_name="Integral Mass",
         venture_url="https://integralmass.example",
@@ -54,8 +59,9 @@ def test_founder_accept_creates_venture_org(client, user_factory, founder_invite
     assert venture.valuation_config is not None
     m = Membership.objects.get(org=venture, user=user)
     assert m.role == MembershipRole.ADMIN
-    # Also joined the accelerator itself, with the invite's role.
-    assert Membership.objects.filter(org=founder_invite.org, user=user).exists()
+    # And NOT joined to the inviting org: the venture is its own home, which is
+    # what makes BYOV a different door from a co-founder invite.
+    assert not Membership.objects.filter(org=founder_invite.org, user=user).exists()
     founder_invite.refresh_from_db()
     assert founder_invite.status == InviteStatus.ACCEPTED
     # Lands on the venture, not the accelerator.
@@ -83,7 +89,11 @@ def test_founder_accept_starts_the_path(client, user_factory, founder_invite):
 def test_venture_slug_collision_gets_suffix(client, user_factory, org_factory, accel):
     org_factory(slug="integral-mass", display_name="Existing")
     invite = Invite.objects.create(
-        org=accel, audience="founder", name="F", venture_name="Integral Mass"
+        org=accel,
+        audience="founder",
+        kind=InviteKind.BYOV,
+        name="F",
+        venture_name="Integral Mass",
     )
     user = user_factory()
     client.force_login(user)
@@ -162,7 +172,8 @@ def test_non_member_cannot_toggle(client, user_factory, founder_invite):
             kwargs={"org_slug": venture.slug, "item_key": key},
         )
     )
-    assert resp.status_code == 403
+    # A page, so a non-member is sent to the public About stub, not dead-ended.
+    assert resp.status_code == 302
     assert not ChecklistEvent.objects.filter(org=venture).exists()
 
 
@@ -226,6 +237,7 @@ def test_member_cannot_seed_path(client, org_factory, user_factory, membership_f
     membership_factory(org=org, user=member, role=MembershipRole.MEMBER)
     client.force_login(member)
     resp = client.post(f"/o/{org.slug}/checklist/seed/")
-    assert resp.status_code == 403
+    # A page, so a non-member is sent to the public About stub, not dead-ended.
+    assert resp.status_code == 302
     org.refresh_from_db()
     assert org.genesis_started_at is None

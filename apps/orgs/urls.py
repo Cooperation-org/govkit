@@ -42,10 +42,8 @@ urlpatterns = [
         name="checklist_seed",
     ),
     path("o/<slug:org_slug>/settings/", views.org_settings, name="settings"),
-    # The page the team shares to bring people in, and the pull that drafts it
-    # from their own site.
-    path("o/<slug:org_slug>/page/", views.join_page_setup, name="join_page"),
-    path("o/<slug:org_slug>/page/pull/", views.join_page_pull, name="join_page_pull"),
+    # Draft the team profile from the team's own website (posts back to settings).
+    path("o/<slug:org_slug>/settings/pull/", views.profile_pull, name="profile_pull"),
     path("o/<slug:org_slug>/members/", views.members, name="members"),
     path("o/<slug:org_slug>/members/invite/", views.invite_create, name="invite_create"),
     path(

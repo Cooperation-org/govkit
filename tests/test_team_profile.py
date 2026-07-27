@@ -12,7 +12,7 @@ import pytest
 from django.urls import reverse
 
 from apps.orgs import sitepull
-from apps.orgs.forms import JoinPageForm
+from apps.orgs.forms import OrgSettingsForm
 from apps.orgs.models import MembershipRole, Org
 
 # --- What the team publishes (no DB) ------------------------------------------------------
@@ -35,7 +35,7 @@ def test_asks_keep_order_and_drop_the_ones_with_no_role():
 
 
 def test_form_reads_one_ask_per_line_with_an_optional_detail():
-    form = JoinPageForm(
+    form = OrgSettingsForm(
         data={
             "display_name": "Acme",
             "looking_for": "Backend developer: shipped a Django app\n\n- Designer\n   \n",
@@ -48,9 +48,10 @@ def test_form_reads_one_ask_per_line_with_an_optional_detail():
     ]
 
 
-def test_the_missing_list_names_the_asks_first_and_empties_when_filled():
+def test_the_checklist_is_things_to_do_and_all_tick_when_filled():
     bare = Org(slug="a", display_name="A")
-    assert [field for field, _cost in bare.join_page_gaps()][0] == "looking_for"
+    assert [done for _label, done in bare.profile_checklist()] == [False] * 6
+    assert not bare.profile_ready
 
     done = Org(
         slug="a",
@@ -62,7 +63,8 @@ def test_the_missing_list_names_the_asks_first_and_empties_when_filled():
         logo_url="https://acme.test/logo.png",
         website="https://acme.test",
     )
-    assert done.join_page_gaps() == []
+    assert all(d for _label, d in done.profile_checklist())
+    assert done.profile_ready
 
 
 # --- The pull refuses anything that is not a public website -------------------------------
@@ -160,20 +162,21 @@ def admin_org(org_factory, user_factory, membership_factory, client):
 
 
 @pytest.mark.django_db
-def test_only_an_admin_reaches_the_setup_screen(
+def test_only_an_admin_reaches_the_settings_screen(
     org_factory, user_factory, membership_factory, client
 ):
     org = org_factory(slug="acme", display_name="Acme")
     user = user_factory()
     membership_factory(org, user, role=MembershipRole.MEMBER)
     client.force_login(user)
-    assert client.get(reverse("orgs:join_page", kwargs={"org_slug": "acme"})).status_code == 403
+    resp = client.get(reverse("orgs:settings", kwargs={"org_slug": "acme"}))
+    assert resp.status_code == 403
 
 
 @pytest.mark.django_db
 def test_saving_publishes_the_asks(admin_org, client):
     resp = client.post(
-        reverse("orgs:join_page", kwargs={"org_slug": "acme"}),
+        reverse("orgs:settings", kwargs={"org_slug": "acme"}),
         {
             "display_name": "Acme",
             "tagline": "A thing",
@@ -195,7 +198,7 @@ def test_saving_publishes_the_asks(admin_org, client):
 def test_a_pull_fills_the_blanks_and_leaves_what_they_wrote_alone(admin_org, client):
     with patch.object(sitepull, "_read", lambda _u: (PAGE, "https://acme.test/")):
         resp = client.post(
-            reverse("orgs:join_page_pull", kwargs={"org_slug": "acme"}),
+            reverse("orgs:profile_pull", kwargs={"org_slug": "acme"}),
             {
                 "display_name": "Acme",
                 "tagline": "Our own line, keep it",
@@ -223,7 +226,7 @@ def test_an_unreachable_site_says_so_and_keeps_the_form(admin_org, client):
 
     with patch.object(sitepull, "_read", _boom):
         resp = client.post(
-            reverse("orgs:join_page_pull", kwargs={"org_slug": "acme"}),
+            reverse("orgs:profile_pull", kwargs={"org_slug": "acme"}),
             {
                 "display_name": "Acme",
                 "tagline": "Our own line",

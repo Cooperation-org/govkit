@@ -3,8 +3,47 @@
 {% block content %}
   <h1>Settings — {{ current_org.display_name }}</h1>
 
+  <style>
+    .gk-todo { list-style: none; margin: 0 0 1rem; padding: 0; }
+    .gk-todo li { padding: 0.3rem 0 0.3rem 1.8rem; position: relative; }
+    .gk-todo li::before {
+      content: ""; position: absolute; left: 0; top: 0.45rem;
+      width: 15px; height: 15px; border-radius: 4px;
+      border: 1.5px solid var(--gk-border-strong); background: var(--gk-surface);
+    }
+    .gk-todo li.done { color: var(--gk-ink-2); }
+    .gk-todo li.done::before {
+      background: var(--gk-ok); border-color: var(--gk-ok);
+    }
+    .gk-todo li.done::after {
+      content: ""; position: absolute; left: 4px; top: 0.68rem;
+      width: 7px; height: 3.5px; border-left: 2px solid #fff; border-bottom: 2px solid #fff;
+      transform: rotate(-45deg);
+    }
+    .gk-pullrow { display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap; }
+    .gk-pullrow .gk-field { flex: 1 1 18rem; margin: 0; }
+    .gk-previewline { margin: 0.6rem 0 0; }
+  </style>
+
   <form method="post" action="{% url 'orgs:settings' org_slug=current_org.slug %}">
     {% csrf_token %}
+
+    <div class="gk-card">
+      <h2>Your page, for people who want to join you</h2>
+      <p>This is what someone sees when you share your link. Fill these in and
+         share it.</p>
+      <ul class="gk-todo">
+        {% for label, done in checklist %}<li class="{% if done %}done{% endif %}">{{ label }}</li>{% endfor %}
+      </ul>
+      {% if join_page_url %}
+        <p class="gk-previewline">
+          <a class="gk-btn" href="{{ join_page_url }}" target="_blank" rel="noopener">See your page ↗</a>
+          {% if profile_ready %}
+          <button type="button" class="gk-copy gk-btn-quiet" data-link="{{ join_page_url }}">Copy your link</button>
+          {% endif %}
+        </p>
+      {% endif %}
+    </div>
 
     <div class="gk-card">
       <h2>Team profile</h2>
@@ -12,9 +51,44 @@
         <label for="{{ form.display_name.id_for_label }}">Team name</label>
         {{ form.display_name }}
       </div>
+
+      <div class="gk-pullrow">
+        <div class="gk-field">
+          <label for="{{ form.website.id_for_label }}">Website</label>
+          {{ form.website }}
+        </div>
+        <button type="submit" formaction="{% url 'orgs:profile_pull' org_slug=current_org.slug %}"
+                class="gk-btn-quiet">Fill this in from my website</button>
+      </div>
+      {% if pulled_from %}<p><small>Read from {{ pulled_from }}. Edit anything, then save.</small></p>{% endif %}
+
       <div class="gk-field">
-        <label for="{{ form.website.id_for_label }}">Website</label>
-        {{ form.website }}
+        <label for="{{ form.tagline.id_for_label }}">One line: what this is
+          <small>goes under your name, and it is the line your shared link shows</small></label>
+        {{ form.tagline }}
+      </div>
+      <div class="gk-field">
+        <label for="{{ form.pitch.id_for_label }}">What you are building
+          <small>your own words, the way you would say it out loud</small></label>
+        {{ form.pitch }}
+      </div>
+      <div class="gk-field">
+        <label for="{{ form.looking_for.id_for_label }}">Who you are looking for
+          <small>one per line: the role, a colon, and what they would do. This is what
+                 someone reading your page decides on.</small></label>
+        {{ form.looking_for }}
+        <small>Backend developer: our API needs someone who has shipped Django<br>
+               Someone who knows hospital procurement: we keep guessing at how they buy</small>
+      </div>
+      <div class="gk-field">
+        <label for="{{ form.logo_url.id_for_label }}">Logo image
+          <small>a picture address on your own site</small></label>
+        {{ form.logo_url }}
+      </div>
+      <div class="gk-field">
+        <label for="{{ form.cover_image_url.id_for_label }}">Picture for your link
+          <small>shows when someone pastes your link in Slack or LinkedIn</small></label>
+        {{ form.cover_image_url }}
       </div>
       <div class="gk-field">
         <label for="{{ form.socials.id_for_label }}">Socials
@@ -66,6 +140,21 @@
       </div>
     </div>
 
-    <button type="submit">Save settings</button>
+    <button type="submit">Save</button>
   </form>
+
+  <script>
+    (function () {
+      var CHECK = "Copied";
+      document.querySelectorAll(".gk-copy").forEach(function (btn) {
+        var label = btn.textContent;
+        btn.addEventListener("click", function () {
+          navigator.clipboard.writeText(btn.dataset.link).then(function () {
+            btn.textContent = CHECK;
+            setTimeout(function () { btn.textContent = label; }, 1500);
+          });
+        });
+      });
+    })();
+  </script>
 {% endblock %}

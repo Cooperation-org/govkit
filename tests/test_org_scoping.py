@@ -37,7 +37,10 @@ def test_non_member_is_forbidden(client, org_factory, user_factory, membership_f
     membership_factory(org_mine, user)  # member of 'mine' only
     client.force_login(user)
     resp = client.get(reverse("orgs:dashboard", kwargs={"org_slug": "other"}))
-    assert resp.status_code == 403
+    # A person is sent to the public About stub, where they can ask to join,
+    # rather than dead-ending on a raw 403 (apps.orgs.middleware).
+    assert resp.status_code == 302
+    assert resp["Location"].endswith("/o/other/about/")
 
 
 @pytest.mark.django_db

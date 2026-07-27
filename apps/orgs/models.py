@@ -228,26 +228,26 @@ class Org(models.Model):
                 )
         return out
 
-    def join_page_gaps(self) -> list:
-        """The pieces the join page is still missing, worst first.
+    def profile_checklist(self) -> list:
+        """The team profile as things to do, each done or not.
 
-        Each gap is (field, what a person loses without it) — the page and the
-        setup screen both render from this, so there is one list, not two.
+        Positive on purpose: a team looking at their own page should see what
+        they have and what is left, not a list of what is wrong with them.
+        Order is the order of the fields on the settings page.
         """
-        gaps = []
-        if not self.asks:
-            gaps.append(("looking_for", "Nobody can tell what you need a person for."))
-        if not self.pitch.strip():
-            gaps.append(("pitch", "The page says nothing about what you are building."))
-        if not self.tagline.strip():
-            gaps.append(("tagline", "Your shared link has no sentence under the name."))
-        if not self.cover_image_url:
-            gaps.append(("cover_image_url", "Your link unfurls with no picture."))
-        if not self.logo_url:
-            gaps.append(("logo_url", "The page has no logo at the top."))
-        if not self.website:
-            gaps.append(("website", "No way to go look at what you have built."))
-        return gaps
+        return [
+            ("Your website", bool(self.website)),
+            ("One line saying what this is", bool(self.tagline.strip())),
+            ("What you are building", bool(self.pitch.strip())),
+            ("Who you are looking for", bool(self.asks)),
+            ("A logo", bool(self.logo_url)),
+            ("A picture for your link", bool(self.cover_image_url)),
+        ]
+
+    @property
+    def profile_ready(self) -> bool:
+        """True once every part of the profile is filled in."""
+        return all(done for _label, done in self.profile_checklist())
 
 
 class ValuationConfig(models.Model):

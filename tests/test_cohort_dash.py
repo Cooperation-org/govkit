@@ -156,10 +156,12 @@ def test_checklist_forbidden_for_non_member(client, team, outsider):
     assert client.get(f"/api/v1/orgs/{org.slug}/checklist/").status_code == 403
 
 
-def test_checklist_anonymous_redirected_to_login(client, team):
+def test_checklist_signed_out_gets_a_status_not_a_login_page(client, team):
+    """A card fetches this. 401 is something it can act on; a redirect to an
+    HTML login page is not (apps.orgs.middleware)."""
     org, _, _ = team
     resp = client.get(f"/api/v1/orgs/{org.slug}/checklist/")
-    assert resp.status_code == 302
+    assert resp.status_code == 401
 
 
 # --------------------------------------------------------------------------- open tasks
@@ -265,9 +267,9 @@ def test_open_tasks_forbidden_for_non_member(client, team, outsider):
     assert client.get(f"/api/v1/tasksources/orgs/{org.slug}/tasks/open/").status_code == 403
 
 
-def test_open_tasks_anonymous_redirected_to_login(client, team):
+def test_open_tasks_signed_out_gets_a_status_not_a_login_page(client, team):
     org, _, _ = team
-    assert client.get(f"/api/v1/tasksources/orgs/{org.slug}/tasks/open/").status_code == 302
+    assert client.get(f"/api/v1/tasksources/orgs/{org.slug}/tasks/open/").status_code == 401
 
 
 # --------------------------------------------------------------------------- portfolio
@@ -329,6 +331,6 @@ def test_portfolio_forbidden_for_non_member(client, team, outsider):
     assert client.get(f"/api/v1/projects/orgs/{org.slug}/portfolio/").status_code == 403
 
 
-def test_portfolio_anonymous_redirected_to_login(client, team):
+def test_portfolio_signed_out_gets_a_status_not_a_login_page(client, team):
     org, _, _ = team
-    assert client.get(f"/api/v1/projects/orgs/{org.slug}/portfolio/").status_code == 302
+    assert client.get(f"/api/v1/projects/orgs/{org.slug}/portfolio/").status_code == 401

@@ -3,6 +3,27 @@
 {% block content %}
   <h1>{{ current_org.display_name }}</h1>
 
+  {% if profile_todo %}
+    <div class="gk-card">
+      <h2>Get people to join you</h2>
+      <p>Fill in your page and share the link. It takes a few minutes and most of
+         it comes straight off your website.</p>
+      <a class="gk-btn" href="{% url 'orgs:settings' org_slug=current_org.slug %}">Set up your page</a>
+      {% if join_page_url %}
+        <a href="{{ join_page_url }}" target="_blank" rel="noopener">See it ↗</a>
+      {% endif %}
+    </div>
+  {% elif join_page_url %}
+    <div class="gk-card">
+      <h2>Share your page</h2>
+      <div class="gk-sharelink">
+        <input readonly value="{{ join_page_url }}" aria-label="Your page link" onclick="this.select()">
+        <a href="{{ join_page_url }}" target="_blank" rel="noopener">Open ↗</a>
+        <a href="{% url 'orgs:settings' org_slug=current_org.slug %}">Edit</a>
+      </div>
+    </div>
+  {% endif %}
+
   {% if modules %}
 
     <p class="gk-muted">Start wherever makes sense to you. The order is yours.</p>
