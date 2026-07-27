@@ -824,3 +824,21 @@ details.gk-unfold fieldset { border: none; padding: 0.25rem 0 0.75rem; margin: 0
 .gk-actions { display: flex; gap: 0.7rem; align-items: center; flex-wrap: wrap; margin-top: 0.6rem; }
 .gk-pullrow { display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap; }
 .gk-pullrow .gk-field { flex: 1 1 18rem; margin: 0; }
+
+/* the preview: the real public page in a frame, so what you see IS the page.
+   Sized like a browser window, quiet border, never taller than the screen. */
+.gk-preview {
+  margin: 0.9rem 0 0.7rem;
+  border: 1px solid var(--gk-border);
+  border-radius: var(--gk-radius-card);
+  overflow: hidden;
+  background: var(--gk-surface);
+}
+.gk-preview iframe {
+  display: block;
+  width: 100%;
+  height: min(70vh, 34rem);
+  border: 0;
+}
+.gk-previewline { display: flex; gap: 0.7rem; align-items: center; flex-wrap: wrap; }
+.gk-previewline .gk-sharelink { flex: 1 1 22rem; }

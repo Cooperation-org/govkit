@@ -9,18 +9,28 @@
 
     <div class="gk-card" id="your-page">
       <h2>Your page, for people who want to join you</h2>
-      <p>This is what someone sees when you share your link. Fill these in and
-         share it.</p>
+      <p>This is what someone sees when you share your link. Edit below, save, and
+         it changes here.</p>
       <ul class="gk-todo">
         {% for label, done in checklist %}<li class="{% if done %}done{% endif %}">{{ label }}</li>{% endfor %}
       </ul>
       {% if join_page_url %}
+        {# The preview is the real page in a frame, not a copy of it. A second
+           template would drift from what people actually see. #}
+        <div class="gk-preview">
+          <iframe src="{{ join_page_url }}?v={{ current_org.updated_at.timestamp|floatformat:0 }}"
+                  title="Your page, exactly as people see it"
+                  loading="lazy" referrerpolicy="no-referrer"></iframe>
+        </div>
         <p class="gk-previewline">
-          <a class="gk-btn" href="{{ join_page_url }}" target="_blank" rel="noopener">See your page ↗</a>
-          {% if profile_ready %}
-          <button type="button" class="gk-copy gk-btn-quiet" data-link="{{ join_page_url }}">Copy your link</button>
-          {% endif %}
+          <span class="gk-sharelink">
+            <input readonly value="{{ join_page_url }}" aria-label="Your link"
+                   onclick="this.select()">
+            <button type="button" class="gk-copy gk-btn" data-link="{{ join_page_url }}">Copy your link</button>
+          </span>
+          <a href="{{ join_page_url }}" target="_blank" rel="noopener">Open it ↗</a>
         </p>
+        <p><small>Paste that link in Slack or LinkedIn. Anyone can open it and raise a hand.</small></p>
       {% endif %}
     </div>
 
@@ -122,18 +132,4 @@
     <button type="submit">Save</button>
   </form>
 
-  <script>
-    (function () {
-      var CHECK = "Copied";
-      document.querySelectorAll(".gk-copy").forEach(function (btn) {
-        var label = btn.textContent;
-        btn.addEventListener("click", function () {
-          navigator.clipboard.writeText(btn.dataset.link).then(function () {
-            btn.textContent = CHECK;
-            setTimeout(function () { btn.textContent = label; }, 1500);
-          });
-        });
-      });
-    })();
-  </script>
 {% endblock %}

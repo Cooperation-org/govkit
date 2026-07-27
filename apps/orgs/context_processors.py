@@ -51,18 +51,13 @@ def nav(request):
                 "active": view_name == "orgs:members",
             }
         )
-        # The page people join through. Named for what it is, because "Settings"
-        # is where you go to change a setting, not where you go to be found.
+        # The page people join through. ONE tab, named for what it is, because
+        # "Settings" is where you go to change a setting, not where you go to be
+        # found. (There were two tabs here pointing at this same URL, both
+        # highlighted at once — a person could not tell them apart.)
         tabs.append(
             {
                 "label": "Your page",
-                "url_name": "orgs:settings",
-                "active": view_name == "orgs:settings",
-            }
-        )
-        tabs.append(
-            {
-                "label": "Settings",
                 "url_name": "orgs:settings",
                 "active": view_name == "orgs:settings",
             }

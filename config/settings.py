@@ -98,7 +98,9 @@ COHORT_NAV_SRC = env("COHORT_NAV_SRC")
 # Where a team's public join page lives — the cohort's public site, not GovKit.
 # The share link is f"{VENTURE_PAGE_BASE_URL}/{org.slug}/", e.g.
 # https://workers.vc/ventures. Empty hides the share link and the copy button;
-# the setup screen still works, there is just nothing to share yet.
+# the setup screen still works, there is just nothing to share yet. On a cohort
+# deployment it is derived from COHORT_FRONT_DOOR below, so the team always has
+# a link to share without a second env var having to be set.
 VENTURE_PAGE_BASE_URL = env("VENTURE_PAGE_BASE_URL").rstrip("/")
 
 # Browser-facing base for URLs handed to OTHER SERVERS to relay (S2S invite
@@ -321,6 +323,17 @@ if COHORT_FRONT_DOOR:
             "(e.g. https://workers.vc/dash/{org_slug}/connect/); got "
             f"{COHORT_FRONT_DOOR!r}."
         )
+
+    # The cohort's public site publishes each team's join page at /ventures/<slug>/
+    # (the doorway's own routing — see workers.vc doorway/urls.py). It is the same
+    # site the front door is on, so when nobody set VENTURE_PAGE_BASE_URL we derive
+    # it instead of leaving the team with a setup screen and nothing to share.
+    # An explicit VENTURE_PAGE_BASE_URL always wins.
+    if not VENTURE_PAGE_BASE_URL:
+        from urllib.parse import urlsplit
+
+        _front_door = urlsplit(COHORT_FRONT_DOOR.format(org_slug="probe"))
+        VENTURE_PAGE_BASE_URL = f"{_front_door.scheme}://{_front_door.netloc}/ventures"
 
 # Where a POOL-invite accept lands (the person joined no org, so neither org
 # dashboard nor COHORT_FRONT_DOOR applies). A plain https URL, no template. Unset

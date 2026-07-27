@@ -64,6 +64,29 @@
 </header>
 
 <script>
+  /* Copy-to-clipboard for any .gk-copy button, on every page. Text buttons say
+     "Copied"; icon-only buttons show a tick. Lived in two page templates and
+     was missing from a third, so a Copy button silently did nothing there. */
+  (function () {
+    var TICK = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+    document.addEventListener("click", function (e) {
+      var btn = e.target.closest(".gk-copy");
+      if (!btn || !btn.dataset.link) return;
+      navigator.clipboard.writeText(btn.dataset.link).then(function () {
+        if (btn.dataset.copyBusy) return;
+        var was = btn.innerHTML;
+        btn.dataset.copyBusy = "1";
+        btn.innerHTML = btn.textContent.trim() ? "Copied" : TICK;
+        btn.classList.add("gk-copied");
+        setTimeout(function () {
+          btn.innerHTML = was;
+          btn.classList.remove("gk-copied");
+          delete btn.dataset.copyBusy;
+        }, 1500);
+      });
+    });
+  })();
+
   (function () {
     var menu = document.querySelector(".gk-usermenu");
     if (!menu) return;

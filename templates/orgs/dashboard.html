@@ -6,24 +6,25 @@
   {% if profile_todo %}
     <div class="gk-card gk-firstthing">
       <h2>Your page</h2>
-      <p class="gk-lede">The page you send people so they can join you. Not filled
-         in yet, so there is nothing to send.</p>
+      <p class="gk-lede">The page you send people so they can join you. Start with
+         your website and most of it writes itself from your own words.</p>
       <ul class="gk-todo">
         {% for label, done in profile_checklist %}<li class="{% if done %}done{% endif %}">{{ label }}</li>{% endfor %}
       </ul>
       <div class="gk-actions">
-        <a class="gk-btn" href="{% url 'orgs:settings' org_slug=current_org.slug %}#your-page">Fill it in</a>
+        <a class="gk-btn" href="{% url 'orgs:settings' org_slug=current_org.slug %}#your-page">Set up your page</a>
         {% if join_page_url %}
-          <a href="{{ join_page_url }}" target="_blank" rel="noopener">See how it looks now ↗</a>
+          <a href="{{ join_page_url }}" target="_blank" rel="noopener">See it as it stands ↗</a>
         {% endif %}
       </div>
-      <p><small>Paste your website there and most of it fills in from your own words.</small></p>
     </div>
   {% elif join_page_url %}
     <div class="gk-card gk-firstthing">
       <h2>Your page</h2>
+      <p class="gk-lede">Ready to share. Paste this in Slack or LinkedIn.</p>
       <div class="gk-sharelink">
         <input readonly value="{{ join_page_url }}" aria-label="Your page link" onclick="this.select()">
+        <button type="button" class="gk-copy gk-btn" data-link="{{ join_page_url }}">Copy</button>
         <a href="{{ join_page_url }}" target="_blank" rel="noopener">Open ↗</a>
         <a href="{% url 'orgs:settings' org_slug=current_org.slug %}#your-page">Edit</a>
       </div>
