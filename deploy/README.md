@@ -114,6 +114,20 @@ Do **not** leave a password account usable in prod long-term — prefer OIDC. De
 - Before making the repo **public** (`scratch.md` Q6): scrub/remove `scratch.md` (it references
   internal paths). See its "Pre-public checklist".
 
+## Autodrop (scheduled sync + run-opening)
+
+`manage.py autodrop` syncs every org's task sources and opens a drop run wherever
+finished work is waiting, so approved-in-tracker tasks show up as pending equity by
+themselves. Approval stays human — the command never approves a run. Install the timer
+alongside the backend service (adjust `User`/`WorkingDirectory` per VM):
+
+```bash
+sudo cp deploy/govkit-autodrop.service deploy/govkit-autodrop.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now govkit-autodrop.timer
+systemctl list-timers govkit-autodrop.timer --no-pager   # next run
+```
+
 ## Rollback
 ```bash
 sudo systemctl disable --now tmp-govkit-backend.service

@@ -26,10 +26,15 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Dict, List, Optional
 
+from django.db import transaction
+from django.db.models import Sum
+from django.utils import timezone
+
 from apps.drops.models import DropLine, DropRunState
-from apps.orgs.models import Membership, OpeningBalance, OrgStake
+from apps.orgs.models import Membership, OpeningBalance, OrgStake, PiePhase
 
 ZERO = Decimal("0")
+ONE_HUNDRED = Decimal("100")
 # Full-precision fraction (0..1), quantized only for a stable, comparable value.
 # 8 dp keeps rounding drift negligible when shares are summed back to 1.
 SHARE_Q = Decimal("0.00000001")
@@ -81,11 +86,17 @@ class OpeningProvenance:
 
 @dataclass
 class StakeProvenance:
-    """One grant of equity to a sponsoring org."""
+    """One grant of equity to a sponsoring org.
+
+    ``value`` is always the resolved amount. ``target_pct`` is set when the stake was
+    agreed as a share of the starting split, so the UI can show "10% of the start"
+    next to the number it currently resolves to.
+    """
 
     stake_id: int
     value: Decimal
     source_note: str
+    target_pct: Optional[Decimal] = None
 
 
 # --------------------------------------------------------------------------- #
@@ -236,12 +247,50 @@ def _stakes_by_holder(org) -> Dict[int, List[OrgStake]]:
     return by_holder
 
 
+def resolved_stake_values(org) -> Dict[int, Decimal]:
+    """The value of every OrgStake in an org, resolving percent-of-start stakes.
+
+    A stake with a stored value IS that value. A stake with only ``target_pct`` (a
+    share of the starting split, agreed before lock-in) is resolved here, every time
+    the pie is computed, so the order the team entered things in never matters. It
+    resolves against the STARTING set — opening balances plus all stakes — never the
+    live pie, so work earned through drops sits on top and dilutes it like everyone
+    else's share. With F the fixed starting total and p the summed percent fractions,
+    the starting total S satisfies S = F + p·S, so S = F / (1 − p).
+
+    Defensively: percents summing to 100 or more resolve to zero rather than divide
+    by zero or mint a negative pie (the grant form refuses such a percent, so this
+    only guards corrupted data), and a percent of an empty starting set is zero.
+    After lock-in every stake has a stored value (lock_pie wrote it), so this
+    reduces to reading them.
+    """
+    stakes = list(OrgStake.objects.filter(org=org))
+    values: Dict[int, Decimal] = {s.pk: s.value for s in stakes if s.value is not None}
+    pct_stakes = [s for s in stakes if s.value is None]
+    if not pct_stakes:
+        return values
+
+    openings = OpeningBalance.objects.filter(org=org).aggregate(t=Sum("value"))["t"] or ZERO
+    fixed_total = openings + sum(values.values(), ZERO)
+    pct_sum = sum((s.target_pct or ZERO for s in pct_stakes), ZERO) / ONE_HUNDRED
+    if pct_sum >= Decimal("1") or fixed_total <= ZERO:
+        for s in pct_stakes:
+            values[s.pk] = ZERO
+        return values
+
+    starting_total = fixed_total / (Decimal("1") - pct_sum)
+    for s in pct_stakes:
+        values[s.pk] = _cents((s.target_pct or ZERO) / ONE_HUNDRED * starting_total)
+    return values
+
+
 def _sponsor_slices(org) -> List[PieSlice]:
     """One slice per sponsor, with share left at zero for the caller to derive."""
+    resolved = resolved_stake_values(org)
     slices: List[PieSlice] = []
     for stakes in _stakes_by_holder(org).values():
         holder = stakes[0].holder
-        total = _cents(sum((s.value for s in stakes), ZERO))
+        total = _cents(sum((resolved[s.pk] for s in stakes), ZERO))
         slices.append(
             PieSlice(
                 membership_id=None,
@@ -256,7 +305,12 @@ def _sponsor_slices(org) -> List[PieSlice]:
                 holder_slug=holder.slug,
                 holder_url=holder.url,
                 stakes=[
-                    StakeProvenance(stake_id=s.pk, value=s.value, source_note=s.source_note)
+                    StakeProvenance(
+                        stake_id=s.pk,
+                        value=resolved[s.pk],
+                        source_note=s.source_note,
+                        target_pct=s.target_pct,
+                    )
                     for s in stakes
                 ],
             )
@@ -354,6 +408,138 @@ def value_for_target_share(org, target_pct: Decimal) -> Decimal:
         raise ValueError("A share has to be above 0 and below 100 percent.")
     value = total * target_pct / (Decimal("100") - target_pct)
     return _cents(value)
+
+
+# --------------------------------------------------------------------------- #
+# Lock-in — "nothing is final until lock-in by majority decision."
+#
+# The pie launches on an adjustable starting split; locking it in makes it the
+# record. The decision is a work-weighted majority vote (apps.votes): weight is what
+# each member has actually earned plus their starting balance — "your share of the
+# winnings should reflect your share of the bets" (Slicing Pie). Money doesn't vote:
+# sponsor stakes hold no membership and are never in the electorate.
+# --------------------------------------------------------------------------- #
+LOCK_YES = "Lock it in"
+LOCK_NO = "Not yet"
+LOCK_QUESTION = "Lock in the starting split as the record?"
+
+
+class LockError(Exception):
+    """A pie lock-in rule was violated (wrong phase, or a vote already running)."""
+
+
+def current_lock_vote(org):
+    """The live lock-in attempt for an org, or None."""
+    from .models import PieLockVote
+
+    return (
+        PieLockVote.objects.filter(org=org, vote__closed_at__isnull=True)
+        .select_related("vote")
+        .first()
+    )
+
+
+def lock_progress(vote) -> dict:
+    """Where a lock-in vote stands, against the WHOLE electorate.
+
+    Majority means the weight cast for locking exceeds half of ALL snapshotted
+    weight — an absolute majority of the members' stake, not of turnout. When the
+    whole electorate's weight is zero (a brand-new org with nothing entered yet),
+    heads count instead so the team is never wedged.
+    """
+    from apps.votes.services import tally as vote_tally
+
+    t = vote_tally(vote)
+    total_weight = sum((Decimal(w) for w in vote.weight_snapshot.values()), ZERO)
+    yes = next((r for r in t.results if r.option == LOCK_YES), None)
+    yes_weight = yes.weighted if yes else ZERO
+    yes_raw = yes.raw if yes else 0
+    electorate = len(vote.weight_snapshot)
+    if total_weight > ZERO:
+        majority = yes_weight * 2 > total_weight
+        yes_pct = (yes_weight / total_weight * ONE_HUNDRED).quantize(PCT_Q)
+    else:
+        majority = yes_raw * 2 > electorate
+        yes_pct = (
+            (Decimal(yes_raw) / Decimal(electorate) * ONE_HUNDRED).quantize(PCT_Q)
+            if electorate
+            else ZERO
+        )
+    return {
+        "total_weight": total_weight,
+        "yes_weight": yes_weight,
+        "yes_pct": yes_pct,
+        "majority": majority,
+        "ballots_cast": t.raw_total,
+        "electorate": electorate,
+    }
+
+
+@transaction.atomic
+def start_lock_vote(org):
+    """Open the lock-in vote for a launched pie. One live attempt at a time."""
+    from apps.votes.services import create_vote, open_vote
+
+    from .models import PieLockVote
+
+    if org.pie_phase != PiePhase.LAUNCHED:
+        raise LockError("Only a launched pie can be locked in.")
+    if current_lock_vote(org) is not None:
+        raise LockError("A lock-in vote is already running.")
+    vote = create_vote(org, LOCK_QUESTION, [LOCK_YES, LOCK_NO])
+    open_vote(vote)
+    return PieLockVote.objects.create(org=org, vote=vote)
+
+
+@transaction.atomic
+def cast_lock_ballot(lock, membership, choice: str):
+    """Record a member's lock-in ballot; the moment a majority is reached, lock.
+
+    Re-voting replaces the earlier ballot (apps.votes semantics). Returns the lock
+    row, whose ``locked`` flag says whether this ballot carried the decision.
+    """
+    from apps.votes.services import cast_ballot, close_vote
+
+    cast_ballot(lock.vote, membership, choice)
+    if lock_progress(lock.vote)["majority"]:
+        close_vote(lock.vote)
+        lock.locked = True
+        lock.save(update_fields=["locked"])
+        lock_pie(lock.org)
+    return lock
+
+
+@transaction.atomic
+def close_lock_vote(lock):
+    """Close a lock-in vote early. If a majority is already there, it locks;
+    otherwise the pie stays launched and adjustable, and the team can try again."""
+    from apps.votes.services import close_vote
+
+    close_vote(lock.vote)
+    if lock_progress(lock.vote)["majority"]:
+        lock.locked = True
+        lock.save(update_fields=["locked"])
+        lock_pie(lock.org)
+    return lock
+
+
+@transaction.atomic
+def lock_pie(org):
+    """Make the starting split the record.
+
+    Percent stakes get their resolved value written down (the percent stays as
+    provenance), and the org moves to LOCKED. From here on every grant is an add:
+    new value in, new units out, everyone dilutes — the dynamic model, exactly as
+    the book runs it.
+    """
+    resolved = resolved_stake_values(org)
+    for stake in OrgStake.objects.filter(org=org, value__isnull=True):
+        stake.value = _cents(resolved[stake.pk])
+        stake.save(update_fields=["value"])
+    org.pie_phase = PiePhase.LOCKED
+    org.pie_locked_at = timezone.now()
+    org.save(update_fields=["pie_phase", "pie_locked_at", "updated_at"])
+    return org
 
 
 def compute_personal_standing(org, membership: Membership) -> Standing:

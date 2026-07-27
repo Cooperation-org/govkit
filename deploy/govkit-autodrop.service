@@ -1,0 +1,12 @@
+[Unit]
+Description=GovKit autodrop — sync task sources and open drop runs (oneshot)
+After=network.target
+
+[Service]
+Type=oneshot
+User=golda
+Group=devteam
+WorkingDirectory=/opt/shared/repos/govkit
+EnvironmentFile=/opt/shared/repos/govkit/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/shared/repos/govkit/venv/bin/python manage.py autodrop

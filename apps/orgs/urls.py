@@ -76,8 +76,8 @@ urlpatterns = [
         name="sponsor_stake_remove",
     ),
     path(
-        "o/<slug:org_slug>/initial-shares/done/",
-        views.initial_shares_done,
-        name="initial_shares_done",
+        "o/<slug:org_slug>/pie/launch/",
+        views.pie_launch,
+        name="pie_launch",
     ),
 ]

@@ -14,31 +14,93 @@
     opening balances.
   </p>
 
-  {% if offer_initial_shares %}
+  {% if pie_phase == "setup" %}
     <div class="gk-card gk-offer">
-      <h2>Starting shares</h2>
+      <h2>Set up the starting split</h2>
       <p>
-        Optional. If this venture was built before the pie existed, you can give each
-        person who built it a starting amount for that work, and give a company a share
-        for money or an idea it put in. Everything dilutes normally from there as people
-        earn.
+        Record what was already put in before this pie existed — work done, money put
+        at risk, an idea made real. Your share of the winnings should reflect your
+        share of the bets. Enter people as they accept invites, in any order:
+        percentages are figured against the whole starting split, so nothing goes
+        stale while you add people.
       </p>
-      <p class="gk-muted">
-        Invite your people first, then set their amounts — you can come back as often as
-        you like. Tick the box when the founding team is all in.
-      </p>
+      {% if outside_pie_url %}
+        <p class="gk-muted">
+          This team's pie of record lives
+          <a href="{{ outside_pie_url }}" target="_blank" rel="noopener">outside GovKit</a>{% if outside_pie_as_of %}
+          (current as of {{ outside_pie_as_of }}){% endif %} — enter the values from
+          there so this pie reflects it.
+        </p>
+      {% else %}
+        <p class="gk-muted">
+          Already running a pie elsewhere (Slicing Pie's Pie Slicer, a spreadsheet)?
+          Link it on <a href="{% url 'orgs:settings' org_slug=current_org.slug %}">org
+          settings</a> and enter its values here.
+        </p>
+      {% endif %}
       <p>
         <a href="{% url 'orgs:members' org_slug=current_org.slug %}#starting-shares">Invite people and set starting shares &rarr;</a>
       </p>
-      <form method="post" action="{% url 'orgs:initial_shares_done' org_slug=current_org.slug %}">
-        {% csrf_token %}
-        <label>
-          <input type="checkbox" name="done" value="1" onchange="this.form.submit()">
-          Done — stop showing this
-        </label>
-        <noscript><button type="submit">Save</button></noscript>
-      </form>
+      {% if is_pie_admin %}
+        <form method="post" action="{% url 'orgs:pie_launch' org_slug=current_org.slug %}">
+          {% csrf_token %}
+          <button type="submit">Launch the pie</button>
+          <span class="gk-muted">
+            Start earning on top of this split. Nothing is final until the team locks
+            it in by majority decision — the starting numbers stay adjustable.
+          </span>
+        </form>
+      {% endif %}
     </div>
+  {% elif pie_phase == "launched" %}
+    <div class="gk-card gk-offer">
+      <h2>Starting split — adjustable until the team locks it in</h2>
+      <p class="gk-muted">
+        Earning is live on top of the
+        <a href="{% url 'orgs:members' org_slug=current_org.slug %}#starting-shares">starting split</a>,
+        which can still be adjusted. Nothing is final until lock-in by majority
+        decision: a vote weighted by each member's stake — what they've earned plus
+        their starting balance. Money doesn't vote.
+      </p>
+      {% if cohort_ended and not lock %}
+        <p><strong>The cohort has ended. Ready to lock in?</strong>
+          A majority decision makes this split the record.</p>
+      {% endif %}
+      {% if lock %}
+        <p>
+          <strong>Lock-in vote is open.</strong>
+          {{ lock_progress.yes_pct }}% of the members' stake says lock it in
+          ({{ lock_progress.ballots_cast }} of {{ lock_progress.electorate }} voted) —
+          past half, it locks.
+        </p>
+        {% if is_member %}
+          <form method="post" action="{% url 'pie:lock_cast' org_slug=current_org.slug %}" class="gk-inline-form">
+            {% csrf_token %}
+            <button type="submit" name="choice" value="{{ lock_yes }}"
+              {% if lock_my_choice == lock_yes %}disabled{% endif %}>{{ lock_yes }}</button>
+            <button type="submit" name="choice" value="{{ lock_no }}"
+              {% if lock_my_choice == lock_no %}disabled{% endif %}>{{ lock_no }}</button>
+            {% if lock_my_choice %}<span class="gk-muted">You said “{{ lock_my_choice }}” — voting again changes it.</span>{% endif %}
+          </form>
+        {% endif %}
+        {% if is_pie_admin %}
+          <form method="post" action="{% url 'pie:lock_close' org_slug=current_org.slug %}" class="gk-inline-form">
+            {% csrf_token %}
+            <button type="submit" class="gk-muted">Close the vote</button>
+          </form>
+        {% endif %}
+      {% elif is_pie_admin %}
+        <form method="post" action="{% url 'pie:lock_start' org_slug=current_org.slug %}">
+          {% csrf_token %}
+          <button type="submit">Start the lock-in vote</button>
+        </form>
+      {% endif %}
+    </div>
+  {% elif pie_phase == "locked" and pie_locked_at %}
+    <p class="gk-muted">
+      Locked in by majority decision on {{ pie_locked_at|date:"Y-m-d" }}. The starting
+      split is the record; every grant from here adds equity and dilutes everyone.
+    </p>
   {% endif %}
 
   {% if pie.total > 0 %}
@@ -142,7 +204,10 @@
                             {% for st in s.stakes %}
                               <tr>
                                 <td>#{{ st.stake_id }}</td>
-                                <td class="gk-muted">{{ st.source_note|default:"—" }}</td>
+                                <td class="gk-muted">
+                                  {{ st.source_note|default:"—" }}
+                                  {% if st.target_pct %}<br>{{ st.target_pct }}% of the starting split{% endif %}
+                                </td>
                                 <td class="gk-num">{{ st.value }}</td>
                               </tr>
                             {% endfor %}

@@ -170,7 +170,7 @@ def test_the_team_settles_its_own_starting_shares(
     }
 
 
-def test_the_pie_board_offers_the_step_and_takes_no_for_an_answer(byov_invite, user_factory):
+def test_the_pie_board_starts_in_setup_and_an_admin_can_launch(byov_invite, user_factory):
     venture = _accept(byov_invite, user_factory(email="founder@example.com"))
     founder = Membership.objects.get(org=venture)
     from django.test import Client
@@ -179,28 +179,27 @@ def test_the_pie_board_offers_the_step_and_takes_no_for_an_answer(byov_invite, u
     client.force_login(founder.user)
 
     page = client.get(reverse("pie:index", kwargs={"org_slug": venture.slug}))
-    assert page.context["offer_initial_shares"] is True
+    assert page.context["pie_phase"] == "setup"
+    assert page.context["is_pie_admin"] is True
 
-    resp = client.post(
-        reverse("orgs:initial_shares_done", kwargs={"org_slug": venture.slug}), {"done": "1"}
-    )
+    resp = client.post(reverse("orgs:pie_launch", kwargs={"org_slug": venture.slug}))
     assert resp.status_code == 302
     venture.refresh_from_db()
-    assert venture.initial_shares_done is True
+    assert venture.pie_phase == "launched"
 
     page = client.get(reverse("pie:index", kwargs={"org_slug": venture.slug}))
-    assert page.context["offer_initial_shares"] is False
+    assert page.context["pie_phase"] == "launched"
 
 
-def test_a_plain_member_is_not_offered_the_step(founded_venture, user_factory, membership_factory):
-    """Only someone who could act on it is asked."""
+def test_a_plain_member_cannot_launch(founded_venture, user_factory, membership_factory):
+    """Only someone who could act on it is offered the setup controls."""
     from django.test import Client
 
     joiner = membership_factory(org=founded_venture, user=user_factory(email="joiner@example.com"))
     client = Client()
     client.force_login(joiner.user)
     page = client.get(reverse("pie:index", kwargs={"org_slug": founded_venture.slug}))
-    assert page.context["offer_initial_shares"] is False
+    assert page.context["is_pie_admin"] is False
 
 
 # --------------------------------------------------------------------------- #

@@ -96,6 +96,20 @@ class InviteStatus(models.TextChoices):
     REVOKED = "revoked", "Revoked"
 
 
+class PiePhase(models.TextChoices):
+    """Where an org's pie is in its life.
+
+    SETUP — recording the starting split: bets already placed (work done, money at
+    risk) before this pie existed. LAUNCHED — earning has started on top; the starting
+    numbers stay adjustable until the team locks them in by majority decision.
+    LOCKED — the split is the record.
+    """
+
+    SETUP = "setup", "Setting up"
+    LAUNCHED = "launched", "Launched"
+    LOCKED = "locked", "Locked in"
+
+
 class Cohort(models.Model):
     """
     One run of an accelerator: the teams that went through it together.
@@ -160,11 +174,17 @@ class Org(models.Model):
     # after it is what the team still owes the outside pie.
     pie_url = models.URLField(blank=True)
     pie_as_of = models.DateField(null=True, blank=True)
-    # The pie board offers an optional setup step: give the founding team their starting
-    # amounts and hand a slice to a sponsor. A venture usually arrives as several people,
-    # so this is not one sitting — they invite, grant, invite again. Ticking "done" puts
-    # the offer away; leaving it alone keeps it there for whenever they get back to it.
-    initial_shares_done = models.BooleanField(default=False)
+    # The pie moves through three phases. SETUP: the team records its starting split —
+    # work already done and money already put at risk before this pie existed. A venture
+    # usually arrives as several people, so this is not one sitting — they invite, grant,
+    # invite again. LAUNCHED: earning starts on top of the starting split, but the
+    # starting numbers stay adjustable — nothing is final until the team locks it in by
+    # majority decision (a work-weighted vote; money doesn't vote). LOCKED: the split is
+    # the record. The vote itself lives in apps.pie (PieLockVote).
+    pie_phase = models.CharField(
+        max_length=12, choices=PiePhase.choices, default="setup"
+    )
+    pie_locked_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -319,7 +339,7 @@ class Invite(models.Model):
     venture_url = models.URLField(blank=True)
 
     # An invite carries no money terms. What a venture starts with is the founder's to
-    # set, in their own org, after they accept — see Org.initial_shares_done.
+    # set, in their own org, after they accept — see Org.pie_phase (the setup phase).
 
     # The inviter's authored drafts (never generated); invitee edits before commit.
     drafted_statement = models.TextField(blank=True)
@@ -545,11 +565,21 @@ class OrgStake(models.Model):
 
     Rows are additive, like OpeningBalance: a second grant is a second row, and the
     holder's stake is their sum, each with its own note about where it came from.
+
+    A stake carries either a fixed ``value`` or, before the pie is locked in, a
+    ``target_pct``: an agreed share of the STARTING split ("they hold 10% at the
+    start"). A percent stake has no fixed value while the pie is still adjustable —
+    the pie resolves it against the whole starting set every time it is computed, so
+    the order the team enters things in never matters. Locking in writes the resolved
+    value and keeps the percent as provenance. After lock, a percent grant is minted
+    as new equity instead (apps.pie.services.value_for_target_share).
     """
 
     org = models.ForeignKey(Org, on_delete=models.CASCADE, related_name="org_stakes")
     holder = models.ForeignKey(ExternalHolder, on_delete=models.PROTECT, related_name="stakes")
-    value = models.DecimalField(max_digits=16, decimal_places=2)
+    value = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+    # Share of the starting split (0–100), for stakes agreed as a percentage.
+    target_pct = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     source_note = models.CharField(max_length=500, blank=True)
     granted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -562,6 +592,15 @@ class OrgStake(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [
+            # A stake must say what it is: a fixed value, a percent of the starting
+            # split, or (once locked in) both — never neither.
+            models.CheckConstraint(
+                check=models.Q(value__isnull=False) | models.Q(target_pct__isnull=False),
+                name="orgstake_value_or_pct",
+            ),
+        ]
 
     def __str__(self):
-        return f"OrgStake({self.holder.slug} in {self.org.slug}, {self.value})"
+        amount = self.value if self.value is not None else f"{self.target_pct}%"
+        return f"OrgStake({self.holder.slug} in {self.org.slug}, {amount})"

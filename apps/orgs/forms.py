@@ -414,17 +414,50 @@ class GrantValueForm(forms.Form):
 
 
 class SponsorGrantForm(forms.Form):
-    """Admin gives an outside company a share of THIS org, at any point in its life.
+    """Admin records an outside company's share of THIS org.
 
-    Deciding a sponsor's share up front, on the invite, is the exception. The normal
-    case is deciding it once the venture already exists and already has a pie, so this
-    takes a percentage of the pie as it will stand once the grant lands and works out
-    the amount itself (apps.pie.services.value_for_target_share). An amount can be
-    given directly instead, which is the only option while the pie is still empty.
+    Before lock-in a percentage means a share of the STARTING split, stored as-is and
+    re-resolved as the team enters more people, so entry order never matters. After
+    lock-in a percentage is minted as new equity against the live pie
+    (apps.pie.services.value_for_target_share). An amount can be given directly
+    instead at any point.
 
     Additive, like every other grant here: granting again tops the holder up rather
-    than replacing what they hold.
+    than replacing what they hold. Pass ``org=`` so percent totals can be checked —
+    the starting split cannot promise out 100% or more.
     """
+
+    def __init__(self, *args, org=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.org = org
+
+    def clean(self):
+        cleaned = super().clean()
+        pct = cleaned.get("target_pct")
+        value = cleaned.get("value")
+        if pct is None and value is None:
+            raise forms.ValidationError("Give a share of the pie or an amount.")
+        if pct is not None:
+            if pct <= 0 or pct >= Decimal("100"):
+                raise forms.ValidationError("A share has to be above 0 and below 100 percent.")
+            from django.db.models import Sum
+
+            from apps.orgs.models import OrgStake, PiePhase
+
+            if value is None and self.org is not None and self.org.pie_phase != PiePhase.LOCKED:
+                already = (
+                    OrgStake.objects.filter(org=self.org, value__isnull=True).aggregate(
+                        t=Sum("target_pct")
+                    )["t"]
+                    or Decimal("0")
+                )
+                if already + pct >= Decimal("100"):
+                    raise forms.ValidationError(
+                        f"Percent stakes already promise {already}% of the starting "
+                        "split — this would take it to 100% or more, leaving the "
+                        "team nothing."
+                    )
+        return cleaned
 
     sponsor = forms.ModelChoiceField(
         queryset=ExternalHolder.objects.all(),
@@ -436,7 +469,10 @@ class SponsorGrantForm(forms.Form):
         max_digits=5,
         decimal_places=2,
         label="Share of the pie",
-        help_text="What they should hold once this lands. We work out the amount.",
+        help_text=(
+            "Before lock-in: their share of the starting split, kept true as you add "
+            "people. After lock-in: new equity is minted so they land at this share."
+        ),
     )
     value = forms.DecimalField(
         required=False,
