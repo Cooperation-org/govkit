@@ -21,6 +21,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from .amebo import provision_membership
+from .doorway import wall_people_without_accounts
 from .forms import (
     GrantValueForm,
     InviteForm,
@@ -49,6 +50,7 @@ from .models import (
     OpeningBalance,
     Org,
     OrgStake,
+    PiePhase,
 )
 
 
@@ -303,11 +305,18 @@ def members(request, org_slug):
             "invite_form": InviteForm(),
             "invites": invites,
             "minted_invite": minted_invite,
+            # People already on the wall who have no account yet. Picking one
+            # fills the form from what they wrote there and ties the invite to
+            # the claim they made, so nobody is asked to attest twice.
+            "wall_people": wall_people_without_accounts(),
             # Sponsors of THIS org, if any. They hold equity here but no membership, so
             # they have no row in the table above and would otherwise be invisible to
             # the admin looking at who owns what.
             "sponsor_slices": [s for s in pie.slices if s.is_sponsor],
-            "sponsor_form": SponsorGrantForm(),
+            "sponsor_form": SponsorGrantForm(org=request.org),
+            # The grant forms speak differently before and after lock-in: part of the
+            # starting split vs new equity that dilutes.
+            "pie_locked": request.org.pie_phase == PiePhase.LOCKED,
             # Nothing to grant to until a company exists; the panel says so rather
             # than showing a form whose only choice is empty.
             "has_external_holders": ExternalHolder.objects.exists(),
@@ -536,38 +545,49 @@ def member_grant_value(request, org_slug, membership_id):
 @require_POST
 def sponsor_grant(request, org_slug):
     """
-    Admin gives an outside company a share of this org, whenever the deal is actually
-    struck. Recorded as an OrgStake, which the pie reads next to memberships.
+    Admin records an outside company's share of this org. What the record MEANS
+    depends on where the pie is in its life:
 
-    Doing this at invite time is the exception, not the rule: a venture usually exists,
-    and has done work, before anyone settles what the company that funded it holds. So
-    the percentage is read against the pie as it stands, and the amount is worked out
-    from it (a half of a 50,000-slice pie is another 50,000 slices, not 25,000, and no
-    admin should have to remember that).
+    Before lock-in (setup or launched), this is part of the starting split — a bet
+    already placed, money or an idea already put at risk. A percentage means a share
+    of the starting split, stored as ``target_pct`` and re-resolved against the whole
+    starting set every time the pie is computed, so the order the team enters people
+    in never matters (apps.pie.services.resolved_stake_values).
+
+    After lock-in, the starting split is the record, and the only honest way in is
+    new equity: a percentage is minted against the live pie so the holder lands at
+    that share and everyone else dilutes (value_for_target_share).
 
     Additive: granting again tops the company up. To correct a mistake, remove the row.
     """
     _require_admin(request)
-    form = SponsorGrantForm(request.POST)
+    locked = request.org.pie_phase == PiePhase.LOCKED
+    form = SponsorGrantForm(request.POST, org=request.org)
     if not form.is_valid():
         messages.error(request, form.errors.as_text().lstrip("* "))
         return redirect("orgs:members", org_slug=request.org.slug)
 
-    from apps.pie.services import value_for_target_share
-
     data = form.cleaned_data
     value = data.get("value")
-    if value is None:
+    target_pct = data.get("target_pct")
+
+    if value is None and locked:
+        from apps.pie.services import value_for_target_share
+
         try:
-            value = value_for_target_share(request.org, data["target_pct"])
+            value = value_for_target_share(request.org, target_pct)
         except ValueError as exc:
             messages.error(request, str(exc))
             return redirect("orgs:members", org_slug=request.org.slug)
 
+    # target_pct is stored only when the percent IS the record (a pre-lock share of
+    # the starting split). A minted post-lock grant and an amount-given grant are
+    # fixed values; keeping a percent on them would misread as percent-of-start.
     stake = OrgStake.objects.create(
         org=request.org,
         holder=data["sponsor"],
         value=value,
+        target_pct=target_pct if value is None else None,
         source_note=data.get("source_note") or "",
         granted_by=request.user,
     )
@@ -583,26 +603,42 @@ def sponsor_grant(request, org_slug):
         ),
         None,
     )
-    messages.success(
-        request,
-        f"{stake.holder.display_name} now holds {landed}% of {request.org.display_name} "
-        f"({value} {request.org.unit_name}). It dilutes as members earn, and it does not vote.",
-    )
+    if locked:
+        messages.success(
+            request,
+            f"{stake.holder.display_name} now holds {landed}% of "
+            f"{request.org.display_name}. This created new equity: everyone else's "
+            "share shrank. It dilutes as members earn, and it does not vote.",
+        )
+    else:
+        messages.success(
+            request,
+            f"{stake.holder.display_name} holds {landed}% of the split as it stands. "
+            "Part of the starting split — adjustable until the team locks it in. "
+            "It does not vote.",
+        )
     return redirect("orgs:members", org_slug=request.org.slug)
 
 
 @login_required
 @require_POST
-def initial_shares_done(request, org_slug):
-    """Put away the pie board's offer to set what the venture started with.
+def pie_launch(request, org_slug):
+    """Launch the pie: start earning on top of the starting split.
 
-    Nothing is written to the pie: this only records that the team is finished with the
-    question, so the offer stops asking. Unticking it brings the offer back — settling a
-    founding team's shares takes as many sittings as it takes.
+    Nothing is written to the pie and nothing is final: the starting numbers stay
+    adjustable until the team locks them in by majority decision (apps.pie lock-in
+    vote). Launching only moves the org out of setup so drops read as earning on top
+    of a declared start.
     """
     _require_admin(request)
-    request.org.initial_shares_done = "done" in request.POST
-    request.org.save(update_fields=["initial_shares_done", "updated_at"])
+    if request.org.pie_phase == PiePhase.SETUP:
+        request.org.pie_phase = PiePhase.LAUNCHED
+        request.org.save(update_fields=["pie_phase", "updated_at"])
+        messages.success(
+            request,
+            "Launched. Earning starts on top of this split — the starting numbers stay "
+            "adjustable until the team locks them in by majority decision.",
+        )
     return redirect("pie:index", org_slug=request.org.slug)
 
 

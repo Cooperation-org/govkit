@@ -24,7 +24,6 @@ Doorway S2S (plain Django views, Bearer settings.GOVKIT_S2S_TOKEN — NOT sessio
 the magic-link contract on the coordination board):
   GET  /api/v1/orgs/{org_slug}/invites/{code}/            invite detail for the doorway
   POST /api/v1/orgs/{org_slug}/invites/{code}/committed/  doorway posts the claim id back
-  POST /api/v1/orgs/{org_slug}/invites/                   doorway mints an invite (wall approval)
 """
 
 from __future__ import annotations
@@ -48,15 +47,7 @@ from rest_framework.routers import DefaultRouter
 from rest_framework.views import APIView
 
 from .genesis import modules_for, serialize_modules, toggle_item
-from .models import (
-    Invite,
-    InviteAudience,
-    InviteKind,
-    InviteStatus,
-    Membership,
-    MembershipRole,
-    Org,
-)
+from .models import Invite, InviteStatus, Membership, MembershipRole, Org
 from .serializers import (
     InviteSerializer,
     MembershipSerializer,
@@ -340,75 +331,6 @@ def invite_committed(request, org_slug, code):
 invite_committed.org_context_exempt = True
 
 
-@csrf_exempt
-@require_POST
-def invite_mint(request, org_slug):
-    """
-    Mint an invite for someone the doorway already knows — the wall approval case.
-
-    The person attested on the wall before they had any account here, so their
-    claim exists and nothing else does. This mints the one link that carries them
-    into a session: born committed against `committed_claim_id`, so no second
-    attestation is asked for, and accept attaches the claim to whatever account
-    they sign in with. GovKit still owns every invite; the doorway holds no state
-    beyond the code it gets back.
-
-    A founder bringing their own venture needs `venture_name` — the accept path
-    creates that org from it, and a blank name would create a nameless org.
-    """
-    if not _s2s_authorized(request):
-        return JsonResponse({"error": "unauthorized"}, status=401)
-    org = Org.objects.filter(slug=org_slug).first()
-    if org is None:
-        return JsonResponse({"error": "no such org"}, status=404)
-    try:
-        body = json.loads(request.body or b"{}")
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "body must be JSON"}, status=400)
-
-    audience = str(body.get("audience") or InviteAudience.SUPPORTER)
-    kind = str(body.get("kind") or InviteKind.ORG)
-    role = str(body.get("role") or MembershipRole.MEMBER)
-    if audience not in InviteAudience.values:
-        return JsonResponse(
-            {"error": f"audience must be one of {InviteAudience.values}"}, status=400
-        )
-    if kind not in InviteKind.values:
-        return JsonResponse({"error": f"kind must be one of {InviteKind.values}"}, status=400)
-    if role not in MembershipRole.values:
-        return JsonResponse({"error": f"role must be one of {MembershipRole.values}"}, status=400)
-    venture_name = str(body.get("venture_name") or "")
-    if kind == InviteKind.BYOV and not venture_name:
-        return JsonResponse({"error": "venture_name is required for a BYOV invite"}, status=400)
-
-    claim_id = body.get("committed_claim_id")
-    if claim_id is not None:
-        try:
-            claim_id = int(claim_id)
-        except (TypeError, ValueError):
-            return JsonResponse({"error": "committed_claim_id must be an int"}, status=400)
-
-    invite = Invite.objects.create(
-        org=org,
-        role=role,  # BYOV overrides to Admin on save
-        audience=audience,
-        kind=kind,
-        name=str(body.get("name") or "")[:255],
-        email=str(body.get("email") or "")[:254],
-        link=str(body.get("link") or ""),
-        image_url=str(body.get("image_url") or ""),
-        venture_name=venture_name[:255],
-        venture_url=str(body.get("venture_url") or ""),
-        doorway=bool(settings.DOORWAY_BASE_URL),
-    )
-    if claim_id is not None:
-        invite.mark_committed(claim_id=claim_id)
-    return JsonResponse(_invite_payload(invite, request), status=201)
-
-
-invite_mint.org_context_exempt = True
-
-
 @require_GET
 def org_profile(request, org_slug):
     """S2S: the org profile the cohort top bar needs (calendar/chat/site + repos).
@@ -508,7 +430,6 @@ urlpatterns = router.urls + [
     ),
     path("ventures/public/", ventures_directory, name="s2s_ventures_directory"),
     path("<slug:org_slug>/profile/", org_profile, name="s2s_org_profile"),
-    path("<slug:org_slug>/invites/", invite_mint, name="s2s_invite_mint"),
     path("<slug:org_slug>/invites/<str:code>/", invite_detail, name="s2s_invite_detail"),
     path(
         "<slug:org_slug>/invites/<str:code>/committed/",

@@ -47,8 +47,8 @@
                     action="{% url 'orgs:member_grant_value' org_slug=current_org.slug membership_id=m.id %}">
                 {% csrf_token %}
                 <input type="number" step="0.01" min="0.01" name="value"
-                       placeholder="+ starting value"
-                       aria-label="Grant starting {{ unit_name }} to {{ m.user.email }}">
+                       placeholder="{% if pie_locked %}+ new grant{% else %}+ starting value{% endif %}"
+                       aria-label="Grant {{ unit_name }} to {{ m.user.email }}">
                 <button type="submit" class="gk-btn-quiet">Grant</button>
               </form>
               {% if m.opening_total %}<span class="gk-muted gk-stake-note">{{ m.opening_total }} {{ unit_name }} granted</span>{% endif %}
@@ -127,7 +127,15 @@
     {% if has_external_holders %}
       <form method="post" action="{% url 'orgs:sponsor_grant' org_slug=current_org.slug %}">
         {% csrf_token %}
-        <h3>Give a company a share</h3>
+        {% if pie_locked %}
+          <h3>Bring in a new sponsor</h3>
+          <small class="gk-muted">This creates new equity: their share is added and
+            everyone else's share shrinks.</small>
+        {% else %}
+          <h3>Record a company's share of the starting split</h3>
+          <small class="gk-muted">For money or an idea already put at risk. A percent
+            stays true as you add people — adjustable until the team locks in.</small>
+        {% endif %}
         <div class="gk-form-grid">
           <div class="gk-field">
             <label for="{{ sponsor_form.sponsor.id_for_label }}">Company</label>
@@ -135,7 +143,7 @@
           </div>
           <div class="gk-field">
             <label for="{{ sponsor_form.target_pct.id_for_label }}">Share of the pie
-              <small>what they end up holding — we work out the amount</small></label>
+              <small>{% if pie_locked %}what they end up holding — we work out the amount{% else %}of the starting split — kept true as you add people{% endif %}</small></label>
             {{ sponsor_form.target_pct }}
           </div>
           <div class="gk-field">
@@ -149,7 +157,7 @@
             {{ sponsor_form.source_note }}
           </div>
         </div>
-        <button type="submit">Give the share</button>
+        <button type="submit">{% if pie_locked %}Give the share{% else %}Record the share{% endif %}</button>
         <small>Their share falls from here as members earn. Granting again tops them up.</small>
       </form>
     {% else %}
@@ -170,6 +178,22 @@
       <div class="gk-fieldgroup">
         <h3>Who</h3>
         <div class="gk-form-grid">
+          {% if wall_people %}
+          <div class="gk-field gk-span-2">
+            <label for="wall-pick">From the wall <small>they wrote a card but have no
+              account yet — picking one fills this form and keeps their claim</small></label>
+            <select id="wall-pick">
+              <option value="">Someone new</option>
+              {% for p in wall_people %}
+                <option value="{{ p.claim_id }}"
+                        data-name="{{ p.person_name }}"
+                        data-email="{{ p.email }}"
+                        data-link="{{ p.link }}"
+                        data-role="{{ p.role }}">{{ p.person_name|default:p.claim_id }}{% if p.role %} ({{ p.role }}){% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
           <div class="gk-field">
             <label for="{{ invite_form.name.id_for_label }}">Name</label>
             {{ invite_form.name }}
@@ -345,6 +369,30 @@
       }
       kind.addEventListener("change", syncFounder);
       syncFounder();
+
+      var wallPick = document.getElementById("wall-pick");
+      if (wallPick) {
+        var audience = document.getElementById("{{ invite_form.audience.id_for_label }}");
+        var committed = document.getElementById("{{ invite_form.already_committed.id_for_label }}");
+        var claim = document.getElementById("{{ invite_form.committed_claim.id_for_label }}");
+        var fields = {
+          name: document.getElementById("{{ invite_form.name.id_for_label }}"),
+          email: document.getElementById("{{ invite_form.email.id_for_label }}"),
+          link: document.getElementById("{{ invite_form.link.id_for_label }}")
+        };
+        wallPick.addEventListener("change", function () {
+          var picked = wallPick.selectedOptions[0];
+          var fromWall = !!wallPick.value;
+          Object.keys(fields).forEach(function (key) {
+            fields[key].value = fromWall ? (picked.dataset[key] || "") : "";
+          });
+          claim.value = fromWall ? wallPick.value : "";
+          committed.checked = fromWall;
+          if (fromWall && picked.dataset.role) {
+            audience.value = picked.dataset.role;
+          }
+        });
+      }
 
       var CHECK = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
       document.querySelectorAll(".gk-copy").forEach(function (btn) {
