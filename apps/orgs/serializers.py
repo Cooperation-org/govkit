@@ -170,8 +170,8 @@ class InviteSerializer(serializers.Serializer):
     audience = serializers.ChoiceField(
         choices=InviteAudience.choices, default=InviteAudience.SUPPORTER
     )
-    link = serializers.URLField(required=False, allow_blank=True, default="")
-    image_url = serializers.URLField(required=False, allow_blank=True, default="")
+    link = serializers.URLField(max_length=1000, required=False, allow_blank=True, default="")
+    image_url = serializers.URLField(max_length=1000, required=False, allow_blank=True, default="")
     drafted_statement = serializers.CharField(required=False, allow_blank=True, default="")
     drafted_social_post = serializers.CharField(required=False, allow_blank=True, default="")
     doorway = serializers.BooleanField(default=False)

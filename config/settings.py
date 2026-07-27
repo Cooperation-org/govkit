@@ -357,3 +357,22 @@ DOORWAY_BASE_URL = env("DOORWAY_BASE_URL")
 # (apps.orgs.amebo.provision_membership becomes a no-op).
 AMEBO_BASE_URL = env("AMEBO_BASE_URL")
 AMEBO_S2S_TOKEN = env("AMEBO_S2S_TOKEN")
+
+# --- Logging ---
+# Django's default config only emails 500 tracebacks to ADMINS (unset here) and its
+# console handler is DEBUG-only, so production errors vanish. Send everything to
+# stderr instead; gunicorn/journald keep it.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "standard"},
+    },
+    "root": {"handlers": ["console"], "level": "WARNING"},
+    "loggers": {
+        "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+    },
+}

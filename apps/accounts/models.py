@@ -48,7 +48,7 @@ class UserManager(BaseUserManager):
 class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     display_name = models.CharField(max_length=255, blank=True)
-    avatar_url = models.URLField(blank=True)
+    avatar_url = models.URLField(max_length=1000, blank=True)
     bio = models.TextField(blank=True, help_text="Public profile bio, in the person's own words.")
 
     # External identity (OAuth/OIDC). Explicit, never inferred.
@@ -130,7 +130,7 @@ class ProfileLink(models.Model):
         blank=True,
         help_text="Platform handle, e.g. '@name.bsky.social'. Parseable, no URL.",
     )
-    url = models.URLField(blank=True)
+    url = models.URLField(max_length=1000, blank=True)
     order = models.PositiveSmallIntegerField(default=0)
     is_public = models.BooleanField(
         default=False, help_text="Person's opt-in: show this link on their public profile."

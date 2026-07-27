@@ -25,7 +25,7 @@ class TaskSourceConfig(OrgScoped):
     adapter_type = models.CharField(
         max_length=32, choices=AdapterType.choices, default=AdapterType.TAIGA
     )
-    base_url = models.URLField(help_text="Tracker REST API base URL.")
+    base_url = models.URLField(max_length=1000, help_text="Tracker REST API base URL.")
     api_token = EncryptedTextField(blank=True, help_text="Encrypted at rest (Fernet).")
     project_selector = models.CharField(
         max_length=255,
@@ -80,7 +80,7 @@ class TaskSourceConfig(OrgScoped):
 class TrackedTask(OrgScoped):
     source = models.ForeignKey(TaskSourceConfig, on_delete=models.CASCADE, related_name="tasks")
     external_id = models.CharField(max_length=128)
-    external_url = models.URLField(blank=True)
+    external_url = models.URLField(max_length=1000, blank=True)
     subject = models.CharField(max_length=500, blank=True)
     assignee = models.ForeignKey(
         "orgs.Membership",

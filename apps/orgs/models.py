@@ -157,7 +157,7 @@ class Org(models.Model):
     # The pitch is the team's own words — mission / thesis / what they're building —
     # shown on the venture's public card and page. Never generated.
     pitch = models.TextField(blank=True, help_text="The team's own words. Never generated.")
-    website = models.URLField(blank=True)
+    website = models.URLField(max_length=1000, blank=True)
     # List of {"label": str, "url": str}.
     socials = models.JSONField(default=list, blank=True)
     # List of {"url": str, "is_main": bool}. The is_main one is the team's shared
@@ -165,14 +165,14 @@ class Org(models.Model):
     repos = models.JSONField(default=list, blank=True)
     # Team calendar (Google Calendar / iCal share URL) and team chat (Slack/Discord
     # invite). When set, the cohort top bar shows a Calendar / Chat link.
-    calendar_url = models.URLField(blank=True)
-    chat_url = models.URLField(blank=True)
+    calendar_url = models.URLField(max_length=1000, blank=True)
+    chat_url = models.URLField(max_length=1000, blank=True)
     # A team whose equity record lives in another system (Slicing Pie's Pie Slicer today)
     # points at it here. This is a POINTER, never a sync: GovKit reads nothing from it and
     # writes nothing to it, so nothing here can overwrite what GovKit computed. `pie_as_of`
     # is the date that outside record was last brought up to date; work approved in GovKit
     # after it is what the team still owes the outside pie.
-    pie_url = models.URLField(blank=True)
+    pie_url = models.URLField(max_length=1000, blank=True)
     pie_as_of = models.DateField(null=True, blank=True)
     # The pie moves through three phases. SETUP: the team records its starting split —
     # work already done and money already put at risk before this pie existed. A venture
@@ -328,13 +328,13 @@ class Invite(models.Model):
     # OAuth identity may carry a different verified email than the one invited).
     name = models.CharField(max_length=255, blank=True)
     email = models.EmailField(blank=True)
-    link = models.URLField(blank=True, help_text="Their LinkedIn or website.")
-    image_url = models.URLField(blank=True)
+    link = models.URLField(max_length=1000, blank=True, help_text="Their LinkedIn or website.")
+    image_url = models.URLField(max_length=1000, blank=True)
 
     # The founder's venture (founder-audience invites): names the thing they are
     # launching, so the doorway can center THEIR venture on cards and pages.
     venture_name = models.CharField(max_length=255, blank=True)
-    venture_url = models.URLField(blank=True)
+    venture_url = models.URLField(max_length=1000, blank=True)
 
     # An invite carries no money terms. What a venture starts with is the founder's to
     # set, in their own org, after they accept — see Org.pie_phase (the setup phase).
@@ -352,7 +352,7 @@ class Invite(models.Model):
     )
     committed_claim_id = models.IntegerField(null=True, blank=True)
     statement_as_published = models.TextField(blank=True)
-    video_url = models.URLField(blank=True)
+    video_url = models.URLField(max_length=1000, blank=True)
 
     # Who accepted (set at accept for every kind). For POOL invites this row IS the
     # screened-applicant state: accepted + accepted_by, with no Membership anywhere.
@@ -532,6 +532,7 @@ class ExternalHolder(models.Model):
     slug = models.SlugField(unique=True, max_length=64)
     display_name = models.CharField(max_length=255)
     url = models.URLField(
+        max_length=1000,
         blank=True,
         help_text="Where this company's own equity actually lives, e.g. its Fairmint cap "
         "table. A reference for people to follow. GovKit never reads or computes it.",
