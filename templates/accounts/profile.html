@@ -5,7 +5,7 @@
   <h1>Your profile</h1>
   <p class="gk-muted">This is how you show up to the rest of your team. Edit it any time.</p>
 
-  <form method="post" class="gk-card gk-profile">
+  <form method="post" enctype="multipart/form-data" class="gk-card gk-profile">
     {% csrf_token %}
 
     <p class="gk-field">
@@ -19,8 +19,21 @@
     </p>
 
     <p class="gk-field">
+      <label>Your photo</label>
+      {% if request.user.avatar_url %}
+        <img src="{{ request.user.avatar_url }}" alt="Your photo"
+             style="width:88px;height:88px;object-fit:cover;border-radius:50%;display:block;margin:0.4rem 0;">
+      {% endif %}
+      {% if uploads_on %}
+        {{ form.photo }}
+        <small>{{ form.photo.help_text }}</small>
+        {% for e in form.photo.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+      {% endif %}
+    </p>
+
+    <p class="gk-field">
       {{ form.avatar_url.label_tag }} {{ form.avatar_url }}
-      <small>{{ form.avatar_url.help_text }}</small>
+      <small>{% if uploads_on %}Or link to one already online. Uploading replaces this.{% else %}{{ form.avatar_url.help_text }}{% endif %}</small>
       {% for e in form.avatar_url.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
     </p>
 

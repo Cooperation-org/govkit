@@ -48,6 +48,19 @@ env = environ.Env(
     # The workersvc doorway's loopback API (same VM). Empty = the attention
     # feed simply carries no doorway items (pending walk-ups).
     DOORWAY_API_URL=(str, ""),
+    # Object storage for uploads people make about themselves (profile photos
+    # today). S3-compatible, same shape LinkedTrust uses for claim media, so a
+    # deploy can point both at the same bucket or at separate ones. All empty
+    # => the upload control says storage is not configured instead of failing
+    # silently, and the photo URL field still works on its own.
+    GOVKIT_STORAGE_ENDPOINT=(str, ""),
+    GOVKIT_STORAGE_KEY=(str, ""),
+    GOVKIT_STORAGE_SECRET=(str, ""),
+    GOVKIT_STORAGE_BUCKET=(str, ""),
+    GOVKIT_STORAGE_REGION=(str, "us-east-005"),
+    # Public base URL for objects in that bucket. Empty => derived from the
+    # endpoint and bucket, which is right for B2's s3 hosts.
+    GOVKIT_STORAGE_PUBLIC_URL=(str, ""),
     # Outbound mail (venture-interest notifications). All empty by default =>
     # nothing is ever sent; the feeds carry the signal until SMTP is configured.
     EMAIL_HOST=(str, ""),
@@ -89,6 +102,14 @@ ORG_APPLY_URL = env("ORG_APPLY_URL")
 ACCELERATOR_ORG_SLUG = env("ACCELERATOR_ORG_SLUG")
 
 DOORWAY_API_URL = env("DOORWAY_API_URL").rstrip("/")
+
+# --- Object storage (profile photos) ---
+GOVKIT_STORAGE_ENDPOINT = env("GOVKIT_STORAGE_ENDPOINT").rstrip("/")
+GOVKIT_STORAGE_KEY = env("GOVKIT_STORAGE_KEY")
+GOVKIT_STORAGE_SECRET = env("GOVKIT_STORAGE_SECRET")
+GOVKIT_STORAGE_BUCKET = env("GOVKIT_STORAGE_BUCKET")
+GOVKIT_STORAGE_REGION = env("GOVKIT_STORAGE_REGION")
+GOVKIT_STORAGE_PUBLIC_URL = env("GOVKIT_STORAGE_PUBLIC_URL").rstrip("/")
 
 # --- Outbound mail ---
 # Unset EMAIL_HOST (the default) means GovKit sends no mail at all — callers must

@@ -123,6 +123,26 @@ def all_teams(request):
 
 
 @login_required
+@login_required
+def open_org(request, org_slug):
+    """Go to this org, meaning the tool this person was last using in it.
+
+    Everything that points at "the org" from outside GovKit lands here, because
+    outside menus cannot know where someone left off. Falls back to the pie,
+    which is what those links used to hardcode.
+
+    The remembered value is only ever used if it is still a real tab for this
+    person: a name in a session is not permission, and a stale one (Members
+    after losing admin, a module the org stopped using) must not survive.
+    """
+    from .context_processors import LAST_TAB_KEY, nav
+
+    remembered = (request.session.get(LAST_TAB_KEY) or {}).get(org_slug)
+    allowed = {t["url_name"] for t in nav(request)["nav_tabs"]}
+    target = remembered if remembered in allowed else "pie:index"
+    return redirect(target, org_slug=org_slug)
+
+
 def dashboard(request, org_slug):
     """
     Org home. On a cohort deployment the workers.vc dash IS the org's home

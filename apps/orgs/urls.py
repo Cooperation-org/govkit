@@ -26,6 +26,9 @@ urlpatterns = [
     path("o/<slug:org_slug>/about/", views.about_org, name="about"),
     # Org-scoped (org_slug kwarg → middleware sets request.org / request.membership).
     path("o/<slug:org_slug>/", views.dashboard, name="dashboard"),
+    # Where outside menus point when they mean "the org": the tool this person
+    # was last using there.
+    path("o/<slug:org_slug>/open/", views.open_org, name="open_org"),
     path(
         "o/<slug:org_slug>/checklist/<str:item_key>/toggle/",
         views.checklist_toggle,

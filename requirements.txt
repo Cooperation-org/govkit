@@ -6,3 +6,6 @@ psycopg[binary]>=3.1,<4
 cryptography>=42
 gunicorn>=22
 whitenoise>=6.6
+# Profile photo uploads to the same B2 bucket LinkedTrust uses for claim media.
+# B2 speaks S3; unused (and unimported) when GOVKIT_STORAGE_* is unset.
+boto3>=1.34,<2

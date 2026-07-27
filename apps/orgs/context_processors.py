@@ -2,6 +2,10 @@
 
 from .models import MembershipRole
 
+# session[LAST_TAB_KEY] = {org_slug: tab url_name} — where this person was last
+# working in each org.
+LAST_TAB_KEY = "org_last_tab"
+
 
 def nav(request):
     """
@@ -54,6 +58,18 @@ def nav(request):
                 "active": view_name == "orgs:settings",
             }
         )
+    # Remember which tool this person was last using in this org, so coming back
+    # to the org lands where they left off instead of always on the pie. Read on
+    # the way in by orgs.views.open_org; only GETs count, so a form post that
+    # redirects elsewhere never decides where "the org" means.
+    if org is not None and request.method == "GET":
+        here = next((t for t in tabs if t["active"]), None)
+        if here is not None:
+            last = request.session.get(LAST_TAB_KEY) or {}
+            if last.get(org.slug) != here["url_name"]:
+                last[org.slug] = here["url_name"]
+                request.session[LAST_TAB_KEY] = last
+
     from django.conf import settings
 
     return {

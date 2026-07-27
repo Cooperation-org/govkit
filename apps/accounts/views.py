@@ -69,15 +69,36 @@ def logout_view(request):
 def profile(request):
     """Self-serve profile: a member edits their own public fields (name, photo,
     bio). No admin needed — you own your profile."""
+    from apps.commons import storage
+
     if request.method == "POST":
-        form = ProfileForm(request.POST, instance=request.user)
+        form = ProfileForm(request.POST, request.FILES, instance=request.user)
         if form.is_valid():
-            form.save()
+            user = form.save(commit=False)
+            upload = form.cleaned_data.get("photo")
+            if upload:
+                # An uploaded photo replaces whatever URL was in the field: the
+                # person just chose their face, and two answers to one question
+                # would have to be resolved by guessing.
+                try:
+                    user.avatar_url = storage.store_image(upload, prefix="avatars")
+                except Exception:
+                    logger.exception("profile photo upload failed for %s", user.pk)
+                    messages.error(
+                        request,
+                        "Your photo did not upload. Nothing else was changed — try again.",
+                    )
+                    return render(request, "accounts/profile.html", {"form": form})
+            user.save()
             messages.success(request, "Profile saved.")
             return redirect("accounts:profile")
     else:
         form = ProfileForm(instance=request.user)
-    return render(request, "accounts/profile.html", {"form": form})
+    return render(
+        request,
+        "accounts/profile.html",
+        {"form": form, "uploads_on": storage.configured()},
+    )
 
 
 # --- LinkedTrust OIDC (default) --------------------------------------------------------
