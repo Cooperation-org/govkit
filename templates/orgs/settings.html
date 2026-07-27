@@ -15,8 +15,10 @@
         {% for label, done in checklist %}<li class="{% if done %}done{% endif %}">{{ label }}</li>{% endfor %}
       </ul>
       {% if join_page_url %}
-        {# The preview is the real page in a frame, not a copy of it. A second
-           template would drift from what people actually see. #}
+        {% comment %}
+          The preview is the real page in a frame, not a copy of it. A second
+          template would drift from what people actually see.
+        {% endcomment %}
         <div class="gk-preview">
           <iframe src="{{ join_page_url }}?v={{ current_org.updated_at.timestamp|floatformat:0 }}"
                   title="Your page, exactly as people see it"

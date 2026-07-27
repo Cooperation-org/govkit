@@ -259,3 +259,12 @@ def test_an_unreachable_site_says_so_and_keeps_the_form(admin_org, client):
     assert resp.status_code == 200
     assert resp.context["form"].initial["tagline"] == "Our own line"
     assert any("could not reach" in str(m) for m in resp.context["messages"])
+
+
+@pytest.mark.django_db
+def test_the_page_never_shows_template_source_to_a_person(admin_org, client):
+    """Django only strips {# #} comments that fit on one line; a multi-line one
+    renders as literal text. One did, right above the preview."""
+    resp = client.get(reverse("orgs:settings", kwargs={"org_slug": "acme"}))
+    assert b"{#" not in resp.content
+    assert b"{%" not in resp.content
