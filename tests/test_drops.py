@@ -127,6 +127,56 @@ def test_direct_value_mode_with_multiplier(
     assert services.compute_line_value(m, [t], cfg) == Decimal("10.00")
 
 
+def test_task_with_no_hours_is_worth_one_hour_at_the_rate(
+    org_factory, user_factory, membership_factory, source_factory, task_factory
+):
+    """Doing the work counts even when nobody logged the time.
+
+    At an org rate of 50 a done task with nothing on it drops 50, not 0 — which is
+    what made finished work look like it had never happened.
+    """
+    org = org_factory()
+    org.default_hourly_rate = Decimal("50.00")
+    org.save()
+    m = membership_factory(org, user_factory())
+    src = source_factory(org)
+    cfg = _config(org, ValuationMode.HOURS_RATE)
+    t = task_factory(org, src, assignee=m)  # no hours, no cash
+    assert services.compute_line_value(m, [t], cfg) == Decimal("50.00")
+    # It still stands in the review queue, so a real number can replace the floor.
+    assert t.is_missing_value is True
+
+
+def test_default_hours_do_not_displace_reported_hours(
+    org_factory, user_factory, membership_factory, source_factory, task_factory
+):
+    org = org_factory()
+    org.default_hourly_rate = Decimal("50.00")
+    org.save()
+    m = membership_factory(org, user_factory())
+    src = source_factory(org)
+    cfg = _config(org, ValuationMode.HOURS_RATE)
+    reported = task_factory(org, src, assignee=m, hours=Decimal("3"))
+    silent = task_factory(org, src, assignee=m)
+    assert services.compute_line_value(m, [reported, silent], cfg) == Decimal("200.00")
+
+
+def test_default_hours_can_be_turned_off(
+    org_factory, user_factory, membership_factory, source_factory, task_factory
+):
+    """Null means no floor — an org that wants only reported time drops zero."""
+    org = org_factory()
+    org.default_hourly_rate = Decimal("50.00")
+    org.save()
+    m = membership_factory(org, user_factory())
+    src = source_factory(org)
+    cfg = _config(org, ValuationMode.HOURS_RATE)
+    cfg.default_task_hours = None
+    cfg.save()
+    t = task_factory(org, src, assignee=m)
+    assert services.compute_line_value(m, [t], cfg) == Decimal("0.00")
+
+
 def test_missing_rate_and_missing_value_contribute_zero(
     org_factory, user_factory, membership_factory, source_factory, task_factory
 ):

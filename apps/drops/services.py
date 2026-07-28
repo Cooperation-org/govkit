@@ -39,7 +39,11 @@ def compute_line_value(membership, tasks: Iterable, valuation_config) -> Decimal
           For each task the sweat contribution is ``rate x hours`` (rate =
           membership.effective_rate; a missing rate values sweat at 0 so the steward
           corrects it via an adjustment) and the cash offset is the cash already paid on
-          the task. The at-risk multipliers are applied per resource type:
+          the task. A task that carries no hours is credited
+          ``valuation_config.default_task_hours`` instead of nothing — finishing
+          something is worth more than zero, and the task still stands in the review
+          queue as unvalued until someone puts a real number on it. The at-risk
+          multipliers are applied per resource type:
 
               task_value = rate*hours * at_risk_multiplier_noncash
                            - cash_paid * at_risk_multiplier_cash
@@ -71,8 +75,10 @@ def compute_line_value(membership, tasks: Iterable, valuation_config) -> Decimal
 
     if valuation_config.valuation_mode == ValuationMode.HOURS_RATE:
         rate = _d(membership.effective_rate)
+        default_hours = valuation_config.default_task_hours
         for task in tasks:
-            sweat = rate * _d(task.hours) * noncash_mult
+            hours = task.hours if task.hours is not None else default_hours
+            sweat = rate * _d(hours) * noncash_mult
             cash_offset = _d(task.cash) * cash_mult
             total += sweat - cash_offset
     else:  # DIRECT_VALUE

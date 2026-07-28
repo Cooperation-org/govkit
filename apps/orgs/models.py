@@ -268,6 +268,19 @@ class ValuationConfig(models.Model):
     weight_window = models.CharField(
         max_length=20, choices=WeightWindow.choices, default=WeightWindow.ALL_TIME
     )
+    # What a done task is worth when nobody said how long it took. Finishing something
+    # is worth more than nothing, so the floor is one hour at the person's rate rather
+    # than zero. The task still shows in the steward's review queue as unvalued, so a
+    # real number replaces the floor whenever someone supplies one.
+    # Null = no floor (an hours-less task drops as zero, the old behaviour).
+    default_task_hours = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=Decimal("1.00"),
+        help_text="Hours credited for a done task that carries none. Null = credit nothing.",
+    )
 
     # Assignment-budget policy. null amount = unlimited (a valid config).
     assignment_budget_period = models.CharField(
