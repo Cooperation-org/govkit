@@ -69,7 +69,7 @@ def logout_view(request):
 def profile(request):
     """Self-serve profile: a member edits their own public fields (name, photo,
     bio). No admin needed — you own your profile."""
-    from apps.commons import storage
+    from apps.commons import pictures, storage
 
     if request.method == "POST":
         form = ProfileForm(request.POST, request.FILES, instance=request.user)
@@ -80,15 +80,15 @@ def profile(request):
                 # An uploaded photo replaces whatever URL was in the field: the
                 # person just chose their face, and two answers to one question
                 # would have to be resolved by guessing.
-                try:
-                    user.avatar_url = storage.store_image(upload, prefix="avatars")
-                except Exception:
-                    logger.exception("profile photo upload failed for %s", user.pk)
-                    messages.error(
+                stored = pictures.store(upload, prefix="avatars", what="Your photo")
+                if not stored:
+                    messages.error(request, pictures.failed_message("Your photo"))
+                    return render(
                         request,
-                        "Your photo did not upload. Nothing else was changed — try again.",
+                        "accounts/profile.html",
+                        {"form": form, "uploads_on": storage.configured()},
                     )
-                    return render(request, "accounts/profile.html", {"form": form})
+                user.avatar_url = stored
             user.save()
             messages.success(request, "Profile saved.")
             return redirect("accounts:profile")

@@ -1,0 +1,42 @@
+{% comment %}
+  Asking for a picture, the same way everywhere: upload first, link underneath.
+
+    upload   the FileField (from apps.commons.pictures.upload_field)
+    url      the matching URL/CharField
+    current  the picture there is now, so this reads as changing something
+    label    what the picture is, in the person's words ("Your logo")
+    hint     one line under the label saying where it shows up
+    alt      alt text for the current picture
+
+  With no bucket configured (uploads_on false) the upload control is not shown
+  at all — a picker that always answers "uploads are not set up" is worse than
+  the URL field on its own.
+{% endcomment %}
+{% if uploads_on %}
+  <div class="gk-field">
+    <label for="{{ upload.id_for_label }}">{{ label }}
+      {% if hint %}<small>{{ hint }}</small>{% endif %}</label>
+    {% if current %}
+      <p class="gk-picnow {{ shape|default:'' }}"><img src="{{ current }}" alt="{{ alt|default:label }}"></p>
+    {% endif %}
+    {{ upload }}
+    <small>{{ upload.help_text }}</small>
+    {% for e in upload.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+  </div>
+  <div class="gk-field">
+    <label for="{{ url.id_for_label }}">Or link to one
+      <small>a picture address already online. Uploading replaces it.</small></label>
+    {{ url }}
+    {% for e in url.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+  </div>
+{% else %}
+  <div class="gk-field">
+    <label for="{{ url.id_for_label }}">{{ label }}
+      <small>a picture address already online{% if hint %} — {{ hint }}{% endif %}</small></label>
+    {% if current %}
+      <p class="gk-picnow {{ shape|default:'' }}"><img src="{{ current }}" alt="{{ alt|default:label }}"></p>
+    {% endif %}
+    {{ url }}
+    {% for e in url.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+  </div>
+{% endif %}

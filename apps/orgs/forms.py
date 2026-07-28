@@ -16,7 +16,7 @@ from django.db import transaction
 from django.db.models import Sum
 from django.utils.text import slugify
 
-from apps.commons import storage
+from apps.commons import pictures
 
 from .models import (
     BudgetEnforcement,
@@ -210,9 +210,11 @@ class InviteForm(forms.Form):
         label="Their link",
         help_text="Optional. Their LinkedIn or website.",
     )
+    image = pictures.upload_field("Upload their picture")
     image_url = forms.URLField(
         max_length=1000, required=False, assume_scheme="https", label="Image URL"
     )
+
     venture_name = forms.CharField(
         max_length=255,
         required=False,
@@ -260,6 +262,9 @@ class InviteForm(forms.Form):
     # ONE invite flow: every invite routes through the public commitment page whenever
     # a doorway is configured (DOORWAY_BASE_URL). No per-invite choice — two entrances
     # for one job is the UX failure this replaces.
+
+    def clean_image(self):
+        return pictures.clean_upload(self.cleaned_data.get("image"), url_label="picture URL")
 
     def clean(self):
         data = super().clean()
@@ -336,17 +341,12 @@ class OrgSettingsForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 5}),
         label="Who you are looking for",
     )
-    # A team's logo is a file on someone's laptop far more often than it is a
-    # URL they can produce, so the upload is the first control and the URL field
-    # stays underneath for anyone who does have a link. Same bucket and same
-    # checks as a member's photo (apps.commons.storage).
-    logo = forms.FileField(
-        required=False,
-        label="Upload your logo",
-        help_text="JPEG, PNG, WebP or GIF, up to 5MB.",
-        widget=forms.ClearableFileInput(attrs={"accept": "image/*"}),
-    )
+    # Both of a team's pictures are files on someone's laptop far more often
+    # than URLs they can produce, so the upload is the first control and the URL
+    # field stays underneath. Same everywhere — apps.commons.pictures.
+    logo = pictures.upload_field("Upload your logo")
     logo_url = forms.CharField(max_length=500, required=False, label="Logo image")
+    cover_image = pictures.upload_field("Upload a picture")
     cover_image_url = forms.CharField(max_length=500, required=False, label="Picture for your link")
     socials = forms.CharField(
         required=False,
@@ -390,20 +390,15 @@ class OrgSettingsForm(forms.Form):
         return _norm_url(self.cleaned_data.get("website", ""))
 
     def clean_logo(self):
-        upload = self.cleaned_data.get("logo")
-        if not upload:
-            return None
-        problem = storage.check_image(upload)
-        if problem:
-            raise forms.ValidationError(problem)
-        if not storage.configured():
-            raise forms.ValidationError(
-                "Uploads are not set up on this server yet. Paste a logo URL instead."
-            )
-        return upload
+        return pictures.clean_upload(self.cleaned_data.get("logo"), url_label="logo URL")
 
     def clean_logo_url(self):
         return _norm_url(self.cleaned_data.get("logo_url", ""))
+
+    def clean_cover_image(self):
+        return pictures.clean_upload(
+            self.cleaned_data.get("cover_image"), url_label="picture URL"
+        )
 
     def clean_cover_image_url(self):
         return _norm_url(self.cleaned_data.get("cover_image_url", ""))

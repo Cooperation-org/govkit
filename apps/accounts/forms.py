@@ -3,7 +3,7 @@ member edits their own public fields — no admin in the loop."""
 
 from django import forms
 
-from apps.commons import storage
+from apps.commons import pictures
 
 from .models import User
 
@@ -18,25 +18,10 @@ class ProfileForm(forms.ModelForm):
     for anyone who does have a link (and for installs with no storage).
     """
 
-    photo = forms.FileField(
-        required=False,
-        label="Upload a photo",
-        help_text="JPEG, PNG, WebP or GIF, up to 5MB.",
-        widget=forms.ClearableFileInput(attrs={"accept": "image/*"}),
-    )
+    photo = pictures.upload_field("Upload a photo")
 
     def clean_photo(self):
-        upload = self.cleaned_data.get("photo")
-        if not upload:
-            return None
-        problem = storage.check_image(upload)
-        if problem:
-            raise forms.ValidationError(problem)
-        if not storage.configured():
-            raise forms.ValidationError(
-                "Uploads are not set up on this server yet. Paste a photo URL instead."
-            )
-        return upload
+        return pictures.clean_upload(self.cleaned_data.get("photo"), url_label="photo URL")
 
     class Meta:
         model = User

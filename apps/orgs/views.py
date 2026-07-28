@@ -22,7 +22,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from apps.commons import storage
+from apps.commons import pictures, storage
 
 from .amebo import provision_membership
 from .doorway import wall_people_without_accounts
@@ -379,6 +379,8 @@ def members(request, org_slug):
             "invite_form": InviteForm(),
             "invites": invites,
             "minted_invite": minted_invite,
+            # Whether a picture can be uploaded here at all — see _picture_field.html.
+            "uploads_on": storage.configured(),
             # People already on the wall who have no account yet. Picking one
             # fills the form from what they wrote there and ties the invite to
             # the claim they made, so nobody is asked to attest twice.
@@ -450,28 +452,30 @@ def org_settings(request, org_slug):
     if request.method == "POST":
         form = OrgSettingsForm(request.POST, request.FILES)
         if form.is_valid():
-            logo_url = form.cleaned_data["logo_url"]
-            upload = form.cleaned_data.get("logo")
-            if upload:
-                # An uploaded logo replaces whatever URL was in the field: the
-                # admin just chose the picture, and two answers to one question
-                # would have to be resolved by guessing. Same as a member photo.
-                try:
-                    logo_url = storage.store_image(upload, prefix=f"org-logos/{org.slug}")
-                except Exception:
-                    logger.exception("org logo upload failed for %s", org.slug)
-                    messages.error(
-                        request,
-                        "Your logo did not upload. Nothing else was changed — try again.",
-                    )
+            # An uploaded picture replaces whatever URL was in the field beside
+            # it: the admin just chose the picture, and two answers to one
+            # question would have to be resolved by guessing.
+            pics = {"logo_url": form.cleaned_data["logo_url"],
+                    "cover_image_url": form.cleaned_data["cover_image_url"]}
+            for field, url_field, folder, what in (
+                ("logo", "logo_url", "org-logos", "Your logo"),
+                ("cover_image", "cover_image_url", "org-pictures", "Your picture"),
+            ):
+                upload = form.cleaned_data.get(field)
+                if not upload:
+                    continue
+                stored = pictures.store(upload, prefix=f"{folder}/{org.slug}", what=what)
+                if not stored:
+                    messages.error(request, pictures.failed_message(what))
                     return _render_settings(request, org, form)
+                pics[url_field] = stored
             org.display_name = form.cleaned_data["display_name"].strip() or org.display_name
             org.website = form.cleaned_data["website"]
             org.tagline = form.cleaned_data["tagline"].strip()
             org.pitch = form.cleaned_data["pitch"].strip()
             org.looking_for = form.looking_for_list()
-            org.logo_url = logo_url
-            org.cover_image_url = form.cleaned_data["cover_image_url"]
+            org.logo_url = pics["logo_url"]
+            org.cover_image_url = pics["cover_image_url"]
             org.socials = form.socials_list()
             org.repos = form.repos_list()
             org.calendar_url = form.cleaned_data["calendar_url"]
@@ -592,12 +596,20 @@ def invite_create(request, org_slug):
     (which resolves the code via the S2S API); direct invites link straight to accept.
     """
     _require_admin(request)
-    form = InviteForm(request.POST)
+    form = InviteForm(request.POST, request.FILES)
     if not form.is_valid():
         messages.error(request, "Please correct the invite details.")
         return redirect("orgs:members", org_slug=request.org.slug)
 
     data = form.cleaned_data
+    image_url = data.get("image_url", "")
+    if data.get("image"):
+        image_url = pictures.store(
+            data["image"], prefix=f"invite-pictures/{request.org.slug}", what="Their picture"
+        )
+        if not image_url:
+            messages.error(request, pictures.failed_message("Their picture"))
+            return redirect("orgs:members", org_slug=request.org.slug)
     invite = Invite.objects.create(
         org=request.org,
         # BYOV overrides this to Admin on save: a founder owns the venture they bring.
@@ -607,7 +619,7 @@ def invite_create(request, org_slug):
         name=data.get("name", ""),
         email=data.get("email", ""),
         link=data.get("link", ""),
-        image_url=data.get("image_url", ""),
+        image_url=image_url,
         venture_name=data.get("venture_name", ""),
         venture_url=data.get("venture_url", ""),
         drafted_statement=data.get("drafted_statement", ""),

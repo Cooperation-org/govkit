@@ -116,6 +116,21 @@ class TaskDetailDTO:
     is_closed: bool = False
 
 
+@dataclass
+class TrackerMemberDTO:
+    """A person's account ON THE TRACKER, normalized for identity matching.
+
+    Carries the tracker's stable user id, the email address the tracker holds for
+    that account, and the username. The email is the part that matters: a task
+    payload never carries one, so matching a tracker account to a GovKit member by
+    email has to come from the tracker's own member list.
+    """
+
+    user_id: int
+    email: str = ""
+    username: str = ""
+
+
 class TaskSourceAdapter(abc.ABC):
     """Base class for tracker adapters (Taiga first; GitHub Issues / Linear can follow)."""
 
@@ -138,6 +153,15 @@ class TaskSourceAdapter(abc.ABC):
         NotImplementedError. Read-only — nothing is persisted.
         """
         raise NotImplementedError(f"{type(self).__name__} does not report open tasks")
+
+    def fetch_members(self) -> list[TrackerMemberDTO]:
+        """Return the tracker accounts on the selected project(s), with their emails.
+
+        Feeds the sync service's email fallback for identity mapping. Optional
+        capability: a tracker that will not tell us who its users are raises
+        NotImplementedError, and identity mapping stays steward-set only.
+        """
+        raise NotImplementedError(f"{type(self).__name__} does not list members")
 
     def fetch_task(self, external_id: str) -> TaskDetailDTO:
         """Return ONE task with its body text, or raise LookupError if it is gone.
@@ -278,11 +302,11 @@ class TaigaAdapter(TaskSourceAdapter):
             return {}
         return {str(k): v for k, v in (data.get("attributes_values") or {}).items()}
 
-    def _iter_stories(self, project_id: str) -> Iterable[dict]:
-        """Yield every user story for a project, following Taiga page pagination."""
+    def _iter_paged(self, path: str, params: dict) -> Iterable[dict]:
+        """Yield every row of a paginated Taiga list endpoint, following its pages."""
         page = 1
         while True:
-            data, headers = self._get("/api/v1/userstories", {"project": project_id, "page": page})
+            data, headers = self._get(path, {**params, "page": page})
             rows = data or []
             for row in rows:
                 yield row
@@ -295,6 +319,10 @@ class TaigaAdapter(TaskSourceAdapter):
             if len(rows) < self._DEFAULT_PAGE_SIZE:
                 break
             page += 1
+
+    def _iter_stories(self, project_id: str) -> Iterable[dict]:
+        """Yield every user story for a project."""
+        return self._iter_paged("/api/v1/userstories", {"project": project_id})
 
     # -- normalization -----------------------------------------------------------------
 
@@ -401,6 +429,30 @@ class TaigaAdapter(TaskSourceAdapter):
                     )
                 )
         return results
+
+    def fetch_members(self) -> list[TrackerMemberDTO]:
+        """Tracker accounts on the selected project(s), joined from two Taiga endpoints.
+
+        Taiga splits what we need: ``/memberships`` carries the email but no username,
+        ``/users`` carries the username but no email. Both key on the same user id, so
+        one account is assembled from the two. A membership row with no ``user`` is a
+        pending invitation — an email nobody has accepted yet, so it is not an account
+        and is skipped.
+        """
+        by_id: dict[int, TrackerMemberDTO] = {}
+        for project_id in self._project_ids():
+            for row in self._iter_paged("/api/v1/memberships", {"project": project_id}):
+                user_id = row.get("user")
+                if user_id is None:
+                    continue
+                member = by_id.setdefault(int(user_id), TrackerMemberDTO(user_id=int(user_id)))
+                if not member.email:
+                    member.email = (row.get("user_email") or row.get("email") or "").strip()
+            for row in self._iter_paged("/api/v1/users", {"project": project_id}):
+                member = by_id.get(int(row["id"])) if row.get("id") is not None else None
+                if member is not None and not member.username:
+                    member.username = row.get("username") or ""
+        return list(by_id.values())
 
     # -- one task: read, edit, create ---------------------------------------------------
 

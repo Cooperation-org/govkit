@@ -172,7 +172,8 @@
   <div class="gk-card">
     <h2>Invite someone</h2>
 
-    <form method="post" action="{% url 'orgs:invite_create' org_slug=current_org.slug %}">
+    <form method="post" action="{% url 'orgs:invite_create' org_slug=current_org.slug %}"
+          enctype="multipart/form-data">
       {% csrf_token %}
 
       <div class="gk-fieldgroup">
@@ -210,11 +211,7 @@
               website, optional</small></label>
             {{ invite_form.link }}
           </div>
-          <div class="gk-field">
-            <label for="{{ invite_form.image_url.id_for_label }}">Photo URL <small>optional —
-              their card shows it</small></label>
-            {{ invite_form.image_url }}
-          </div>
+          {% include "_picture_field.html" with upload=invite_form.image url=invite_form.image_url label="Their photo" hint="optional — their card shows it" shape="round" %}
         </div>
       </div>
 

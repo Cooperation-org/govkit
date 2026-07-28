@@ -76,37 +76,8 @@
         <small>Backend developer: our API needs someone who has shipped Django<br>
                Someone who knows hospital procurement: we keep guessing at how they buy</small>
       </div>
-      {% if uploads_on %}
-        <div class="gk-field">
-          <label for="{{ form.logo.id_for_label }}">Your logo
-            <small>it goes at the top of your page, next to your name</small></label>
-          {% if current_org.logo_url %}
-            <p class="gk-logonow"><img src="{{ current_org.logo_url }}" alt="{{ current_org.display_name }} logo"></p>
-          {% endif %}
-          {{ form.logo }}
-          <small>{{ form.logo.help_text }}</small>
-          {{ form.logo.errors }}
-        </div>
-        <div class="gk-field">
-          <label for="{{ form.logo_url.id_for_label }}">Or link to one
-            <small>a picture address on your own site</small></label>
-          {{ form.logo_url }}
-        </div>
-      {% else %}
-        <div class="gk-field">
-          <label for="{{ form.logo_url.id_for_label }}">Your logo
-            <small>a picture address on your own site — it goes at the top of your page</small></label>
-          {% if current_org.logo_url %}
-            <p class="gk-logonow"><img src="{{ current_org.logo_url }}" alt="{{ current_org.display_name }} logo"></p>
-          {% endif %}
-          {{ form.logo_url }}
-        </div>
-      {% endif %}
-      <div class="gk-field">
-        <label for="{{ form.cover_image_url.id_for_label }}">Picture for your link
-          <small>shows when someone pastes your link in Slack or LinkedIn</small></label>
-        {{ form.cover_image_url }}
-      </div>
+      {% include "_picture_field.html" with upload=form.logo url=form.logo_url current=current_org.logo_url label="Your logo" hint="it goes at the top of your page, next to your name" alt="Your logo" %}
+      {% include "_picture_field.html" with upload=form.cover_image url=form.cover_image_url current=current_org.cover_image_url label="Picture for your link" hint="shows when someone pastes your link in Slack or LinkedIn" alt="The picture on your link" %}
       <div class="gk-field">
         <label for="{{ form.socials.id_for_label }}">Socials
           <small>one per line — a label and URL (e.g. "Twitter https://…"), or just a URL</small></label>

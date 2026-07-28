@@ -176,9 +176,27 @@ DONE = 1
 NEW = 2
 
 
-def _base_routes(stories, extra=None, next_page_stories=None):
+def _member_routes(members=None):
+    """Taiga's two member endpoints: emails on /memberships, usernames on /users."""
+    members = members or []
+    return [
+        (
+            "/api/v1/memberships?project=7",
+            [{"id": 900 + i, "user": m["id"], "user_email": m.get("email", "")} for i, m in enumerate(members)],
+            None,
+        ),
+        (
+            "/api/v1/users?project=7",
+            [{"id": m["id"], "username": m.get("username", "")} for m in members],
+            None,
+        ),
+    ]
+
+
+def _base_routes(stories, extra=None, next_page_stories=None, members=None):
     routes = [
         ("/api/v1/projects/by_slug", {"id": 7}, None),
+        *_member_routes(members),
         (
             "/api/v1/userstory-statuses",
             [
@@ -290,6 +308,118 @@ def test_sync_unmapped_assignee_stays_unassigned(taiga_source):
         result = services.sync_source(src)
     assert result.unassigned == 1
     assert TrackedTask.objects.get(external_id="101").assignee_id is None
+
+
+# --- identity: the email match --------------------------------------------------------
+
+
+def test_sync_matches_by_email_and_stores_the_pairing(
+    taiga_source, user_factory, membership_factory
+):
+    """A member who never had a Taiga id typed in still gets their done task.
+
+    This is the whole point: nobody fills the tracker identity map by hand, so without
+    the email match every real member's work arrives unassigned and drops nothing.
+    """
+    src = taiga_source()
+    m = membership_factory(org=src.org, user=user_factory(email="zakia@example.org"))
+    assert m.taiga_user_id is None
+    stories = [_story(101, DONE, tags=[["5 cook", None]], assigned_to=9, username="zakia-t")]
+    members = [{"id": 9, "email": "Zakia@Example.org", "username": "zakia-t"}]
+
+    with mock_taiga(_base_routes(stories, members=members)):
+        result = services.sync_source(src)
+
+    assert result.unassigned == 0
+    assert TrackedTask.objects.get(external_id="101").assignee_id == m.pk
+    # The match is written back, so it is a visible value from here on, not a re-guess.
+    m.refresh_from_db()
+    assert m.taiga_user_id == 9
+    assert m.taiga_username == "zakia-t"
+
+
+def test_sync_email_match_does_not_override_existing_map(
+    taiga_source, user_factory, membership_factory
+):
+    """A steward's typed pairing wins over the tracker's email."""
+    src = taiga_source()
+    typed = membership_factory(
+        org=src.org, user=user_factory(email="typed@example.org"), taiga_user_id=9
+    )
+    other = membership_factory(org=src.org, user=user_factory(email="other@example.org"))
+    stories = [_story(101, DONE, tags=[["5 cook", None]], assigned_to=9, username="whoever")]
+    members = [{"id": 9, "email": "other@example.org", "username": "whoever"}]
+
+    with mock_taiga(_base_routes(stories, members=members)):
+        services.sync_source(src)
+
+    assert TrackedTask.objects.get(external_id="101").assignee_id == typed.pk
+    other.refresh_from_db()
+    assert other.taiga_user_id is None
+
+
+def test_sync_email_match_skips_an_ambiguous_email(
+    taiga_source, user_factory, membership_factory
+):
+    """Two accounts on one address is not an answer — match nobody rather than guess.
+
+    Two rows can differ only in the case of the local part (the login is unique, and
+    only the domain is normalized), which the match folds together.
+    """
+    src = taiga_source()
+    membership_factory(org=src.org, user=user_factory(email="shared@example.org"))
+    membership_factory(org=src.org, user=user_factory(email="Shared@example.org"))
+    stories = [_story(101, DONE, tags=[["5 cook", None]], assigned_to=9, username="shared")]
+    members = [{"id": 9, "email": "shared@example.org", "username": "shared"}]
+
+    with mock_taiga(_base_routes(stories, members=members)):
+        result = services.sync_source(src)
+
+    assert result.unassigned == 1
+    assert TrackedTask.objects.get(external_id="101").assignee_id is None
+
+
+def test_sync_survives_a_tracker_that_will_not_list_members(
+    taiga_source, user_factory, membership_factory
+):
+    """No member list = no email match, but the tasks still sync."""
+    src = taiga_source()
+    m = membership_factory(org=src.org, user=user_factory(), taiga_user_id=9)
+    stories = [_story(101, DONE, tags=[["5 cook", None]], assigned_to=9, username="alpha")]
+
+    with mock_taiga(_base_routes(stories)):
+        with patch.object(
+            adapters.TaigaAdapter, "fetch_members", side_effect=RuntimeError("403")
+        ):
+            result = services.sync_source(src)
+
+    assert TrackedTask.objects.get(external_id="101").assignee_id == m.pk
+    assert any("member list" in e for e in result.errors)
+
+
+def test_adapter_fetch_members_joins_email_and_username(taiga_source):
+    src = taiga_source()
+    members = [{"id": 9, "email": "a@example.org", "username": "alpha"}]
+    with mock_taiga(_base_routes([], members=members)):
+        dtos = adapters.get_adapter(src).fetch_members()
+    assert [(d.user_id, d.email, d.username) for d in dtos] == [(9, "a@example.org", "alpha")]
+
+
+def test_adapter_fetch_members_skips_pending_invitations(taiga_source):
+    """A membership row with no user is an invitation nobody accepted — not an account."""
+    src = taiga_source()
+    routes = [
+        (
+            "/api/v1/memberships?project=7",
+            [{"id": 900, "user": None, "email": "invited@example.org"}],
+            None,
+        ),
+        ("/api/v1/users?project=7", [], None),
+        ("/api/v1/projects/by_slug", {"id": 7}, None),
+        ("/api/v1/userstories?project=7", [], None),
+    ]
+    with mock_taiga(routes):
+        assert adapters.get_adapter(src).fetch_members() == []
 
 
 def test_sync_is_idempotent(taiga_source, user_factory, membership_factory):
