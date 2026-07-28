@@ -24,7 +24,7 @@ from . import storage
 
 logger = logging.getLogger(__name__)
 
-HELP = "JPEG, PNG, WebP or GIF, up to 5MB."
+HELP = "JPEG, PNG, WebP or GIF, up to 25MB. Big is fine, we shrink it."
 
 
 def upload_field(label="Upload a picture"):
@@ -70,6 +70,19 @@ def store(upload, *, prefix, what):
     except Exception:
         logger.exception("%s upload failed (prefix=%s)", what, prefix)
         return ""
+
+
+def store_pair(upload, *, prefix, what):
+    """Like store(), for a picture that also needs a thumbnail in a grid.
+
+    Returns (url, thumb_url), both "" if it failed. Same rule as store(): a
+    failed upload reports and returns, it never takes someone's edits with it.
+    """
+    try:
+        return storage.store_image_pair(upload, prefix=prefix)
+    except Exception:
+        logger.exception("%s upload failed (prefix=%s)", what, prefix)
+        return "", ""
 
 
 def failed_message(what):

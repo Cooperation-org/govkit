@@ -368,6 +368,10 @@ class OrgSettingsForm(forms.Form):
         required=False,
         label="Team calendar (Google Calendar or iCal share link)",
     )
+    calendar_public = forms.BooleanField(
+        required=False,
+        label="Show the calendar on our join page, so people can book time with us",
+    )
     chat_url = forms.CharField(
         max_length=500,
         required=False,
@@ -563,3 +567,62 @@ class SponsorGrantForm(forms.Form):
                         "team nothing.",
                     )
         return data
+
+
+class OrgPictureForm(forms.Form):
+    """Add one picture to the team's page: a file, or a link to one."""
+
+    picture = pictures.upload_field("Choose a picture")
+    picture_url = forms.CharField(max_length=500, required=False, label="Or paste a link to one")
+    caption = forms.CharField(max_length=200, required=False, label="Caption (optional)")
+
+    def clean_picture(self):
+        return pictures.clean_upload(self.cleaned_data.get("picture"), url_label="picture URL")
+
+    def clean_picture_url(self):
+        return _norm_url(self.cleaned_data.get("picture_url", ""))
+
+    def clean(self):
+        cleaned = super().clean()
+        if not cleaned.get("picture") and not cleaned.get("picture_url"):
+            raise forms.ValidationError("Choose a picture or paste a link to one.")
+        return cleaned
+
+
+class OrgLinkForm(forms.Form):
+    """Add one thing the team made: a demo, a dashboard, a deck."""
+
+    title = forms.CharField(max_length=200, label="What it is")
+    url = forms.CharField(max_length=500, label="Link")
+    image = pictures.upload_field("A picture for the card (optional)")
+    image_url = forms.CharField(max_length=500, required=False, label="Or a link to one")
+
+    def clean_url(self):
+        return _norm_url(self.cleaned_data.get("url", ""))
+
+    def clean_image(self):
+        return pictures.clean_upload(self.cleaned_data.get("image"), url_label="picture URL")
+
+    def clean_image_url(self):
+        return _norm_url(self.cleaned_data.get("image_url", ""))
+
+
+class OrgPostForm(forms.Form):
+    """Say what happened. The date is the day it happened, not the day it is typed."""
+
+    words = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 3}), label="What happened"
+    )
+    happened_on = forms.DateField(
+        required=False,
+        label="When (leave it for today)",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    image = pictures.upload_field("A picture (optional)")
+    link_url = forms.CharField(max_length=500, required=False, label="A link (optional)")
+
+    def clean_image(self):
+        return pictures.clean_upload(self.cleaned_data.get("image"), url_label="picture URL")
+
+    def clean_link_url(self):
+        return _norm_url(self.cleaned_data.get("link_url", ""))

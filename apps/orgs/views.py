@@ -10,6 +10,7 @@ with `_require_admin`. Every UI action here has a matching DRF endpoint in api.p
 from __future__ import annotations
 
 import logging
+from datetime import date
 
 from django.conf import settings
 from django.contrib import messages
@@ -31,6 +32,9 @@ from .forms import (
     InviteForm,
     MemberUpdateForm,
     OnboardingForm,
+    OrgLinkForm,
+    OrgPictureForm,
+    OrgPostForm,
     OrgRateForm,
     OrgSettingsForm,
     SponsorGrantForm,
@@ -52,8 +56,12 @@ from .models import (
     InviteStatus,
     Membership,
     MembershipRole,
+    POSTS_MINIMUM,
     OpeningBalance,
     Org,
+    OrgLink,
+    OrgPicture,
+    OrgPost,
     OrgStake,
     PiePhase,
 )
@@ -432,6 +440,7 @@ def _settings_initial(org):
         "main_repo": main,
         "other_repos": other,
         "calendar_url": org.calendar_url,
+        "calendar_public": org.calendar_public,
         "chat_url": org.chat_url,
         "pie_url": org.pie_url,
         "pie_as_of": org.pie_as_of,
@@ -479,6 +488,7 @@ def org_settings(request, org_slug):
             org.socials = form.socials_list()
             org.repos = form.repos_list()
             org.calendar_url = form.cleaned_data["calendar_url"]
+            org.calendar_public = form.cleaned_data["calendar_public"]
             org.chat_url = form.cleaned_data["chat_url"]
             org.pie_url = form.cleaned_data["pie_url"]
             org.pie_as_of = form.cleaned_data["pie_as_of"]
@@ -494,6 +504,7 @@ def org_settings(request, org_slug):
                     "socials",
                     "repos",
                     "calendar_url",
+                    "calendar_public",
                     "chat_url",
                     "pie_url",
                     "pie_as_of",
@@ -550,8 +561,158 @@ def _render_settings(request, org, form, pulled_from=""):
             # No bucket configured means no upload control — better than a
             # picker that always answers "uploads are not set up".
             "uploads_on": storage.configured(),
+            # The three lists a team adds to one at a time, each with its own
+            # little form. They are not part of OrgSettingsForm: a list of rows
+            # with an order is not a text field, and an admin adding a picture
+            # should not be re-saving their pitch to do it.
+            "pictures": org.pictures.all(),
+            "links": org.links.all(),
+            "posts": org.posts.all()[:12],
+            "picture_form": OrgPictureForm(),
+            "link_form": OrgLinkForm(),
+            "post_form": OrgPostForm(),
+            "posts_minimum": POSTS_MINIMUM,
         },
     )
+
+
+def _next_sort(rows):
+    """Put a new row at the end of the list it joins."""
+    return max((r.sort for r in rows), default=0) + 1
+
+
+@login_required
+@require_POST
+def picture_add(request, org_slug):
+    """Add one picture to the team's page. Uploaded, or a link to one."""
+    org = request.org
+    if not _is_org_admin(request):
+        raise PermissionDenied
+    form = OrgPictureForm(request.POST, request.FILES)
+    if not form.is_valid():
+        messages.error(request, _first_problem(form) or "Choose a picture or paste a link to one.")
+        return redirect("orgs:settings", org_slug=org.slug)
+    url = form.cleaned_data["picture_url"]
+    thumb = ""
+    upload = form.cleaned_data.get("picture")
+    if upload:
+        url, thumb = pictures.store_pair(
+            upload, prefix=f"org-pictures/{org.slug}", what="Your picture"
+        )
+        if not url:
+            messages.error(request, pictures.failed_message("Your picture"))
+            return redirect("orgs:settings", org_slug=org.slug)
+    OrgPicture.objects.create(
+        org=org,
+        url=url,
+        thumb_url=thumb,
+        caption=form.cleaned_data["caption"].strip(),
+        sort=_next_sort(org.pictures.all()),
+    )
+    messages.success(request, "Picture added.")
+    return redirect("orgs:settings", org_slug=org.slug)
+
+
+@login_required
+@require_POST
+def picture_remove(request, org_slug, picture_id):
+    """Take a picture off the page. The file stays in the bucket."""
+    if not _is_org_admin(request):
+        raise PermissionDenied
+    OrgPicture.objects.filter(org=request.org, pk=picture_id).delete()
+    messages.success(request, "Picture removed.")
+    return redirect("orgs:settings", org_slug=request.org.slug)
+
+
+@login_required
+@require_POST
+def link_add(request, org_slug):
+    """Add something the team made to the row of cards on their page."""
+    org = request.org
+    if not _is_org_admin(request):
+        raise PermissionDenied
+    form = OrgLinkForm(request.POST, request.FILES)
+    if not form.is_valid():
+        messages.error(request, _first_problem(form) or "That link needs a name and a URL.")
+        return redirect("orgs:settings", org_slug=org.slug)
+    image_url = form.cleaned_data["image_url"]
+    upload = form.cleaned_data.get("image")
+    if upload:
+        image_url = pictures.store(
+            upload, prefix=f"org-links/{org.slug}", what="That picture"
+        )
+        if not image_url:
+            messages.error(request, pictures.failed_message("That picture"))
+            return redirect("orgs:settings", org_slug=org.slug)
+    OrgLink.objects.create(
+        org=org,
+        title=form.cleaned_data["title"].strip(),
+        url=form.cleaned_data["url"],
+        image_url=image_url,
+        sort=_next_sort(org.links.all()),
+    )
+    messages.success(request, "Added.")
+    return redirect("orgs:settings", org_slug=org.slug)
+
+
+@login_required
+@require_POST
+def link_remove(request, org_slug, link_id):
+    if not _is_org_admin(request):
+        raise PermissionDenied
+    OrgLink.objects.filter(org=request.org, pk=link_id).delete()
+    messages.success(request, "Removed.")
+    return redirect("orgs:settings", org_slug=request.org.slug)
+
+
+@login_required
+@require_POST
+def post_add(request, org_slug):
+    """Say what happened. Their words, dated the day it happened."""
+    org = request.org
+    if not _is_org_admin(request):
+        raise PermissionDenied
+    form = OrgPostForm(request.POST, request.FILES)
+    if not form.is_valid():
+        messages.error(request, _first_problem(form) or "Say what happened.")
+        return redirect("orgs:settings", org_slug=org.slug)
+    image_url, thumb = "", ""
+    upload = form.cleaned_data.get("image")
+    if upload:
+        image_url, thumb = pictures.store_pair(
+            upload, prefix=f"org-posts/{org.slug}", what="That picture"
+        )
+        if not image_url:
+            messages.error(request, pictures.failed_message("That picture"))
+            return redirect("orgs:settings", org_slug=org.slug)
+    OrgPost.objects.create(
+        org=org,
+        words=form.cleaned_data["words"].strip(),
+        happened_on=form.cleaned_data.get("happened_on") or date.today(),
+        image_url=image_url,
+        thumb_url=thumb,
+        link_url=form.cleaned_data["link_url"],
+    )
+    messages.success(request, "Posted.")
+    return redirect("orgs:settings", org_slug=org.slug)
+
+
+@login_required
+@require_POST
+def post_remove(request, org_slug, post_id):
+    if not _is_org_admin(request):
+        raise PermissionDenied
+    OrgPost.objects.filter(org=request.org, pk=post_id).delete()
+    messages.success(request, "Removed.")
+    return redirect("orgs:settings", org_slug=request.org.slug)
+
+
+def _first_problem(form) -> str:
+    """The first thing wrong, in the words the form used. Nothing invented."""
+    for errors in form.errors.values():
+        if errors:
+            return errors[0]
+    return ""
 
 
 @login_required

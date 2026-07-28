@@ -44,6 +44,26 @@ urlpatterns = [
     path("o/<slug:org_slug>/settings/", views.org_settings, name="settings"),
     # Draft the team profile from the team's own website (posts back to settings).
     path("o/<slug:org_slug>/settings/pull/", views.profile_pull, name="profile_pull"),
+    # The three lists on the join page. Each row is added and removed on its
+    # own, so adding a picture never re-saves the rest of the profile.
+    path("o/<slug:org_slug>/settings/pictures/add/", views.picture_add, name="picture_add"),
+    path(
+        "o/<slug:org_slug>/settings/pictures/<int:picture_id>/remove/",
+        views.picture_remove,
+        name="picture_remove",
+    ),
+    path("o/<slug:org_slug>/settings/links/add/", views.link_add, name="link_add"),
+    path(
+        "o/<slug:org_slug>/settings/links/<int:link_id>/remove/",
+        views.link_remove,
+        name="link_remove",
+    ),
+    path("o/<slug:org_slug>/settings/posts/add/", views.post_add, name="post_add"),
+    path(
+        "o/<slug:org_slug>/settings/posts/<int:post_id>/remove/",
+        views.post_remove,
+        name="post_remove",
+    ),
     path("o/<slug:org_slug>/members/", views.members, name="members"),
     path("o/<slug:org_slug>/members/invite/", views.invite_create, name="invite_create"),
     path(

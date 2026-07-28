@@ -379,26 +379,58 @@ def ventures_directory(request):
     """
     if not _s2s_authorized(request):
         return JsonResponse({"error": "unauthorized"}, status=401)
-    qs = Org.objects.annotate(member_count=Count("memberships")).order_by("display_name")
-    return JsonResponse(
-        {
-            "ventures": [
-                {
-                    "slug": o.slug,
-                    "display_name": o.display_name,
-                    "tagline": o.tagline,
-                    "pitch": o.pitch,
-                    "website": o.website,
-                    "logo_url": o.logo_url,
-                    "cover_image_url": o.cover_image_url,
-                    "asks": o.asks,
-                    "socials": o.socials or [],
-                    "member_count": o.member_count,
-                }
-                for o in qs
-            ]
-        }
+    qs = (
+        Org.objects.annotate(member_count=Count("memberships"))
+        .prefetch_related("pictures", "links", "posts")
+        .order_by("display_name")
     )
+    return JsonResponse({"ventures": [_venture_card(o) for o in qs]})
+
+
+def _venture_card(org):
+    """Everything the public venture page renders, and nothing else.
+
+    The three lists a team fills in themselves (pictures, links, posts) travel
+    with the card, because the page draws them in one pass and a second call per
+    venture would put the directory behind N requests. The feed rule lives on
+    the model (Org.public_posts), so what this sends is already what a stranger
+    may see: below the bar it is an empty list and the page draws no section.
+
+    The calendar is here ONLY when the team made it public. A private calendar
+    must not leave GovKit at all, so it is left out rather than sent with a flag
+    for the caller to respect.
+    """
+    return {
+        "slug": org.slug,
+        "display_name": org.display_name,
+        "tagline": org.tagline,
+        "pitch": org.pitch,
+        "website": org.website,
+        "logo_url": org.logo_url,
+        "cover_image_url": org.cover_image_url,
+        "asks": org.asks,
+        "socials": org.socials or [],
+        "member_count": org.member_count,
+        "pictures": [
+            {"url": p.url, "grid_url": p.grid_url, "caption": p.caption}
+            for p in org.pictures.all()
+        ],
+        "links": [
+            {"title": link.title, "url": link.url, "image_url": link.image_url, "host": link.host}
+            for link in org.links.all()
+        ],
+        "posts": [
+            {
+                "on": post.happened_on.isoformat(),
+                "words": post.words,
+                "image_url": post.image_url,
+                "grid_url": post.grid_url,
+                "link_url": post.link_url,
+            }
+            for post in org.public_posts()
+        ],
+        "calendar_url": org.calendar_url if org.calendar_public else "",
+    }
 
 
 ventures_directory.org_context_exempt = True

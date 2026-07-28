@@ -77,10 +77,13 @@ def test_a_pdf_is_refused_and_nothing_is_stored(client, me, storage_on):
 
 
 def test_an_oversized_photo_is_refused(client, me, storage_on):
-    with patch("apps.commons.storage.store_image") as store:
-        resp = _post(client, photo=_photo(size=6 * 1024 * 1024))
+    """The limit is generous (a phone photo is fine) but it is still a limit."""
+    from apps.commons.storage import MAX_BYTES
 
-    assert "limit is 5MB" in resp.content.decode()
+    with patch("apps.commons.storage.store_image") as store:
+        resp = _post(client, photo=_photo(size=MAX_BYTES + 1))
+
+    assert f"limit is {MAX_BYTES // 1024 // 1024}MB" in resp.content.decode()
     store.assert_not_called()
 
 

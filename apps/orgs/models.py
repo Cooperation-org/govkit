@@ -15,7 +15,7 @@ company.
 """
 
 import secrets
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -161,8 +161,9 @@ class Org(models.Model):
     # One line saying what this is, shown under the name and in the link preview.
     # Drafted from the team's own site (apps.orgs.sitepull), theirs to edit.
     tagline = models.CharField(max_length=255, blank=True)
-    # The team's own logo and the picture their shared link unfurls with. URLs on
-    # the team's own site — we point at them, we don't copy or host them.
+    # The team's own logo and the picture their shared link unfurls with. Either
+    # a URL on the team's own site or, when they upload one, a URL in our bucket
+    # (apps.commons.pictures). What is stored here is a URL either way.
     logo_url = models.URLField(max_length=1000, blank=True)
     cover_image_url = models.URLField(max_length=1000, blank=True)
     # What the team needs a person for, as [{"role": str, "detail": str}]. This is
@@ -176,6 +177,10 @@ class Org(models.Model):
     # Team calendar (Google Calendar / iCal share URL) and team chat (Slack/Discord
     # invite). When set, the cohort top bar shows a Calendar / Chat link.
     calendar_url = models.URLField(max_length=1000, blank=True)
+    # The calendar is the team's own working calendar, so it is private until an
+    # admin says otherwise. Public means one thing on the join page: a stranger
+    # books a conversation themselves instead of asking and waiting.
+    calendar_public = models.BooleanField(default=False)
     chat_url = models.URLField(max_length=1000, blank=True)
     # A team whose equity record lives in another system (Slicing Pie's Pie Slicer today)
     # points at it here. This is a POINTER, never a sync: GovKit reads nothing from it and
@@ -248,6 +253,109 @@ class Org(models.Model):
     def profile_ready(self) -> bool:
         """True once every part of the profile is filled in."""
         return all(done for _label, done in self.profile_checklist())
+
+    def public_posts(self) -> list:
+        """The posts a stranger sees, or nothing at all.
+
+        Two or three posts is not a feed, it is an empty room with the lights
+        on, and a feed whose newest entry is from the spring says the team
+        stopped. Either case looks worse than no section, so below the bar this
+        returns nothing and the page renders no header, no empty state, no
+        placeholder. Nothing is ever generated to fill it.
+        """
+        posts = list(self.posts.all()[:POSTS_SHOWN])
+        if len(posts) < POSTS_MINIMUM:
+            return []
+        if posts[0].happened_on < timezone.now().date() - timedelta(days=POSTS_STALE_DAYS):
+            return []
+        return posts
+
+
+# Below three posts there is no feed, and past 60 days there is no news.
+POSTS_MINIMUM = 3
+POSTS_STALE_DAYS = 60
+POSTS_SHOWN = 12
+
+
+class OrgPicture(models.Model):
+    """One picture on a team's public page.
+
+    Uploaded to the bucket (apps.commons.pictures) or linked; either way what is
+    kept here is a URL. `thumb_url` is the same picture at grid size, empty when
+    the original was already small enough to be its own thumbnail.
+    """
+
+    org = models.ForeignKey(Org, on_delete=models.CASCADE, related_name="pictures")
+    url = models.URLField(max_length=1000)
+    thumb_url = models.URLField(max_length=1000, blank=True)
+    caption = models.CharField(max_length=200, blank=True)
+    sort = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort", "id"]
+
+    def __str__(self):
+        return f"{self.org.slug}: {self.caption or self.url}"
+
+    @property
+    def grid_url(self) -> str:
+        return self.thumb_url or self.url
+
+
+class OrgLink(models.Model):
+    """Something the team made, shown as a card: a demo, a dashboard, a deck.
+
+    The picture is theirs to choose. When they leave it empty the card is text,
+    which is quieter but still a link, so a missing picture is never a broken
+    image.
+    """
+
+    org = models.ForeignKey(Org, on_delete=models.CASCADE, related_name="links")
+    title = models.CharField(max_length=200)
+    url = models.URLField(max_length=1000)
+    image_url = models.URLField(max_length=1000, blank=True)
+    sort = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort", "id"]
+
+    def __str__(self):
+        return f"{self.org.slug}: {self.title}"
+
+    @property
+    def host(self) -> str:
+        """The bare host, which is what a card shows above the title."""
+        from urllib.parse import urlsplit
+
+        return (urlsplit(self.url).netloc or "").removeprefix("www.")
+
+
+class OrgPost(models.Model):
+    """A dated line about what the team did. Their words, never ours.
+
+    `happened_on` is the day the thing happened, not the day it was typed, so a
+    team catching up on three months of work still gets a truthful order.
+    """
+
+    org = models.ForeignKey(Org, on_delete=models.CASCADE, related_name="posts")
+    happened_on = models.DateField(default=date.today)
+    words = models.TextField()
+    image_url = models.URLField(max_length=1000, blank=True)
+    thumb_url = models.URLField(max_length=1000, blank=True)
+    link_url = models.URLField(max_length=1000, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-happened_on", "-id"]
+
+    def __str__(self):
+        return f"{self.org.slug} {self.happened_on}: {self.words[:40]}"
+
+    @property
+    def grid_url(self) -> str:
+        return self.thumb_url or self.image_url
 
 
 class ValuationConfig(models.Model):

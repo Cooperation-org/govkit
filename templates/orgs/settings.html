@@ -88,6 +88,12 @@
           <small>Google Calendar or iCal share link — shows as Calendar in the top bar</small></label>
         {{ form.calendar_url }}
       </div>
+      <div class="gk-field gk-check">
+        <label for="{{ form.calendar_public.id_for_label }}">
+          {{ form.calendar_public }} Show that calendar on your page
+          <small>then your page says Schedule an interview and people book
+                 themselves in. Off, and it says Join now.</small></label>
+      </div>
       <div class="gk-field">
         <label for="{{ form.chat_url.id_for_label }}">Team chat
           <small>Slack or Discord invite link — shows as Chat in the top bar</small></label>
@@ -130,6 +136,136 @@
 
     <button type="submit">Save</button>
   </form>
+
+  {% comment %}
+    The three lists live outside the profile form on purpose. Each row is added
+    and removed on its own, so putting a picture up does not re-save the pitch,
+    and a failed upload never takes the rest of someone's edits with it.
+  {% endcomment %}
+
+  <div class="gk-card">
+    <h2>Things you made</h2>
+    <p>A demo, a dashboard, a deck. Each one shows as a card on your page.</p>
+    {% if links %}
+      <ul class="gk-rows">
+        {% for link in links %}
+          <li>
+            {% if link.image_url %}<img src="{{ link.image_url }}" alt="">{% endif %}
+            <span><b>{{ link.title }}</b><br><small>{{ link.host }}</small></span>
+            <form method="post" action="{% url 'orgs:link_remove' org_slug=current_org.slug link_id=link.id %}">
+              {% csrf_token %}<button type="submit" class="gk-btn-quiet">Remove</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    <form method="post" action="{% url 'orgs:link_add' org_slug=current_org.slug %}"
+          enctype="multipart/form-data" class="gk-addrow">
+      {% csrf_token %}
+      <div class="gk-field">
+        <label for="{{ link_form.title.id_for_label }}">What it is</label>
+        {{ link_form.title }}
+      </div>
+      <div class="gk-field">
+        <label for="{{ link_form.url.id_for_label }}">Link</label>
+        {{ link_form.url }}
+      </div>
+      <div class="gk-field">
+        {% if uploads_on %}
+          <label for="{{ link_form.image.id_for_label }}">A picture for the card
+            <small>optional</small></label>
+          {{ link_form.image }}
+        {% else %}
+          <label for="{{ link_form.image_url.id_for_label }}">A picture for the card
+            <small>optional — paste a link to one</small></label>
+          {{ link_form.image_url }}
+        {% endif %}
+      </div>
+      <button type="submit">Add</button>
+    </form>
+  </div>
+
+  <div class="gk-card">
+    <h2>Pictures</h2>
+    <p>Screenshots, the thing you made, the people making it. Big files are fine.</p>
+    {% if pictures %}
+      <ul class="gk-pics">
+        {% for pic in pictures %}
+          <li>
+            <img src="{{ pic.grid_url }}" alt="{{ pic.caption }}">
+            <form method="post" action="{% url 'orgs:picture_remove' org_slug=current_org.slug picture_id=pic.id %}">
+              {% csrf_token %}<button type="submit" class="gk-btn-quiet">Remove</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    <form method="post" action="{% url 'orgs:picture_add' org_slug=current_org.slug %}"
+          enctype="multipart/form-data" class="gk-addrow">
+      {% csrf_token %}
+      <div class="gk-field">
+        {% if uploads_on %}
+          <label for="{{ picture_form.picture.id_for_label }}">Choose a picture
+            <small>{{ picture_form.picture.help_text }}</small></label>
+          {{ picture_form.picture }}
+        {% else %}
+          <label for="{{ picture_form.picture_url.id_for_label }}">Link to a picture</label>
+          {{ picture_form.picture_url }}
+        {% endif %}
+      </div>
+      <div class="gk-field">
+        <label for="{{ picture_form.caption.id_for_label }}">Caption
+          <small>optional</small></label>
+        {{ picture_form.caption }}
+      </div>
+      <button type="submit">Add</button>
+    </form>
+  </div>
+
+  <div class="gk-card">
+    <h2>What you are up to</h2>
+    <p>Your page shows these once there are {{ posts_minimum }}, and stops showing them
+       when the newest is a couple of months old. Nothing is written for you.</p>
+    {% if posts %}
+      <ul class="gk-rows">
+        {% for post in posts %}
+          <li>
+            {% if post.grid_url %}<img src="{{ post.grid_url }}" alt="">{% endif %}
+            <span><small>{{ post.happened_on }}</small><br>{{ post.words }}</span>
+            <form method="post" action="{% url 'orgs:post_remove' org_slug=current_org.slug post_id=post.id %}">
+              {% csrf_token %}<button type="submit" class="gk-btn-quiet">Remove</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    <form method="post" action="{% url 'orgs:post_add' org_slug=current_org.slug %}"
+          enctype="multipart/form-data" class="gk-addrow">
+      {% csrf_token %}
+      <div class="gk-field">
+        <label for="{{ post_form.words.id_for_label }}">What happened</label>
+        {{ post_form.words }}
+      </div>
+      <div class="gk-field">
+        <label for="{{ post_form.happened_on.id_for_label }}">When
+          <small>leave it for today</small></label>
+        {{ post_form.happened_on }}
+      </div>
+      {% if uploads_on %}
+        <div class="gk-field">
+          <label for="{{ post_form.image.id_for_label }}">A picture
+            <small>optional</small></label>
+          {{ post_form.image }}
+        </div>
+      {% endif %}
+      <div class="gk-field">
+        <label for="{{ post_form.link_url.id_for_label }}">A link
+          <small>optional</small></label>
+        {{ post_form.link_url }}
+      </div>
+      <button type="submit">Post</button>
+    </form>
+  </div>
   {% endif %}
 
 {% endblock %}

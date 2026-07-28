@@ -21,15 +21,25 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-# What a profile photo may be. No image decoding (no Pillow here), so this is
-# an honest allow-list of what we will serve back, not a claim of validity.
+# What a picture may be. The allow-list is what we will serve back; Pillow,
+# when it is installed, is what actually reads the file (see _shrink) and so is
+# also what catches a .jpg that is not one.
 ALLOWED_TYPES = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
     "image/webp": ".webp",
     "image/gif": ".gif",
 }
-MAX_BYTES = 5 * 1024 * 1024
+# Generous on the way in, small on the way out (golda 2026-07-28). A picture
+# off a phone is 10-20MB and nobody should have to shrink it first, so we take
+# it and shrink it ourselves before it goes in the bucket. What a visitor
+# downloads is PAGE_WIDE, not this.
+MAX_BYTES = 25 * 1024 * 1024
+
+# The longest edge we serve. 1600 covers a full-width picture on a retina
+# laptop; a thumbnail in a grid never needs more than 600.
+PAGE_WIDE = 1600
+THUMB_WIDE = 600
 
 
 class StorageNotConfigured(Exception):
@@ -74,29 +84,105 @@ def _client():
 def check_image(upload) -> str:
     """Return why this file is not acceptable, or "" if it is."""
     if upload.size > MAX_BYTES:
-        return f"That image is {upload.size // 1024 // 1024}MB. The limit is 5MB."
+        return (
+            f"That image is {upload.size // 1024 // 1024}MB. "
+            f"The limit is {MAX_BYTES // 1024 // 1024}MB."
+        )
     content_type = (upload.content_type or "").split(";")[0].strip().lower()
     if content_type not in ALLOWED_TYPES:
         return "Use a JPEG, PNG, WebP or GIF."
     return ""
 
 
-def store_image(upload, *, prefix: str) -> str:
-    """Put an uploaded image in the bucket and return its public URL.
+def _shrink(data: bytes, content_type: str, longest: int):
+    """Return (bytes, content_type) scaled to fit `longest`, or None to send as is.
+
+    None covers every case where shrinking is the wrong move: no Pillow on this
+    install, an animated GIF (resizing would flatten it to one frame), a picture
+    already smaller than the target, or anything Pillow cannot read. The caller
+    then stores the original, which is what happened before this existed.
+    """
+    try:
+        import io
+
+        from PIL import Image
+    except ImportError:
+        return None
+    if content_type == "image/gif":
+        return None
+    try:
+        image = Image.open(io.BytesIO(data))
+        image.load()
+    except Exception:
+        logger.warning("could not read an uploaded image; storing it as it arrived")
+        return None
+    if max(image.size) <= longest:
+        return None
+    image.thumbnail((longest, longest), Image.LANCZOS)
+    out = io.BytesIO()
+    if content_type == "image/png":
+        image.save(out, format="PNG", optimize=True)
+    elif content_type == "image/webp":
+        image.save(out, format="WEBP", quality=85, method=4)
+    else:
+        image = image.convert("RGB")
+        image.save(out, format="JPEG", quality=85, optimize=True, progressive=True)
+        content_type = "image/jpeg"
+    return out.getvalue(), content_type
+
+
+def _put(data: bytes, content_type: str, *, prefix: str) -> str:
+    """Write one object and return its public URL.
 
     The key is prefix + random, never the person's filename: an uploaded name
     is their words about their own file, not something to build a URL from.
     """
-    if not configured():
-        raise StorageNotConfigured()
-    content_type = (upload.content_type or "").split(";")[0].strip().lower()
     suffix = ALLOWED_TYPES.get(content_type) or mimetypes.guess_extension(content_type) or ".jpg"
     key = f"{prefix.strip('/')}/{secrets.token_urlsafe(16)}{suffix}"
-    upload.seek(0)
     _client().put_object(
         Bucket=settings.GOVKIT_STORAGE_BUCKET,
         Key=key,
-        Body=upload.read(),
+        Body=data,
         ContentType=content_type,
     )
     return public_url(key)
+
+
+def store_image(upload, *, prefix: str) -> str:
+    """Put an uploaded image in the bucket and return its public URL.
+
+    Shrunk to PAGE_WIDE on the way in. A team may upload the picture straight
+    off their phone; every visitor to their page then downloads whatever we
+    kept, so what we keep is the size a page needs.
+    """
+    if not configured():
+        raise StorageNotConfigured()
+    content_type = (upload.content_type or "").split(";")[0].strip().lower()
+    upload.seek(0)
+    data = upload.read()
+    shrunk = _shrink(data, content_type, PAGE_WIDE)
+    if shrunk:
+        data, content_type = shrunk
+    return _put(data, content_type, prefix=prefix)
+
+
+def store_image_pair(upload, *, prefix: str):
+    """Store one picture twice: page-sized, and a thumbnail for a grid.
+
+    Returns (url, thumb_url). thumb_url is "" when the picture was already
+    small enough to be its own thumbnail, and the caller falls back to url.
+    """
+    if not configured():
+        raise StorageNotConfigured()
+    content_type = (upload.content_type or "").split(";")[0].strip().lower()
+    upload.seek(0)
+    data = upload.read()
+
+    page = _shrink(data, content_type, PAGE_WIDE)
+    page_data, page_type = page if page else (data, content_type)
+    url = _put(page_data, page_type, prefix=prefix)
+
+    thumb = _shrink(data, content_type, THUMB_WIDE)
+    if not thumb:
+        return url, ""
+    return url, _put(thumb[0], thumb[1], prefix=f"{prefix.strip('/')}/thumb")
