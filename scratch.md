@@ -1200,3 +1200,34 @@ Tasks already come from TaskSourceConfig per org, so the question to settle
 first is whether genesis seeds tasks into the board on start, or the board
 grows a curriculum source. Either way the valuation path is the one that
 already exists — no separate equity rule for curriculum work.
+
+## DROPS FOUND NOBODY (2026-07-28) — tracker accounts now match on email
+Golda: done tasks (hers, Zakia's) never appeared in a drop run. Cause: a task
+only enters a run if its assignee resolved to a Membership, and that resolution
+read only `Membership.taiga_user_id` / `taiga_username` — fields NOTHING in the
+product ever writes. Not signup, not invite accept, not the members page; only
+Django admin or `seed_demo`. So every real member's task synced unassigned and
+`eligible_tasks()` (which requires `assignee__isnull=False`) threw them all
+away. Runs opened empty or not at all.
+
+Fixed (golda's call, "auto match if you can"): the sync now falls back to the
+email the TRACKER holds for an account, matched against the member's own account
+email. Adapter gained `fetch_members()` — Taiga splits it, `/api/v1/memberships
+?project=` carries `user_email` but no username, `/api/v1/users?project=` carries
+the username but no email, joined on user id. A steward-typed value still wins;
+an email on two accounts matches nobody; a match is written back onto the
+Membership so it is a visible, correctable value instead of a re-guess. A
+tracker that will not list members degrades to the old behaviour with a note on
+the sync result.
+
+STILL OPEN — golda has not answered: a done task with no story points and no
+value tag is worth ZERO. There is no default amount anywhere (hours mode wants
+points x rate, value mode wants a tag regex that ships blank on purpose, and
+`Org.default_hourly_rate` can be null). She asked for done tasks to have a
+default; the number and where it lives are hers to set.
+
+NOTE ON THIS CHECKOUT: the identity-match code landed inside commit 0520d48
+("Upload or link, everywhere there is a picture") — a parallel session ran a
+commit-all over the shared working tree and swept in-progress work from another
+session into its own commit, then pushed. Nothing lost, but that commit message
+covers two unrelated changes. Commit narrowly on this box.
