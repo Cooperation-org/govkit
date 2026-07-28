@@ -1231,3 +1231,16 @@ NOTE ON THIS CHECKOUT: the identity-match code landed inside commit 0520d48
 commit-all over the shared working tree and swept in-progress work from another
 session into its own commit, then pushed. Nothing lost, but that commit message
 covers two unrelated changes. Commit narrowly on this box.
+
+## DEFAULT AMOUNT SETTLED (2026-07-28)
+Golda: "1 hr x hourly rate (which for this org is 50 pts per task)". Shipped as
+`ValuationConfig.default_task_hours`, default 1.00, null turns the floor off.
+Applied at valuation time, not at sync: the task keeps showing in the review
+queue as unvalued, so the floor is visible as a floor and a real number replaces
+it. Only hours_rate mode — direct_value mode has no equivalent default and was
+left alone (nobody asked for one).
+
+TO GO LIVE both this and the email match need a deploy to the cohort VM
+(dash.workers.vc) plus `manage.py migrate` for orgs 0021. And a task is only
+worth 50 if the ORG's hourly rate is actually 50 — that is data on that box,
+set on the members page, not something this checkout can see.
