@@ -41,12 +41,29 @@ def a_pdf():
     return SimpleUploadedFile("deck.pdf", b"%PDF-1.4", "application/pdf")
 
 
-ORG_FIELDS = {"display_name": "Acme", "website": "", "tagline": "", "pitch": "",
-              "looking_for": "", "logo_url": "", "cover_image_url": "", "socials": ""}
-INVITE_FIELDS = {"name": "Ada", "email": "ada@example.test", "link": "", "image_url": "",
-                 "audience": "founder", "kind": "pool", "role": "member",
-                 "venture_name": "", "venture_url": "", "drafted_statement": "",
-                 "drafted_social_post": ""}
+ORG_FIELDS = {
+    "display_name": "Acme",
+    "website": "",
+    "tagline": "",
+    "pitch": "",
+    "looking_for": "",
+    "logo_url": "",
+    "cover_image_url": "",
+    "socials": "",
+}
+INVITE_FIELDS = {
+    "name": "Ada",
+    "email": "ada@example.test",
+    "link": "",
+    "image_url": "",
+    "audience": "founder",
+    "kind": "pool",
+    "role": "member",
+    "venture_name": "",
+    "venture_url": "",
+    "drafted_statement": "",
+    "drafted_social_post": "",
+}
 
 
 @pytest.mark.django_db
@@ -73,10 +90,13 @@ def test_every_screen_that_shows_a_picture_offers_an_upload(admin_org, client, b
 )
 def test_a_teams_pictures_upload(admin_org, client, bucket, field, folder):
     org, _ = admin_org
-    with patch("apps.commons.pictures.storage.store_image",
-               side_effect=lambda u, prefix: f"https://cdn.test/{prefix}/x.png") as put:
-        client.post(reverse("orgs:settings", kwargs={"org_slug": org.slug}),
-                    {**ORG_FIELDS, field: a_png()})
+    with patch(
+        "apps.commons.pictures.storage.store_image",
+        side_effect=lambda u, prefix: f"https://cdn.test/{prefix}/x.png",
+    ) as put:
+        client.post(
+            reverse("orgs:settings", kwargs={"org_slug": org.slug}), {**ORG_FIELDS, field: a_png()}
+        )
     org.refresh_from_db()
     stored = org.logo_url if field == "logo" else org.cover_image_url
     assert stored == f"https://cdn.test/{folder}/acme/x.png"
@@ -88,8 +108,10 @@ def test_a_teams_pictures_upload(admin_org, client, bucket, field, folder):
 def test_a_members_own_photo_uploads(admin_org, client, bucket):
     _, user = admin_org
     with patch("apps.commons.pictures.storage.store_image", return_value="https://cdn.test/me.png"):
-        client.post(reverse("accounts:profile"),
-                    {"display_name": "Ada", "avatar_url": "", "bio": "", "photo": a_png()})
+        client.post(
+            reverse("accounts:profile"),
+            {"display_name": "Ada", "avatar_url": "", "bio": "", "photo": a_png()},
+        )
     user.refresh_from_db()
     assert user.avatar_url == "https://cdn.test/me.png"
 
@@ -97,9 +119,13 @@ def test_a_members_own_photo_uploads(admin_org, client, bucket):
 @pytest.mark.django_db
 def test_an_invites_photo_uploads(admin_org, client, bucket):
     org, _ = admin_org
-    with patch("apps.commons.pictures.storage.store_image", return_value="https://cdn.test/ada.png"):
-        client.post(reverse("orgs:invite_create", kwargs={"org_slug": org.slug}),
-                    {**INVITE_FIELDS, "image": a_png()})
+    with patch(
+        "apps.commons.pictures.storage.store_image", return_value="https://cdn.test/ada.png"
+    ):
+        client.post(
+            reverse("orgs:invite_create", kwargs={"org_slug": org.slug}),
+            {**INVITE_FIELDS, "image": a_png()},
+        )
     assert Invite.objects.get(org=org).image_url == "https://cdn.test/ada.png"
 
 
@@ -108,12 +134,18 @@ def test_nothing_that_is_not_a_picture_is_ever_stored(admin_org, client, bucket)
     org, _ = admin_org
     posts = [
         (reverse("orgs:settings", kwargs={"org_slug": org.slug}), {**ORG_FIELDS, "logo": a_pdf()}),
-        (reverse("orgs:settings", kwargs={"org_slug": org.slug}),
-         {**ORG_FIELDS, "cover_image": a_pdf()}),
-        (reverse("accounts:profile"),
-         {"display_name": "Ada", "avatar_url": "", "bio": "", "photo": a_pdf()}),
-        (reverse("orgs:invite_create", kwargs={"org_slug": org.slug}),
-         {**INVITE_FIELDS, "image": a_pdf()}),
+        (
+            reverse("orgs:settings", kwargs={"org_slug": org.slug}),
+            {**ORG_FIELDS, "cover_image": a_pdf()},
+        ),
+        (
+            reverse("accounts:profile"),
+            {"display_name": "Ada", "avatar_url": "", "bio": "", "photo": a_pdf()},
+        ),
+        (
+            reverse("orgs:invite_create", kwargs={"org_slug": org.slug}),
+            {**INVITE_FIELDS, "image": a_pdf()},
+        ),
     ]
     with patch("apps.commons.pictures.storage.store_image") as put:
         for url, data in posts:

@@ -144,9 +144,19 @@ def test_a_member_sees_the_page_but_cannot_change_it(
 
     org.display_name = "Before"
     org.save(update_fields=["display_name"])
-    posted = client.post(url, {"display_name": "After", "website": "", "tagline": "",
-                               "pitch": "", "looking_for": "", "logo_url": "",
-                               "cover_image_url": "", "socials": ""})
+    posted = client.post(
+        url,
+        {
+            "display_name": "After",
+            "website": "",
+            "tagline": "",
+            "pitch": "",
+            "looking_for": "",
+            "logo_url": "",
+            "cover_image_url": "",
+            "socials": "",
+        },
+    )
     org.refresh_from_db()
     assert posted.status_code == 200
     assert org.display_name == "Before"
@@ -184,9 +194,7 @@ def test_s2s_profile_returns_calendar_and_chat(client, admin_org, settings):
     assert body["chat_url"] == "https://discord.gg/abc123"
 
 
-def test_s2s_profile_carries_the_join_page_so_the_dash_can_point_at_it(
-    client, admin_org, settings
-):
+def test_s2s_profile_carries_the_join_page_so_the_dash_can_point_at_it(client, admin_org, settings):
     """The team lands on the workers.vc dash, so the dash has to be able to say
     'your page is not set up yet, here is where you do it' — and hand over the
     link once it is. Both URLs are built here; the dash assembles no GovKit paths."""

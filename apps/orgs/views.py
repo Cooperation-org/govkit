@@ -464,8 +464,10 @@ def org_settings(request, org_slug):
             # An uploaded picture replaces whatever URL was in the field beside
             # it: the admin just chose the picture, and two answers to one
             # question would have to be resolved by guessing.
-            pics = {"logo_url": form.cleaned_data["logo_url"],
-                    "cover_image_url": form.cleaned_data["cover_image_url"]}
+            pics = {
+                "logo_url": form.cleaned_data["logo_url"],
+                "cover_image_url": form.cleaned_data["cover_image_url"],
+            }
             for field, url_field, folder, what in (
                 ("logo", "logo_url", "org-logos", "Your logo"),
                 ("cover_image", "cover_image_url", "org-pictures", "Your picture"),
@@ -638,9 +640,7 @@ def link_add(request, org_slug):
     image_url = form.cleaned_data["image_url"]
     upload = form.cleaned_data.get("image")
     if upload:
-        image_url = pictures.store(
-            upload, prefix=f"org-links/{org.slug}", what="That picture"
-        )
+        image_url = pictures.store(upload, prefix=f"org-links/{org.slug}", what="That picture")
         if not image_url:
             messages.error(request, pictures.failed_message("That picture"))
             return redirect("orgs:settings", org_slug=org.slug)

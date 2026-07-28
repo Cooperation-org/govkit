@@ -287,9 +287,17 @@ def test_an_uploaded_logo_goes_to_the_bucket_and_becomes_the_logo(admin_org, cli
     with patch("apps.orgs.views.storage.store_image", return_value="https://cdn.test/x.png") as put:
         resp = client.post(
             reverse("orgs:settings", kwargs={"org_slug": "acme"}),
-            {"display_name": "Acme", "website": "", "tagline": "", "pitch": "",
-             "looking_for": "", "logo_url": "", "cover_image_url": "", "socials": "",
-             "logo": _png()},
+            {
+                "display_name": "Acme",
+                "website": "",
+                "tagline": "",
+                "pitch": "",
+                "looking_for": "",
+                "logo_url": "",
+                "cover_image_url": "",
+                "socials": "",
+                "logo": _png(),
+            },
         )
     assert resp.status_code == 302
     admin_org.refresh_from_db()
@@ -308,9 +316,17 @@ def test_an_upload_that_fails_changes_nothing_and_says_so(admin_org, client, set
     with patch("apps.orgs.views.storage.store_image", side_effect=RuntimeError("bucket gone")):
         resp = client.post(
             reverse("orgs:settings", kwargs={"org_slug": "acme"}),
-            {"display_name": "Acme", "website": "", "tagline": "After", "pitch": "",
-             "looking_for": "", "logo_url": "", "cover_image_url": "", "socials": "",
-             "logo": _png()},
+            {
+                "display_name": "Acme",
+                "website": "",
+                "tagline": "After",
+                "pitch": "",
+                "looking_for": "",
+                "logo_url": "",
+                "cover_image_url": "",
+                "socials": "",
+                "logo": _png(),
+            },
         )
     admin_org.refresh_from_db()
     assert resp.status_code == 200
@@ -328,9 +344,17 @@ def test_a_pdf_is_refused_before_anything_is_stored(admin_org, client, settings)
     with patch("apps.orgs.views.storage.store_image") as put:
         resp = client.post(
             reverse("orgs:settings", kwargs={"org_slug": "acme"}),
-            {"display_name": "Acme", "website": "", "tagline": "", "pitch": "",
-             "looking_for": "", "logo_url": "", "cover_image_url": "", "socials": "",
-             "logo": SimpleUploadedFile("deck.pdf", b"%PDF-1.4", "application/pdf")},
+            {
+                "display_name": "Acme",
+                "website": "",
+                "tagline": "",
+                "pitch": "",
+                "looking_for": "",
+                "logo_url": "",
+                "cover_image_url": "",
+                "socials": "",
+                "logo": SimpleUploadedFile("deck.pdf", b"%PDF-1.4", "application/pdf"),
+            },
         )
     assert resp.status_code == 200
     assert put.call_count == 0

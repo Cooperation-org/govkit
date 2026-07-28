@@ -400,9 +400,7 @@ class OrgSettingsForm(forms.Form):
         return _norm_url(self.cleaned_data.get("logo_url", ""))
 
     def clean_cover_image(self):
-        return pictures.clean_upload(
-            self.cleaned_data.get("cover_image"), url_label="picture URL"
-        )
+        return pictures.clean_upload(self.cleaned_data.get("cover_image"), url_label="picture URL")
 
     def clean_cover_image_url(self):
         return _norm_url(self.cleaned_data.get("cover_image_url", ""))
@@ -610,9 +608,7 @@ class OrgLinkForm(forms.Form):
 class OrgPostForm(forms.Form):
     """Say what happened. The date is the day it happened, not the day it is typed."""
 
-    words = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": 3}), label="What happened"
-    )
+    words = forms.CharField(widget=forms.Textarea(attrs={"rows": 3}), label="What happened")
     happened_on = forms.DateField(
         required=False,
         label="When (leave it for today)",

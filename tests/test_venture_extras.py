@@ -190,7 +190,9 @@ def test_a_post_with_no_date_happened_today(client, admin_org):
 
 @pytest.mark.django_db
 def test_a_post_needs_words(client, admin_org):
-    client.post(reverse("orgs:post_add", kwargs={"org_slug": admin_org.slug}), {"link_url": "x.com"})
+    client.post(
+        reverse("orgs:post_add", kwargs={"org_slug": admin_org.slug}), {"link_url": "x.com"}
+    )
     assert not OrgPost.objects.filter(org=admin_org).exists()
 
 
