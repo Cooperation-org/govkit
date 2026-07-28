@@ -182,7 +182,10 @@ def _member_routes(members=None):
     return [
         (
             "/api/v1/memberships?project=7",
-            [{"id": 900 + i, "user": m["id"], "user_email": m.get("email", "")} for i, m in enumerate(members)],
+            [
+                {"id": 900 + i, "user": m["id"], "user_email": m.get("email", "")}
+                for i, m in enumerate(members)
+            ],
             None,
         ),
         (
@@ -358,9 +361,7 @@ def test_sync_email_match_does_not_override_existing_map(
     assert other.taiga_user_id is None
 
 
-def test_sync_email_match_skips_an_ambiguous_email(
-    taiga_source, user_factory, membership_factory
-):
+def test_sync_email_match_skips_an_ambiguous_email(taiga_source, user_factory, membership_factory):
     """Two accounts on one address is not an answer — match nobody rather than guess.
 
     Two rows can differ only in the case of the local part (the login is unique, and
@@ -388,9 +389,7 @@ def test_sync_survives_a_tracker_that_will_not_list_members(
     stories = [_story(101, DONE, tags=[["5 cook", None]], assigned_to=9, username="alpha")]
 
     with mock_taiga(_base_routes(stories)):
-        with patch.object(
-            adapters.TaigaAdapter, "fetch_members", side_effect=RuntimeError("403")
-        ):
+        with patch.object(adapters.TaigaAdapter, "fetch_members", side_effect=RuntimeError("403")):
             result = services.sync_source(src)
 
     assert TrackedTask.objects.get(external_id="101").assignee_id == m.pk
