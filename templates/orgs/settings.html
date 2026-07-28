@@ -223,6 +223,42 @@
   </div>
 
   <div class="gk-card">
+    <h2>In their own words</h2>
+    <p>Something said about you, or a line you say about yourselves. Kept exactly
+       as it was said.</p>
+    {% if quotes %}
+      <ul class="gk-rows">
+        {% for quote in quotes %}
+          <li>
+            <span>{{ quote.words }}{% if quote.said_by %}<br><small>{{ quote.said_by }}</small>{% endif %}</span>
+            <form method="post" action="{% url 'orgs:quote_remove' org_slug=current_org.slug quote_id=quote.id %}">
+              {% csrf_token %}<button type="submit" class="gk-btn-quiet">Remove</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    <form method="post" action="{% url 'orgs:quote_add' org_slug=current_org.slug %}" class="gk-addrow">
+      {% csrf_token %}
+      <div class="gk-field">
+        <label for="{{ quote_form.words.id_for_label }}">What was said</label>
+        {{ quote_form.words }}
+      </div>
+      <div class="gk-field">
+        <label for="{{ quote_form.said_by.id_for_label }}">Who said it
+          <small>optional</small></label>
+        {{ quote_form.said_by }}
+      </div>
+      <div class="gk-field">
+        <label for="{{ quote_form.source_url.id_for_label }}">Where they said it
+          <small>optional</small></label>
+        {{ quote_form.source_url }}
+      </div>
+      <button type="submit">Add</button>
+    </form>
+  </div>
+
+  <div class="gk-card">
     <h2>What you are up to</h2>
     <p>Your page shows these once there are {{ posts_minimum }}, and stops showing them
        when the newest is a couple of months old. Nothing is written for you.</p>

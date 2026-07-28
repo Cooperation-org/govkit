@@ -35,6 +35,7 @@ from .forms import (
     OrgLinkForm,
     OrgPictureForm,
     OrgPostForm,
+    OrgQuoteForm,
     OrgRateForm,
     OrgSettingsForm,
     SponsorGrantForm,
@@ -62,6 +63,7 @@ from .models import (
     OrgLink,
     OrgPicture,
     OrgPost,
+    OrgQuote,
     OrgStake,
     PiePhase,
 )
@@ -570,9 +572,11 @@ def _render_settings(request, org, form, pulled_from=""):
             "pictures": org.pictures.all(),
             "links": org.links.all(),
             "posts": org.posts.all()[:12],
+            "quotes": org.quotes.all(),
             "picture_form": OrgPictureForm(),
             "link_form": OrgLinkForm(),
             "post_form": OrgPostForm(),
+            "quote_form": OrgQuoteForm(),
             "posts_minimum": POSTS_MINIMUM,
         },
     )
@@ -703,6 +707,38 @@ def post_remove(request, org_slug, post_id):
     if not _is_org_admin(request):
         raise PermissionDenied
     OrgPost.objects.filter(org=request.org, pk=post_id).delete()
+    messages.success(request, "Removed.")
+    return redirect("orgs:settings", org_slug=request.org.slug)
+
+
+@login_required
+@require_POST
+def quote_add(request, org_slug):
+    """Add something said about the team. Stored as typed, never edited by us."""
+    org = request.org
+    if not _is_org_admin(request):
+        raise PermissionDenied
+    form = OrgQuoteForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, _first_problem(form) or "Say what was said.")
+        return redirect("orgs:settings", org_slug=org.slug)
+    OrgQuote.objects.create(
+        org=org,
+        words=form.cleaned_data["words"].strip(),
+        said_by=form.cleaned_data["said_by"].strip(),
+        source_url=form.cleaned_data["source_url"],
+        sort=_next_sort(org.quotes.all()),
+    )
+    messages.success(request, "Added.")
+    return redirect("orgs:settings", org_slug=org.slug)
+
+
+@login_required
+@require_POST
+def quote_remove(request, org_slug, quote_id):
+    if not _is_org_admin(request):
+        raise PermissionDenied
+    OrgQuote.objects.filter(org=request.org, pk=quote_id).delete()
     messages.success(request, "Removed.")
     return redirect("orgs:settings", org_slug=request.org.slug)
 

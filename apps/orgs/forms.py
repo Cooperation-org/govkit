@@ -622,3 +622,16 @@ class OrgPostForm(forms.Form):
 
     def clean_link_url(self):
         return _norm_url(self.cleaned_data.get("link_url", ""))
+
+
+class OrgQuoteForm(forms.Form):
+    """Add something said about the team, in the words it was said in."""
+
+    words = forms.CharField(widget=forms.Textarea(attrs={"rows": 3}), label="What was said")
+    said_by = forms.CharField(max_length=200, required=False, label="Who said it (optional)")
+    source_url = forms.CharField(
+        max_length=500, required=False, label="Where they said it (optional)"
+    )
+
+    def clean_source_url(self):
+        return _norm_url(self.cleaned_data.get("source_url", ""))

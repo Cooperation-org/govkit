@@ -6,13 +6,14 @@ ends up seeing: a feed that would look abandoned is not shown at all, and a
 calendar the team did not make public never leaves GovKit.
 """
 
+import json
 from datetime import date, timedelta
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from apps.orgs.models import OrgLink, OrgPicture, OrgPost
+from apps.orgs.models import OrgLink, OrgPicture, OrgPost, OrgQuote
 
 
 @pytest.fixture
@@ -286,3 +287,132 @@ def test_the_limit_a_person_is_told_is_the_limit_we_enforce():
         content_type = "image/jpeg"
 
     assert f"{storage.MAX_BYTES // 1024 // 1024}MB" in storage.check_image(Big())
+
+
+# --- the same page, written by an agent -------------------------------------
+#
+# golda 2026-07-28: "i want everything to be agenticable". These say the API
+# door and the settings screen reach the same rows and obey the same rules.
+
+BEARER = {"HTTP_AUTHORIZATION": "Bearer s3cret"}
+
+
+@pytest.fixture
+def s2s(settings):
+    settings.GOVKIT_S2S_TOKEN = "s3cret"
+    return settings
+
+
+def api(slug, kind="", row_id=None):
+    base = f"/api/v1/orgs/{slug}/profile/"
+    if not kind:
+        return base + "write/"
+    return base + (f"{kind}/{row_id}/" if row_id else f"{kind}/")
+
+
+@pytest.mark.django_db
+def test_an_agent_with_no_token_is_refused(client, admin_org, s2s):
+    r = client.post(api(admin_org.slug, "quotes"), "{}", content_type="application/json")
+    assert r.status_code == 401
+    assert not OrgQuote.objects.exists()
+
+
+@pytest.mark.django_db
+def test_an_agent_adds_a_quote(client, admin_org, s2s):
+    r = client.post(
+        api(admin_org.slug, "quotes"),
+        json.dumps({"words": "Know the risks before you commit!"}),
+        content_type="application/json",
+        **BEARER,
+    )
+    assert r.status_code == 201
+    assert OrgQuote.objects.get(org=admin_org).words == "Know the risks before you commit!"
+    assert r.json()["quotes"][0]["words"] == "Know the risks before you commit!"
+
+
+@pytest.mark.django_db
+def test_an_agent_adds_a_link_and_a_picture(client, admin_org, s2s):
+    client.post(
+        api(admin_org.slug, "links"),
+        json.dumps({"title": "Street Math", "url": "https://street.riskrunners.com/"}),
+        content_type="application/json",
+        **BEARER,
+    )
+    client.post(
+        api(admin_org.slug, "pictures"),
+        json.dumps({"url": "https://cdn.test/map.png", "caption": "The map"}),
+        content_type="application/json",
+        **BEARER,
+    )
+    assert OrgLink.objects.get(org=admin_org).title == "Street Math"
+    assert OrgPicture.objects.get(org=admin_org).caption == "The map"
+
+
+@pytest.mark.django_db
+def test_a_row_with_nothing_in_it_is_refused(client, admin_org, s2s):
+    r = client.post(
+        api(admin_org.slug, "links"),
+        json.dumps({"title": "Deck"}),
+        content_type="application/json",
+        **BEARER,
+    )
+    assert r.status_code == 400
+    assert not OrgLink.objects.exists()
+
+
+@pytest.mark.django_db
+def test_an_agent_removes_a_row(client, admin_org, s2s):
+    quote = OrgQuote.objects.create(org=admin_org, words="x")
+    r = client.delete(api(admin_org.slug, "quotes", quote.id), **BEARER)
+    assert r.status_code == 200
+    assert not OrgQuote.objects.exists()
+
+
+@pytest.mark.django_db
+def test_an_agent_sets_only_the_fields_it_sent(client, admin_org, s2s):
+    admin_org.pitch = "what we are building"
+    admin_org.save()
+    r = client.patch(
+        api(admin_org.slug),
+        json.dumps({"tagline": "Risk, in plain numbers", "calendar_public": True}),
+        content_type="application/json",
+        **BEARER,
+    )
+    assert r.status_code == 200
+    admin_org.refresh_from_db()
+    assert admin_org.tagline == "Risk, in plain numbers"
+    assert admin_org.calendar_public is True
+    assert admin_org.pitch == "what we are building"
+
+
+@pytest.mark.django_db
+def test_a_field_an_agent_may_not_touch_is_refused_not_ignored(client, admin_org, s2s):
+    """Silently dropping it is how a caller ends up sure it saved something."""
+    r = client.patch(
+        api(admin_org.slug),
+        json.dumps({"default_hourly_rate": "999"}),
+        content_type="application/json",
+        **BEARER,
+    )
+    assert r.status_code == 400
+    assert "default_hourly_rate" in r.json()["fields"]
+
+
+@pytest.mark.django_db
+def test_quotes_travel_on_the_public_card(admin_org):
+    from apps.orgs.api import _venture_card
+
+    OrgQuote.objects.create(org=admin_org, words="Know the risks", said_by="Jefferson")
+    admin_org.member_count = 1
+    quote = _venture_card(admin_org)["quotes"][0]
+    assert quote["words"] == "Know the risks"
+    assert quote["said_by"] == "Jefferson"
+
+
+@pytest.mark.django_db
+def test_a_quote_added_on_the_screen_is_the_same_row(client, admin_org):
+    client.post(
+        reverse("orgs:quote_add", kwargs={"org_slug": admin_org.slug}),
+        {"words": "Know the risks before you commit!"},
+    )
+    assert OrgQuote.objects.get(org=admin_org).said_by == ""

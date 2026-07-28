@@ -58,6 +58,12 @@ urlpatterns = [
         views.link_remove,
         name="link_remove",
     ),
+    path("o/<slug:org_slug>/settings/quotes/add/", views.quote_add, name="quote_add"),
+    path(
+        "o/<slug:org_slug>/settings/quotes/<int:quote_id>/remove/",
+        views.quote_remove,
+        name="quote_remove",
+    ),
     path("o/<slug:org_slug>/settings/posts/add/", views.post_add, name="post_add"),
     path(
         "o/<slug:org_slug>/settings/posts/<int:post_id>/remove/",

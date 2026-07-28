@@ -24,12 +24,23 @@ Doorway S2S (plain Django views, Bearer settings.GOVKIT_S2S_TOKEN — NOT sessio
 the magic-link contract on the coordination board):
   GET  /api/v1/orgs/{org_slug}/invites/{code}/            invite detail for the doorway
   POST /api/v1/orgs/{org_slug}/invites/{code}/committed/  doorway posts the claim id back
+  GET  /api/v1/orgs/ventures/public/                      every venture's public card
+  GET  /api/v1/orgs/{org_slug}/profile/                   one team's public profile
+  PATCH /api/v1/orgs/{org_slug}/profile/write/            set tagline/pitch/site/calendar...
+  GET  /api/v1/orgs/{org_slug}/profile/{kind}/            list pictures|links|posts|quotes
+  POST /api/v1/orgs/{org_slug}/profile/{kind}/            add one row to that list
+  DELETE /api/v1/orgs/{org_slug}/profile/{kind}/{id}/     remove one row
+
+Everything an admin can do to a team's PUBLIC page on the settings screen is on
+that last group of endpoints too (golda 2026-07-28: "i want everything to be
+agenticable"). Members, rates, pie and governance are deliberately not.
 """
 
 from __future__ import annotations
 
 import json
 import secrets
+from datetime import date
 
 from django.conf import settings
 from django.db.models import Count
@@ -47,7 +58,17 @@ from rest_framework.views import APIView
 
 from .embed_auth import EmbedSessionAuthentication
 from .genesis import modules_for, serialize_modules, toggle_item
-from .models import Invite, InviteStatus, Membership, MembershipRole, Org
+from .models import (
+    Invite,
+    InviteStatus,
+    Membership,
+    MembershipRole,
+    Org,
+    OrgLink,
+    OrgPicture,
+    OrgPost,
+    OrgQuote,
+)
 from .serializers import (
     InviteSerializer,
     MembershipSerializer,
@@ -428,11 +449,239 @@ def _venture_card(org):
             }
             for post in org.public_posts()
         ],
+        "quotes": [
+            {
+                "words": q.words,
+                "said_by": q.said_by,
+                "source_url": q.source_url,
+                "said_on": q.said_on.isoformat() if q.said_on else "",
+            }
+            for q in org.quotes.all()
+        ],
         "calendar_url": org.calendar_url if org.calendar_public else "",
     }
 
 
 ventures_directory.org_context_exempt = True
+
+
+# --- The public profile, written by an agent ---------------------------------
+#
+# Everything an admin can do to a team's public page on the settings screen, an
+# agent can do here (golda 2026-07-28: "i want everything to be agenticable").
+# The screen and these endpoints are two doors onto the same rows; neither is a
+# copy of the other's rules, because both go through the same models.
+#
+# Auth is the existing S2S bearer, the one workers.vc and amebo already hold. It
+# is a server secret, not a person's credential, so what it protects is the
+# public half of a team's profile: pictures, links, posts, quotes, and the few
+# fields that decide how the join page reads. Members, rates, pie and governance
+# are NOT reachable from here and must not be added to it.
+
+_PROFILE_FIELDS = {
+    "tagline": "tagline",
+    "pitch": "pitch",
+    "website": "website",
+    "logo_url": "logo_url",
+    "cover_image_url": "cover_image_url",
+    "calendar_url": "calendar_url",
+    "calendar_public": "calendar_public",
+}
+
+
+def _body(request):
+    try:
+        payload = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+@csrf_exempt
+def profile_write(request, org_slug):
+    """PATCH the scalar half of a team's public profile, one field or many.
+
+    Only the keys sent are touched, so an agent fixing a tagline cannot blank a
+    pitch it never read. Unknown keys are refused rather than ignored: silently
+    dropping a field an agent believed it set is how a caller ends up sure it
+    saved something it did not.
+    """
+    if request.method != "PATCH":
+        return JsonResponse({"error": "use PATCH"}, status=405)
+    if not _s2s_authorized(request):
+        return JsonResponse({"error": "unauthorized"}, status=401)
+    org = Org.objects.filter(slug=org_slug).first()
+    if org is None:
+        return JsonResponse({"error": "not_found"}, status=404)
+    payload = _body(request)
+    if payload is None:
+        return JsonResponse({"error": "send a JSON object"}, status=400)
+    unknown = sorted(set(payload) - set(_PROFILE_FIELDS))
+    if unknown:
+        return JsonResponse(
+            {"error": "unknown fields", "fields": unknown, "allowed": sorted(_PROFILE_FIELDS)},
+            status=400,
+        )
+    changed = []
+    for key, value in payload.items():
+        field = _PROFILE_FIELDS[key]
+        if field == "calendar_public":
+            setattr(org, field, bool(value))
+        else:
+            setattr(org, field, str(value).strip())
+        changed.append(field)
+    if changed:
+        org.save(update_fields=[*changed, "updated_at"])
+    return JsonResponse({"changed": changed})
+
+
+profile_write.org_context_exempt = True
+
+
+def _rows_payload(org):
+    """The four lists as they stand, so a caller sees what it just did."""
+    return {
+        "pictures": [
+            {"id": p.id, "url": p.url, "thumb_url": p.thumb_url, "caption": p.caption}
+            for p in org.pictures.all()
+        ],
+        "links": [
+            {"id": link.id, "title": link.title, "url": link.url, "image_url": link.image_url}
+            for link in org.links.all()
+        ],
+        "posts": [
+            {
+                "id": post.id,
+                "on": post.happened_on.isoformat(),
+                "words": post.words,
+                "image_url": post.image_url,
+                "link_url": post.link_url,
+            }
+            for post in org.posts.all()
+        ],
+        "quotes": [
+            {"id": q.id, "words": q.words, "said_by": q.said_by, "source_url": q.source_url}
+            for q in org.quotes.all()
+        ],
+    }
+
+
+def _next_sort(rows):
+    return max((row.sort for row in rows), default=0) + 1
+
+
+@csrf_exempt
+def profile_rows(request, org_slug, kind):
+    """GET the four lists, or POST one new row to one of them.
+
+    A picture arrives as a URL here, never as a file. An agent that has the
+    picture on disk puts it somewhere first; the browser form is where a file
+    goes, because that is where a person has one.
+    """
+    if not _s2s_authorized(request):
+        return JsonResponse({"error": "unauthorized"}, status=401)
+    org = Org.objects.filter(slug=org_slug).first()
+    if org is None:
+        return JsonResponse({"error": "not_found"}, status=404)
+    if request.method == "GET":
+        return JsonResponse(_rows_payload(org))
+    if request.method != "POST":
+        return JsonResponse({"error": "use GET or POST"}, status=405)
+    payload = _body(request)
+    if payload is None:
+        return JsonResponse({"error": "send a JSON object"}, status=400)
+
+    def text(key, limit=None):
+        value = str(payload.get(key, "") or "").strip()
+        return value[:limit] if limit else value
+
+    if kind == "pictures":
+        if not text("url"):
+            return JsonResponse({"error": "url is required"}, status=400)
+        OrgPicture.objects.create(
+            org=org,
+            url=text("url"),
+            thumb_url=text("thumb_url"),
+            caption=text("caption", 200),
+            sort=_next_sort(org.pictures.all()),
+        )
+    elif kind == "links":
+        if not (text("title") and text("url")):
+            return JsonResponse({"error": "title and url are required"}, status=400)
+        OrgLink.objects.create(
+            org=org,
+            title=text("title", 200),
+            url=text("url"),
+            image_url=text("image_url"),
+            sort=_next_sort(org.links.all()),
+        )
+    elif kind == "posts":
+        if not text("words"):
+            return JsonResponse({"error": "words is required"}, status=400)
+        on = text("on")
+        try:
+            happened_on = date.fromisoformat(on) if on else date.today()
+        except ValueError:
+            return JsonResponse({"error": "on must be YYYY-MM-DD"}, status=400)
+        OrgPost.objects.create(
+            org=org,
+            words=text("words"),
+            happened_on=happened_on,
+            image_url=text("image_url"),
+            thumb_url=text("thumb_url"),
+            link_url=text("link_url"),
+        )
+    elif kind == "quotes":
+        if not text("words"):
+            return JsonResponse({"error": "words is required"}, status=400)
+        said_on = text("said_on")
+        try:
+            when = date.fromisoformat(said_on) if said_on else None
+        except ValueError:
+            return JsonResponse({"error": "said_on must be YYYY-MM-DD"}, status=400)
+        OrgQuote.objects.create(
+            org=org,
+            words=text("words"),
+            said_by=text("said_by", 200),
+            source_url=text("source_url"),
+            said_on=when,
+            sort=_next_sort(org.quotes.all()),
+        )
+    else:
+        return JsonResponse({"error": "no such list"}, status=404)
+    return JsonResponse(_rows_payload(org), status=201)
+
+
+profile_rows.org_context_exempt = True
+
+
+@csrf_exempt
+def profile_row(request, org_slug, kind, row_id):
+    """DELETE one row. Adding is the only other thing a list needs; a row that is
+    wrong is removed and added again, which is what the screen does too."""
+    if request.method != "DELETE":
+        return JsonResponse({"error": "use DELETE"}, status=405)
+    if not _s2s_authorized(request):
+        return JsonResponse({"error": "unauthorized"}, status=401)
+    org = Org.objects.filter(slug=org_slug).first()
+    if org is None:
+        return JsonResponse({"error": "not_found"}, status=404)
+    models_by_kind = {
+        "pictures": OrgPicture,
+        "links": OrgLink,
+        "posts": OrgPost,
+        "quotes": OrgQuote,
+    }
+    model = models_by_kind.get(kind)
+    if model is None:
+        return JsonResponse({"error": "no such list"}, status=404)
+    removed, _ = model.objects.filter(org=org, pk=row_id).delete()
+    if not removed:
+        return JsonResponse({"error": "not_found"}, status=404)
+    return JsonResponse(_rows_payload(org))
+
+
+profile_row.org_context_exempt = True
 
 
 class OrgDirectoryView(APIView):
@@ -465,6 +714,14 @@ urlpatterns = router.urls + [
     ),
     path("ventures/public/", ventures_directory, name="s2s_ventures_directory"),
     path("<slug:org_slug>/profile/", org_profile, name="s2s_org_profile"),
+    # The public profile, writable by an agent (see profile_write above).
+    path("<slug:org_slug>/profile/write/", profile_write, name="s2s_profile_write"),
+    path("<slug:org_slug>/profile/<str:kind>/", profile_rows, name="s2s_profile_rows"),
+    path(
+        "<slug:org_slug>/profile/<str:kind>/<int:row_id>/",
+        profile_row,
+        name="s2s_profile_row",
+    ),
     path("<slug:org_slug>/invites/<str:code>/", invite_detail, name="s2s_invite_detail"),
     path(
         "<slug:org_slug>/invites/<str:code>/committed/",

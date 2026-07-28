@@ -332,6 +332,30 @@ class OrgLink(models.Model):
         return (urlsplit(self.url).netloc or "").removeprefix("www.")
 
 
+class OrgQuote(models.Model):
+    """Something said about this team, in the words it was said in.
+
+    Never written by us and never edited into shape: a quote is a person's own
+    sentence, so it is stored as typed. `said_by` is optional because a line the
+    team says about itself has no one to attribute it to, and `source_url` is
+    the receipt when there is somewhere to point at.
+    """
+
+    org = models.ForeignKey(Org, on_delete=models.CASCADE, related_name="quotes")
+    words = models.TextField()
+    said_by = models.CharField(max_length=200, blank=True)
+    source_url = models.URLField(max_length=1000, blank=True)
+    said_on = models.DateField(null=True, blank=True)
+    sort = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort", "id"]
+
+    def __str__(self):
+        return f"{self.org.slug}: {self.words[:40]}"
+
+
 class OrgPost(models.Model):
     """A dated line about what the team did. Their words, never ours.
 
