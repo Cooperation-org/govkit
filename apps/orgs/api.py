@@ -30,6 +30,7 @@ the magic-link contract on the coordination board):
   GET  /api/v1/orgs/{org_slug}/profile/{kind}/            list pictures|links|posts|quotes
   POST /api/v1/orgs/{org_slug}/profile/{kind}/            add one row to that list
   DELETE /api/v1/orgs/{org_slug}/profile/{kind}/{id}/     remove one row
+  POST /api/v1/orgs/{org_slug}/profile/upload/            a file in, a URL back
 
 Everything an admin can do to a team's PUBLIC page on the settings screen is on
 that last group of endpoints too (golda 2026-07-28: "i want everything to be
@@ -41,6 +42,8 @@ from __future__ import annotations
 import json
 import secrets
 from datetime import date
+
+import logging
 
 from django.conf import settings
 from django.db.models import Count
@@ -55,6 +58,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.routers import DefaultRouter
 from rest_framework.views import APIView
+
+from apps.commons import storage
 
 from .embed_auth import EmbedSessionAuthentication
 from .genesis import modules_for, serialize_modules, toggle_item
@@ -76,6 +81,8 @@ from .serializers import (
     OrgRateSerializer,
     OrgSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _is_admin(user, org) -> bool:
@@ -571,6 +578,42 @@ def _next_sort(rows):
 
 
 @csrf_exempt
+def profile_upload(request, org_slug):
+    """POST a file, get back the URL it now lives at.
+
+    An agent holding a picture or a deck has bytes, not a URL, and the bucket
+    credentials belong to this app and stay in it. So the file comes here and
+    GovKit puts it away: the agent never sees a key. What comes back is only a
+    URL, which the caller then puts on a row like any other.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "use POST"}, status=405)
+    if not _s2s_authorized(request):
+        return JsonResponse({"error": "unauthorized"}, status=401)
+    org = Org.objects.filter(slug=org_slug).first()
+    if org is None:
+        return JsonResponse({"error": "not_found"}, status=404)
+    upload = request.FILES.get("file")
+    if upload is None:
+        return JsonResponse({"error": "send a file as 'file'"}, status=400)
+    problem = storage.check_file(upload)
+    if problem:
+        return JsonResponse({"error": problem}, status=400)
+    if not storage.configured():
+        return JsonResponse({"error": "no bucket configured on this server"}, status=503)
+    folder = (request.POST.get("folder") or "org-files").strip("/") or "org-files"
+    try:
+        url = storage.store_file(upload, prefix=f"{folder}/{org.slug}")
+    except Exception:
+        logger.exception("s2s upload failed for %s", org.slug)
+        return JsonResponse({"error": "the bucket would not take it"}, status=502)
+    return JsonResponse({"url": url}, status=201)
+
+
+profile_upload.org_context_exempt = True
+
+
+@csrf_exempt
 def profile_rows(request, org_slug, kind):
     """GET the four lists, or POST one new row to one of them.
 
@@ -716,6 +759,7 @@ urlpatterns = router.urls + [
     path("<slug:org_slug>/profile/", org_profile, name="s2s_org_profile"),
     # The public profile, writable by an agent (see profile_write above).
     path("<slug:org_slug>/profile/write/", profile_write, name="s2s_profile_write"),
+    path("<slug:org_slug>/profile/upload/", profile_upload, name="s2s_profile_upload"),
     path("<slug:org_slug>/profile/<str:kind>/", profile_rows, name="s2s_profile_rows"),
     path(
         "<slug:org_slug>/profile/<str:kind>/<int:row_id>/",

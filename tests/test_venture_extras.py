@@ -416,3 +416,44 @@ def test_a_quote_added_on_the_screen_is_the_same_row(client, admin_org):
         {"words": "Know the risks before you commit!"},
     )
     assert OrgQuote.objects.get(org=admin_org).said_by == ""
+
+
+# --- a file in, a URL back ---------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_an_agent_uploads_a_deck_and_gets_a_url(client, admin_org, s2s, bucket):
+    deck = SimpleUploadedFile("deck.pdf", b"%PDF-1.4 ...", content_type="application/pdf")
+    with pytest.MonkeyPatch.context() as m:
+        m.setattr(
+            "apps.commons.storage.store_file", lambda upload, prefix: f"https://cdn/{prefix}/d.pdf"
+        )
+        r = client.post(
+            f"/api/v1/orgs/{admin_org.slug}/profile/upload/",
+            {"file": deck, "folder": "org-decks"},
+            **BEARER,
+        )
+    assert r.status_code == 201
+    assert r.json()["url"].endswith("d.pdf")
+    assert "org-decks" in r.json()["url"]
+
+
+@pytest.mark.django_db
+def test_an_upload_with_no_token_is_refused(client, admin_org, s2s, bucket):
+    deck = SimpleUploadedFile("deck.pdf", b"%PDF", content_type="application/pdf")
+    r = client.post(f"/api/v1/orgs/{admin_org.slug}/profile/upload/", {"file": deck})
+    assert r.status_code == 401
+
+
+@pytest.mark.django_db
+def test_a_file_we_will_not_serve_is_refused(client, admin_org, s2s, bucket):
+    bad = SimpleUploadedFile("run.sh", b"#!/bin/sh", content_type="application/x-sh")
+    r = client.post(f"/api/v1/orgs/{admin_org.slug}/profile/upload/", {"file": bad}, **BEARER)
+    assert r.status_code == 400
+
+
+def test_a_pdf_keeps_its_extension_and_is_never_re_encoded():
+    from apps.commons import storage
+
+    assert storage.DOCUMENT_TYPES["application/pdf"] == ".pdf"
+    assert storage._shrink(b"%PDF-1.4", "application/pdf", storage.PAGE_WIDE) is None

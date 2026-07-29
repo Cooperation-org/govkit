@@ -41,6 +41,10 @@ MAX_BYTES = 25 * 1024 * 1024
 PAGE_WIDE = 1600
 THUMB_WIDE = 600
 
+# A team's page also carries documents: a pitch deck, a one-pager. Same bucket,
+# same size rule, no decoding — a PDF is stored exactly as it arrived.
+DOCUMENT_TYPES = {"application/pdf": ".pdf"}
+
 
 class StorageNotConfigured(Exception):
     """No bucket set. Not an error in itself — some installs have no storage."""
@@ -137,7 +141,12 @@ def _put(data: bytes, content_type: str, *, prefix: str) -> str:
     The key is prefix + random, never the person's filename: an uploaded name
     is their words about their own file, not something to build a URL from.
     """
-    suffix = ALLOWED_TYPES.get(content_type) or mimetypes.guess_extension(content_type) or ".jpg"
+    suffix = (
+        ALLOWED_TYPES.get(content_type)
+        or DOCUMENT_TYPES.get(content_type)
+        or mimetypes.guess_extension(content_type)
+        or ".jpg"
+    )
     key = f"{prefix.strip('/')}/{secrets.token_urlsafe(16)}{suffix}"
     _client().put_object(
         Bucket=settings.GOVKIT_STORAGE_BUCKET,
@@ -164,6 +173,40 @@ def store_image(upload, *, prefix: str) -> str:
     if shrunk:
         data, content_type = shrunk
     return _put(data, content_type, prefix=prefix)
+
+
+def check_file(upload) -> str:
+    """Return why this file is not acceptable, or "" if it is.
+
+    Wider than check_image: pictures AND documents. Used by the upload endpoint
+    an agent posts to; the picture fields on the screens keep check_image, since
+    a logo that is a PDF is a mistake, not a choice.
+    """
+    if upload.size > MAX_BYTES:
+        return (
+            f"That file is {upload.size // 1024 // 1024}MB. "
+            f"The limit is {MAX_BYTES // 1024 // 1024}MB."
+        )
+    content_type = (upload.content_type or "").split(";")[0].strip().lower()
+    if content_type not in ALLOWED_TYPES and content_type not in DOCUMENT_TYPES:
+        return "Use a JPEG, PNG, WebP, GIF or PDF."
+    return ""
+
+
+def store_file(upload, *, prefix: str) -> str:
+    """Put any allowed file in the bucket and return its public URL.
+
+    A picture is shrunk on the way in exactly as store_image does; a document is
+    written as it arrived, because there is nothing to shrink and re-encoding
+    somebody's deck is not ours to do.
+    """
+    if not configured():
+        raise StorageNotConfigured()
+    content_type = (upload.content_type or "").split(";")[0].strip().lower()
+    if content_type in DOCUMENT_TYPES:
+        upload.seek(0)
+        return _put(upload.read(), content_type, prefix=prefix)
+    return store_image(upload, prefix=prefix)
 
 
 def store_image_pair(upload, *, prefix: str):
