@@ -73,7 +73,7 @@ def invite_accepted_items():
     rows = (
         Invite.objects.filter(
             status=InviteStatus.ACCEPTED,
-            accepted_at__gte=timezone.now() - timedelta(days=7),
+            accepted_at__gte=timezone.now() - timedelta(days=30),
         )
         .select_related("org", "accepted_by")
         .order_by("-accepted_at")[:10]
