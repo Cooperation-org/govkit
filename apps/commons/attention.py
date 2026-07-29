@@ -103,10 +103,16 @@ def invite_accepted_items():
     return items
 
 
-def doorway_items():
+def doorway_items(for_venture=None):
     """The doorway's side of the rail: walk-ups pending approval (actionable)
     and recent approved joins (awareness — invited people are auto-approved,
     so this is the only feed that would ever mention them).
+
+    A walk-up carries the team whose join page they came from. Pass that slug
+    as `for_venture` for a team's own rail and only their people come back;
+    pass nothing for the accelerator's rail, which sees everyone and gets the
+    team named in the title. A hand raised at a team has to reach that team —
+    it used to land here unattributed and they never heard about it.
 
     Loopback S2S (same VM, same shared bearer the doorway already uses to call
     us). Cached briefly; ANY failure returns [] — the rail just shows less,
@@ -118,7 +124,7 @@ def doorway_items():
         return []
     cached = cache.get("doorway-attention")
     if cached is not None:
-        return cached
+        return _for_venture(cached, for_venture)
     items = []
     try:
         req = urllib.request.Request(
@@ -131,8 +137,7 @@ def doorway_items():
                 {
                     "kind": "pool_pending",
                     "id": r.get("id"),
-                    "title": f"{r.get('person_name') or 'Someone'} is waiting at the door"
-                    + (f" ({r['role']})" if r.get("role") else ""),
+                    "title": f"{r.get('person_name') or 'Someone'} is waiting at the door",
                     "detail": "",
                     "email": "",
                     "since": r.get("created_at", ""),
@@ -140,11 +145,12 @@ def doorway_items():
                     # The approval action lives in the doorway's own admin.
                     "url": r.get("approve_url", ""),
                     "org_slug": "",
+                    "role": r.get("role", ""),
+                    "venture_slug": r.get("venture_slug", ""),
+                    "venture_name": r.get("venture_name", ""),
                 }
             )
         for r in payload.get("recent", []):
-            who = r.get("person_name") or "Someone"
-            role = f" ({r['role']})" if r.get("role") else ""
             detail = (
                 f"invited by {r['inviter']}"
                 if r.get("inviter")
@@ -154,7 +160,7 @@ def doorway_items():
                 {
                     "kind": "wall_joined",
                     "id": r.get("id"),
-                    "title": f"{who} joined the wall{role}",
+                    "title": f"{r.get('person_name') or 'Someone'} joined the wall",
                     "detail": detail,
                     "email": "",
                     "since": r.get("created_at", ""),
@@ -162,9 +168,33 @@ def doorway_items():
                     "done": True,
                     "url": "",
                     "org_slug": "",
+                    "role": r.get("role", ""),
+                    "venture_slug": r.get("venture_slug", ""),
+                    "venture_name": r.get("venture_name", ""),
                 }
             )
     except Exception as e:
         logger.warning("attention: doorway unreachable: %s", e)
     cache.set("doorway-attention", items, _DOORWAY_CACHE_SECONDS)
-    return items
+    return _for_venture(items, for_venture)
+
+
+def _for_venture(items, slug):
+    """One cached read of the doorway, cut two ways.
+
+    A team's rail gets only the people who came for that team, said plainly.
+    The accelerator's rail gets everyone, with the team named — otherwise a
+    queue of walk-ups gives no way to tell who is waiting on whom.
+    """
+    out = []
+    for item in items:
+        if slug and item.get("venture_slug") != slug:
+            continue
+        name = item.get("venture_name") or item.get("venture_slug")
+        title = item["title"]
+        if name and not slug:
+            title += f" for {name}"
+        if item.get("role"):
+            title += f" ({item['role']})"
+        out.append({**item, "title": title})
+    return out

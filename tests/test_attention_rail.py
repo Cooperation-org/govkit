@@ -111,3 +111,92 @@ class TestWallPickerSaysWhyItIsEmpty:
 
         assert people == []
         assert "127.0.0.1:1" in problem
+
+
+class TestAHandRaisedAtATeamReachesThatTeam:
+    """The public join page (/ventures/<slug>/) sends people through the
+    doorway, because someone joining a team has no account here yet. The team
+    they came for rides along on the walk-up, so it reaches their rail — it
+    used to be dropped, and the team never heard that anyone had knocked.
+    """
+
+    @pytest.fixture
+    def doorway(self, settings, monkeypatch):
+        """Stand in for the workers.vc doorway's S2S feed."""
+        import json as json_mod
+        import urllib.request
+        from contextlib import contextmanager
+
+        from django.core.cache import cache
+
+        from apps.commons import attention
+
+        cache.clear()
+        settings.DOORWAY_API_URL = "http://doorway.test"
+        settings.GOVKIT_S2S_TOKEN = "s2s"
+
+        payload = {
+            "pending": [
+                {
+                    "id": 1,
+                    "person_name": "Golda Velez",
+                    "role": "founder",
+                    "created_at": "2026-07-29T01:12:38+00:00",
+                    "approve_url": "http://doorway.test/admin/queue/",
+                    "venture_slug": "northline",
+                    "venture_name": "Northline Studio",
+                },
+                {
+                    "id": 2,
+                    "person_name": "Someone Else",
+                    "role": "mentor",
+                    "created_at": "2026-07-29T02:00:00+00:00",
+                    "approve_url": "http://doorway.test/admin/queue/",
+                    "venture_slug": "",
+                    "venture_name": "",
+                },
+            ],
+            "recent": [],
+        }
+
+        @contextmanager
+        def fake_urlopen(req, timeout=None):
+            class Resp:
+                def read(inner):
+                    return json_mod.dumps(payload).encode("utf-8")
+
+            yield Resp()
+
+        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+        assert attention is not None
+        return payload
+
+    def test_the_team_sees_who_knocked_on_their_door(
+        self, client, doorway, org_factory, user_factory, membership_factory
+    ):
+        venture = org_factory(slug="northline", display_name="Northline Studio")
+        _member(client, venture, user_factory, membership_factory)
+
+        items = _rail(client, venture)
+
+        assert [i["kind"] for i in items] == ["pool_pending"]
+        assert items[0]["title"] == "Golda Velez is waiting at the door (founder)"
+
+    def test_a_walk_up_for_another_team_is_not_their_business(
+        self, client, doorway, org_factory, user_factory, membership_factory
+    ):
+        other = org_factory(slug="integralmass", display_name="IntegralMASS")
+        _member(client, other, user_factory, membership_factory)
+
+        assert _rail(client, other) == []
+
+    def test_the_accelerator_queue_says_who_each_person_came_for(
+        self, client, doorway, accel_org, settings, user_factory, membership_factory
+    ):
+        settings.DOORWAY_API_URL = "http://doorway.test"
+        _member(client, accel_org, user_factory, membership_factory, MembershipRole.ADMIN)
+
+        titles = [i["title"] for i in _rail(client, accel_org) if i["kind"] == "pool_pending"]
+
+        assert "Golda Velez is waiting at the door for Northline Studio (founder)" in titles
+        assert "Someone Else is waiting at the door (mentor)" in titles

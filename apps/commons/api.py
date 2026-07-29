@@ -169,6 +169,11 @@ class OrgAttentionView(APIView):
         from . import attention
 
         items = attention.org_interest_items(request.org)
+        # Someone who raised a hand on this team's public join page has no
+        # account here yet, so they are a walk-up in the doorway's ledger, not
+        # an interest row. They still came for THIS team, and this team is who
+        # has to see them.
+        items = items + attention.doorway_items(for_venture=request.org.slug)
         if request.org.slug == settings.ACCELERATOR_ORG_SLUG:
             from apps.orgs.views import _is_accelerator_admin
 
