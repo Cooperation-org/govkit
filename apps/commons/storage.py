@@ -168,7 +168,7 @@ def _put(data: bytes, content_type: str, *, prefix: str) -> str:
     return public_url(key)
 
 
-def store_image(upload, *, prefix: str) -> str:
+def store_image(upload, *, prefix: str, content_type: str = "") -> str:
     """Put an uploaded image in the bucket and return its public URL.
 
     Shrunk to PAGE_WIDE on the way in. A team may upload the picture straight
@@ -177,13 +177,29 @@ def store_image(upload, *, prefix: str) -> str:
     """
     if not configured():
         raise StorageNotConfigured()
-    content_type = (upload.content_type or "").split(";")[0].strip().lower()
+    content_type = content_type or kind_of(upload)
     upload.seek(0)
     data = upload.read()
     shrunk = _shrink(data, content_type, PAGE_WIDE)
     if shrunk:
         data, content_type = shrunk
     return _put(data, content_type, prefix=prefix)
+
+
+def kind_of(upload) -> str:
+    """What this upload actually is, or "" if it is nothing we will serve.
+
+    A browser names the type; a script often does not, and a perfectly good
+    .webp arriving as application/octet-stream is the uploader's tooling being
+    quiet, not a bad file. So an unhelpful type falls back to the extension.
+    """
+    declared = (upload.content_type or "").split(";")[0].strip().lower()
+    if declared in ALLOWED_TYPES or declared in DOCUMENT_TYPES:
+        return declared
+    guessed = (mimetypes.guess_type(upload.name or "")[0] or "").lower()
+    if guessed in ALLOWED_TYPES or guessed in DOCUMENT_TYPES:
+        return guessed
+    return ""
 
 
 def check_file(upload) -> str:
@@ -198,8 +214,7 @@ def check_file(upload) -> str:
             f"That file is {upload.size // 1024 // 1024}MB. "
             f"The limit is {MAX_BYTES // 1024 // 1024}MB."
         )
-    content_type = (upload.content_type or "").split(";")[0].strip().lower()
-    if content_type not in ALLOWED_TYPES and content_type not in DOCUMENT_TYPES:
+    if not kind_of(upload):
         return "Use a JPEG, PNG, WebP, GIF or PDF."
     return ""
 
@@ -213,11 +228,11 @@ def store_file(upload, *, prefix: str) -> str:
     """
     if not configured():
         raise StorageNotConfigured()
-    content_type = (upload.content_type or "").split(";")[0].strip().lower()
+    content_type = kind_of(upload)
     if content_type in DOCUMENT_TYPES:
         upload.seek(0)
         return _put(upload.read(), content_type, prefix=prefix)
-    return store_image(upload, prefix=prefix)
+    return store_image(upload, prefix=prefix, content_type=content_type)
 
 
 def store_image_pair(upload, *, prefix: str):

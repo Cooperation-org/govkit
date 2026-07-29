@@ -540,3 +540,28 @@ def test_who_we_are_looking_for_must_be_a_list(client, admin_org, s2s):
         **BEARER,
     )
     assert r.status_code == 400
+
+
+def test_a_good_picture_is_not_refused_for_arriving_unlabelled():
+    """A script that does not name the type is quiet tooling, not a bad file."""
+    from apps.commons import storage
+
+    class Upload:
+        name = "logo.webp"
+        content_type = "application/octet-stream"
+        size = 1000
+
+    assert storage.kind_of(Upload()) == "image/webp"
+    assert storage.check_file(Upload()) == ""
+
+
+def test_something_we_will_not_serve_is_still_refused_by_either_name():
+    from apps.commons import storage
+
+    class Script:
+        name = "run.sh"
+        content_type = "application/octet-stream"
+        size = 10
+
+    assert storage.kind_of(Script()) == ""
+    assert "JPEG" in storage.check_file(Script())
