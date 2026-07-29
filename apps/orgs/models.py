@@ -133,6 +133,18 @@ class Cohort(models.Model):
     def __str__(self):
         return f"{self.name} ({self.slug})"
 
+    @property
+    def weeks(self) -> int:
+        """How many weeks this run lasts, or 0 if the dates are not set.
+
+        Counted from the dates rather than stored, so a run that is scheduled
+        differently cannot end up described as four weeks because that is what
+        the last one was.
+        """
+        if not (self.starts_on and self.ends_on):
+            return 0
+        return max(1, round((self.ends_on - self.starts_on).days / 7))
+
 
 class Org(models.Model):
     """A tenant. Self-hosters run one; we run many."""

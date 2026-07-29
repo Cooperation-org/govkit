@@ -409,7 +409,8 @@ def ventures_directory(request):
         return JsonResponse({"error": "unauthorized"}, status=401)
     qs = (
         Org.objects.annotate(member_count=Count("memberships"))
-        .prefetch_related("pictures", "links", "posts")
+        .select_related("cohort")
+        .prefetch_related("pictures", "links", "posts", "quotes")
         .order_by("display_name")
     )
     return JsonResponse({"ventures": [_venture_card(o) for o in qs]})
@@ -465,6 +466,21 @@ def _venture_card(org):
             }
             for q in org.quotes.all()
         ],
+        # What programme this team is in and when it runs. A stranger reading a
+        # team's page has no idea what any of this is; the dates are the whole
+        # answer to "what am I being asked for" (golda 2026-07-29). Dates come
+        # from the cohort record, never from copy, so nothing says four weeks
+        # because the last run was four weeks.
+        "cohort": (
+            {
+                "name": org.cohort.name,
+                "starts_on": org.cohort.starts_on.isoformat() if org.cohort.starts_on else "",
+                "ends_on": org.cohort.ends_on.isoformat() if org.cohort.ends_on else "",
+                "weeks": org.cohort.weeks,
+            }
+            if org.cohort_id
+            else None
+        ),
         "calendar_url": org.calendar_url if org.calendar_public else "",
     }
 
