@@ -1,9 +1,20 @@
 """Object storage for things people upload about themselves.
 
-Profile photos go to the SAME B2 bucket LinkedTrust puts claim media in
-(golda 2026-07-27), so a person's face lives in one place whether it arrived
-with a claim or from the profile page. B2 speaks S3, so this is the ordinary
-S3 client pointed at B2's host.
+GovKit writes to its own B2 bucket (`govkit`, golda 2026-07-29). Before that it
+shared LinkedTrust's `trustclaims-images`, and PLENTY IS STILL THERE, including
+videos that matter. Nothing here ever deletes, moves, or rewrites anything, and
+that is deliberate:
+
+    A URL is worked out ONCE, when the file is written (public_url, called from
+    _put), and the caller stores that absolute URL on its row. Nothing later
+    rebuilds a URL from the bucket setting. So pointing this at a new bucket
+    changes where the NEXT file lands and nothing else. Every URL already saved
+    goes on pointing at the bucket it was written to, and goes on working.
+
+Do not "tidy this up" by rewriting stored URLs to the current bucket, and do not
+migrate the old one. Old links are the only record of where those files are.
+
+B2 speaks S3, so this is the ordinary S3 client pointed at B2's host.
 
 Configuration is this app's own (GOVKIT_STORAGE_*), even when the values are
 the same bucket and keys as LinkedTrust's: an app declares what it needs. All

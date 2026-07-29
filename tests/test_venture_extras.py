@@ -457,3 +457,25 @@ def test_a_pdf_keeps_its_extension_and_is_never_re_encoded():
 
     assert storage.DOCUMENT_TYPES["application/pdf"] == ".pdf"
     assert storage._shrink(b"%PDF-1.4", "application/pdf", storage.PAGE_WIDE) is None
+
+
+def test_nothing_outside_storage_builds_a_url_from_the_bucket():
+    """Moving to a new bucket must not orphan what is in the old one.
+
+    A URL is worked out once, when the file is written, and the caller keeps that
+    absolute URL on its row. If anything else ever rebuilt a URL from the current
+    bucket setting, every file written before the move would break the day the
+    setting changed. So: one call site, inside _put.
+    """
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parent.parent / "apps"
+    users = [
+        path
+        for path in root.rglob("*.py")
+        if "public_url(" in path.read_text() and path.name != "storage.py"
+    ]
+    assert users == [], f"these rebuild a URL from the bucket: {users}"
+
+    source = (root / "commons" / "storage.py").read_text()
+    assert source.count("return public_url(key)") == 1
