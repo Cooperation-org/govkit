@@ -493,7 +493,34 @@ _PROFILE_FIELDS = {
     "cover_image_url": "cover_image_url",
     "calendar_url": "calendar_url",
     "calendar_public": "calendar_public",
+    # A list, not a string: [{"role": ..., "detail": ...}]. Kept here with the
+    # rest of the public profile because it IS the public profile — it is what a
+    # stranger decides on — and an agent fixing a line of it should not have to
+    # ask a person to retype the lot into a textarea.
+    "looking_for": "looking_for",
 }
+
+
+def _clean_asks(value):
+    """Return the asks as stored, or None if this is not a list of asks.
+
+    Same shape the settings screen writes (Org.asks reads it back): a role, and
+    optionally a line about what that person would do. Anything without a role
+    is dropped rather than stored empty, since a nameless ask is not an ask.
+    """
+    if not isinstance(value, list):
+        return None
+    asks = []
+    for item in value:
+        if isinstance(item, str):
+            role, _, detail = item.partition(":")
+            item = {"role": role, "detail": detail}
+        if not isinstance(item, dict):
+            return None
+        role = str(item.get("role", "")).strip()
+        if role:
+            asks.append({"role": role[:120], "detail": str(item.get("detail", "")).strip()[:300]})
+    return asks
 
 
 def _body(request):
@@ -534,6 +561,13 @@ def profile_write(request, org_slug):
         field = _PROFILE_FIELDS[key]
         if field == "calendar_public":
             setattr(org, field, bool(value))
+        elif field == "looking_for":
+            asks = _clean_asks(value)
+            if asks is None:
+                return JsonResponse(
+                    {"error": "looking_for is a list of {role, detail}"}, status=400
+                )
+            setattr(org, field, asks)
         else:
             setattr(org, field, str(value).strip())
         changed.append(field)

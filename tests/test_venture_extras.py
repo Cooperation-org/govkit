@@ -496,3 +496,47 @@ def test_nothing_outside_storage_builds_a_url_from_the_bucket():
 
     source = (root / "commons" / "storage.py").read_text()
     assert source.count("return public_url(key)") == 1
+
+
+@pytest.mark.django_db
+def test_an_agent_can_fix_a_line_of_who_we_are_looking_for(client, admin_org, s2s):
+    r = client.patch(
+        api(admin_org.slug),
+        json.dumps(
+            {
+                "looking_for": [
+                    {"role": "People who know hospital procurement", "detail": "we keep guessing"},
+                    {"role": "Backend developer", "detail": ""},
+                ]
+            }
+        ),
+        content_type="application/json",
+        **BEARER,
+    )
+    assert r.status_code == 200
+    admin_org.refresh_from_db()
+    assert admin_org.asks[0]["role"] == "People who know hospital procurement"
+    assert admin_org.asks[1]["detail"] == ""
+
+
+@pytest.mark.django_db
+def test_an_ask_with_no_role_is_dropped_not_stored_empty(client, admin_org, s2s):
+    client.patch(
+        api(admin_org.slug),
+        json.dumps({"looking_for": [{"role": "  ", "detail": "orphan"}, {"role": "Designer"}]}),
+        content_type="application/json",
+        **BEARER,
+    )
+    admin_org.refresh_from_db()
+    assert [a["role"] for a in admin_org.asks] == ["Designer"]
+
+
+@pytest.mark.django_db
+def test_who_we_are_looking_for_must_be_a_list(client, admin_org, s2s):
+    r = client.patch(
+        api(admin_org.slug),
+        json.dumps({"looking_for": "Designer: our screens are ugly"}),
+        content_type="application/json",
+        **BEARER,
+    )
+    assert r.status_code == 400
