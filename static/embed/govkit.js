@@ -53,10 +53,13 @@
     var s = document.createElement('style');
     s.id = 'govkit-embed-styles';
     s.textContent = [
-      'govkit-pie, govkit-feed, govkit-checklist, govkit-tasks, govkit-money {',
+      'govkit-pie, govkit-feed, govkit-checklist, govkit-tasks, govkit-money,',
+      'govkit-activity, govkit-ventures {',
       '  display: block; font-family: system-ui, -apple-system, sans-serif;',
       '  font-size: 14px; color: inherit; line-height: 1.4;',
       '}',
+      'govkit-pie[hidden], govkit-feed[hidden], govkit-checklist[hidden], govkit-tasks[hidden],',
+      'govkit-money[hidden], govkit-activity[hidden], govkit-ventures[hidden] { display: none; }',
       'govkit-pie .piewrap { display: grid; grid-template-columns: 200px 1fr; gap: 18px; align-items: center; }',
       '@media (max-width: 560px) { govkit-pie .piewrap { grid-template-columns: 1fr; justify-items: center; } }',
       'govkit-pie .pieleg { display: grid; gap: 2px; width: 100%; }',
