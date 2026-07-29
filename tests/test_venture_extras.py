@@ -122,13 +122,30 @@ def test_a_link_shows_its_bare_host(client, admin_org):
     )
     link = OrgLink.objects.get(org=admin_org)
     assert link.title == "Street Math"
-    assert link.host == "street.riskrunners.com"
+    assert link.label == "street.riskrunners.com"
 
 
 @pytest.mark.django_db
 def test_a_link_needs_a_name_and_a_url(client, admin_org):
     client.post(reverse("orgs:link_add", kwargs={"org_slug": admin_org.slug}), {"title": "Deck"})
     assert not OrgLink.objects.filter(org=admin_org).exists()
+
+
+@pytest.mark.django_db
+def test_a_file_the_team_uploaded_is_labelled_by_what_it_is(client, admin_org):
+    """A bucket hostname above a card title tells a reader nothing."""
+    deck = OrgLink.objects.create(
+        org=admin_org,
+        title="Pitch deck",
+        url="https://govkit.s3.us-east-005.backblazeb2.com/org-decks/acme/x.pdf",
+    )
+    assert deck.label == "PDF"
+    picture = OrgLink.objects.create(
+        org=admin_org,
+        title="A thing",
+        url="https://govkit.s3.us-east-005.backblazeb2.com/org-links/acme/x.png",
+    )
+    assert picture.label == ""
 
 
 @pytest.mark.django_db
@@ -231,7 +248,7 @@ def test_the_public_card_carries_the_three_lists(admin_org):
     admin_org.member_count = 1
     card = _venture_card(admin_org)
     assert len(card["pictures"]) == 1
-    assert card["links"][0]["host"] == "acme.test"
+    assert card["links"][0]["label"] == "acme.test"
     assert len(card["posts"]) == 3
 
 

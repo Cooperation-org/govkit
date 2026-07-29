@@ -151,7 +151,7 @@
         {% for link in links %}
           <li>
             {% if link.image_url %}<img src="{{ link.image_url }}" alt="">{% endif %}
-            <span><b>{{ link.title }}</b><br><small>{{ link.host }}</small></span>
+            <span><b>{{ link.title }}</b><br><small>{{ link.label }}</small></span>
             <form method="post" action="{% url 'orgs:link_remove' org_slug=current_org.slug link_id=link.id %}">
               {% csrf_token %}<button type="submit" class="gk-btn-quiet">Remove</button>
             </form>

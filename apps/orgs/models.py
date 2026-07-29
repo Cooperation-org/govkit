@@ -325,11 +325,22 @@ class OrgLink(models.Model):
         return f"{self.org.slug}: {self.title}"
 
     @property
-    def host(self) -> str:
-        """The bare host, which is what a card shows above the title."""
+    def label(self) -> str:
+        """The small line above the title on the card.
+
+        Their own site is named by its host, which is the thing a person
+        recognises. A file the team uploaded has no host worth showing: the
+        bucket's name is our plumbing and means nothing to a reader, so a
+        document says what it is and anything else says nothing at all.
+        """
         from urllib.parse import urlsplit
 
-        return (urlsplit(self.url).netloc or "").removeprefix("www.")
+        host = (urlsplit(self.url).netloc or "").removeprefix("www.")
+        if self.url.lower().endswith(".pdf"):
+            return "PDF"
+        if "backblazeb2.com" in host:
+            return ""
+        return host
 
 
 class OrgQuote(models.Model):

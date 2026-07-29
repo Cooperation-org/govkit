@@ -443,7 +443,7 @@ def _venture_card(org):
             {"url": p.url, "grid_url": p.grid_url, "caption": p.caption} for p in org.pictures.all()
         ],
         "links": [
-            {"title": link.title, "url": link.url, "image_url": link.image_url, "host": link.host}
+            {"title": link.title, "url": link.url, "image_url": link.image_url, "label": link.label}
             for link in org.links.all()
         ],
         "posts": [
