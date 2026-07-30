@@ -9,6 +9,8 @@ keeping the views and the DRF viewsets thin and sharing one code path (API-first
 
 from __future__ import annotations
 
+import logging
+
 from collections import defaultdict
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Iterable
@@ -20,6 +22,8 @@ from apps.orgs.models import ValuationMode
 from apps.tasksources.models import TaskSourceConfig, TrackedTask
 
 from .models import DropLine, DropRun, DropRunState
+
+logger = logging.getLogger(__name__)
 
 TWO_PLACES = Decimal("0.01")
 
@@ -133,6 +137,17 @@ def open_run(org, opened_by_membership=None, opened_by_user=None) -> DropRun:
     links so the review queue can work BY TASK. Raises NoEligibleTasks when there is
     nothing to drop.
     """
+    # Trigger-on-open: pull the latest completed tasks from this org's sources before
+    # gathering candidates, so a run reflects work finished since the last open (no
+    # background poll). Best-effort — a source that is down must never block a drop.
+    try:
+        from apps.tasksources.services import sync_org
+        sync_org(org)
+    except Exception:  # noqa: BLE001
+        logger.warning(
+            "drops.open_run: task-source sync failed for org %s; using tracked tasks",
+            getattr(org, "slug", org), exc_info=True,
+        )
     # M4: guard against two concurrent open_run calls gathering the same task into two
     # runs. Take a row lock on the candidate tasks, THEN re-check eligibility under the
     # lock. A racing run that linked a task first will have committed by the time this
