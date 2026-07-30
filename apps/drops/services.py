@@ -142,11 +142,13 @@ def open_run(org, opened_by_membership=None, opened_by_user=None) -> DropRun:
     # background poll). Best-effort — a source that is down must never block a drop.
     try:
         from apps.tasksources.services import sync_org
+
         sync_org(org)
     except Exception:  # noqa: BLE001
         logger.warning(
             "drops.open_run: task-source sync failed for org %s; using tracked tasks",
-            getattr(org, "slug", org), exc_info=True,
+            getattr(org, "slug", org),
+            exc_info=True,
         )
     # M4: guard against two concurrent open_run calls gathering the same task into two
     # runs. Take a row lock on the candidate tasks, THEN re-check eligibility under the
