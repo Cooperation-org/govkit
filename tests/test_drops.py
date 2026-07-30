@@ -529,3 +529,71 @@ def test_open_run_never_double_drafts_a_task(
 
     # The task belongs to exactly one drop line across all runs.
     assert task.drop_lines.count() == 1
+
+
+# ------------------------------------------------- trigger-on-open sync (placement)
+
+
+def test_open_run_pulls_from_the_sources_before_gathering(
+    org_factory, source_factory, membership_factory, user_factory, task_factory, monkeypatch
+):
+    """A task that only arrives during the sync still lands in the run being opened."""
+    import apps.tasksources.services as ts
+
+    org = org_factory()
+    org.default_hourly_rate = Decimal("10.00")
+    org.save()
+    _config(org, ValuationMode.HOURS_RATE)
+    src = source_factory(org)
+    m = membership_factory(org, user_factory())
+
+    monkeypatch.setattr(
+        ts, "sync_org", lambda o: task_factory(o, src, assignee=m, hours=Decimal("2"))
+    )
+
+    run = services.open_run(org, opened_by_membership=m, opened_by_user=m.user)
+    assert run.lines.count() == 1
+    assert run.lines.first().computed_value == Decimal("20.00")
+
+
+def test_synced_tasks_survive_a_run_that_finds_nothing_to_drop(
+    org_factory, source_factory, task_factory, monkeypatch
+):
+    """Regression: the sync ran inside the gather transaction, so NoEligibleTasks —
+    an ordinary outcome both the page and the API handle — rolled back every task the
+    sync had just pulled. The tasks must persist whether or not a run gathers lines."""
+    import apps.tasksources.services as ts
+
+    org = org_factory()
+    _config(org, ValuationMode.HOURS_RATE)
+    src = source_factory(org)
+
+    # Unassigned, so the sync writes it but the run cannot gather it.
+    monkeypatch.setattr(ts, "sync_org", lambda o: task_factory(o, src, assignee=None))
+
+    with pytest.raises(services.NoEligibleTasks):
+        services.open_run(org)
+
+    assert TrackedTask.objects.for_org(org).count() == 1
+
+
+def test_a_tracker_that_is_down_does_not_block_a_drop(
+    org_factory, source_factory, membership_factory, user_factory, task_factory, monkeypatch
+):
+    """Best-effort: a failing sync still opens the run over the tasks already tracked."""
+    import apps.tasksources.services as ts
+
+    def boom(org):
+        raise RuntimeError("tracker is down")
+
+    org = org_factory()
+    org.default_hourly_rate = Decimal("10.00")
+    org.save()
+    _config(org, ValuationMode.HOURS_RATE)
+    src = source_factory(org)
+    m = membership_factory(org, user_factory())
+    task_factory(org, src, assignee=m, hours=Decimal("1"))
+    monkeypatch.setattr(ts, "sync_org", boom)
+
+    run = services.open_run(org, opened_by_membership=m, opened_by_user=m.user)
+    assert run.lines.count() == 1

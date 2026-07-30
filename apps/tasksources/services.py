@@ -253,10 +253,20 @@ def sync_source(source: TaskSourceConfig) -> SyncResult:
 
 
 def sync_org(org: Org) -> list[SyncResult]:
-    """Sync every task source configured for an org."""
+    """Sync every task source configured for an org.
+
+    Source by source, never all-or-nothing: one tracker being down or misconfigured
+    records the failure on that source's own result and the others still sync. Without
+    this the first source that raises would abort the rest, so a single dead tracker
+    would silently stop an org's whole task pull.
+    """
     results = []
     for source in TaskSourceConfig.objects.for_org(org):
-        results.append(sync_source(source))
+        try:
+            results.append(sync_source(source))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("source %s: sync failed (%s)", source.pk, exc, exc_info=True)
+            results.append(SyncResult(source_id=source.pk, errors=[str(exc)]))
     return results
 
 

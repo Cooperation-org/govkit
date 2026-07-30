@@ -129,17 +129,41 @@ class NoEligibleTasks(Exception):
     """Raised when open_run finds nothing to drop (keeps junk empty runs out of the DB)."""
 
 
-@transaction.atomic
 def open_run(org, opened_by_membership=None, opened_by_user=None) -> DropRun:
     """Open a new run: gather eligible tasks, group by member, create computed lines.
 
     Grouping is by assignee membership (the totals view), but each line keeps its task
     links so the review queue can work BY TASK. Raises NoEligibleTasks when there is
     nothing to drop.
+
+    Two steps, deliberately NOT in one transaction: pull from the trackers first, then
+    gather. See `_sync_sources_first` for why the pull must stay outside.
     """
-    # Trigger-on-open: pull the latest completed tasks from this org's sources before
-    # gathering candidates, so a run reflects work finished since the last open (no
-    # background poll). Best-effort — a source that is down must never block a drop.
+    _sync_sources_first(org)
+    return _gather_run(
+        org, opened_by_membership=opened_by_membership, opened_by_user=opened_by_user
+    )
+
+
+def _sync_sources_first(org) -> None:
+    """Trigger-on-open: pull the latest completed tasks from this org's sources.
+
+    So a run reflects work finished since the last open, with no background poll.
+
+    This runs OUTSIDE the gather transaction, and that placement is the point:
+
+      * `tasksources.sync_source` fetches over HTTP. Inside a transaction that would hold
+        a Postgres transaction and its row locks open across network I/O, for every source
+        in turn — exactly what that module's own comment forbids.
+      * `_gather_run` raises NoEligibleTasks whenever there is nothing to drop, which is
+        an ordinary outcome the page and the API both handle. Inside the transaction, that
+        rollback would throw away every task the sync had just pulled, so the tasks would
+        only ever persist on the runs that happened to produce lines.
+
+    Best-effort: a tracker that is down must never block a drop, so a failure is logged
+    and the run gathers from the tasks already tracked. `sync_org` guards each source
+    separately, so this only trips on something broader than one bad source.
+    """
     try:
         from apps.tasksources.services import sync_org
 
@@ -150,6 +174,11 @@ def open_run(org, opened_by_membership=None, opened_by_user=None) -> DropRun:
             getattr(org, "slug", org),
             exc_info=True,
         )
+
+
+@transaction.atomic
+def _gather_run(org, opened_by_membership=None, opened_by_user=None) -> DropRun:
+    """The transactional half of `open_run`: gather, group, create lines. No network I/O."""
     # M4: guard against two concurrent open_run calls gathering the same task into two
     # runs. Take a row lock on the candidate tasks, THEN re-check eligibility under the
     # lock. A racing run that linked a task first will have committed by the time this

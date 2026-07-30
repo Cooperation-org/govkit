@@ -833,3 +833,31 @@ def test_index_never_echoes_saved_token(
         assert "sup3r-secret-token" not in html
     # The edit view shows a set/replace affordance instead of the token.
     assert "set (hidden)" in html
+
+
+# --- sync_org: one bad source must not stop the others --------------------------------
+
+
+def test_sync_org_keeps_going_when_one_source_fails(taiga_source, monkeypatch):
+    """Regression: sync_org had no per-source guard, so the first tracker that raised
+    aborted every remaining source — one dead tracker silently stopped an org's whole
+    task pull, and the caller only saw a single failure."""
+    first = taiga_source()
+    org = first.org
+    second = taiga_source(org=org, project_selector="proj2")
+
+    def flaky(source):
+        if source.pk == first.pk:
+            raise RuntimeError("tracker is down")
+        return services.SyncResult(source_id=source.pk, created=3)
+
+    monkeypatch.setattr(services, "sync_source", flaky)
+
+    results = services.sync_org(org)
+
+    assert len(results) == 2
+    by_source = {r.source_id: r for r in results}
+    assert by_source[first.pk].errors == ["tracker is down"]
+    assert by_source[first.pk].synced == 0
+    assert by_source[second.pk].created == 3
+    assert by_source[second.pk].errors == []
