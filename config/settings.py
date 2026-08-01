@@ -271,6 +271,15 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 
+# Stay signed in. Django's default is two weeks measured from login and never reset, so
+# even someone using GovKit every day got thrown out a fortnight later. Thirty days,
+# sliding: SESSION_SAVE_EVERY_REQUEST re-stamps the cookie on every request, so the clock
+# restarts on activity and only real absence ends a session. Matches the 30 idle days the
+# LinkedTrust identity provider holds its SSO cookie, so the two do not disagree about
+# whether you are signed in.
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30
+SESSION_SAVE_EVERY_REQUEST = True
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # --- DRF ---
