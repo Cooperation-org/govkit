@@ -80,7 +80,7 @@ MODULES = [
     ),
     (
         "receipts",
-        "Receipts",
+        "Agreements",
         5,
         [
             ("receipts.connect-tracker", "Connect your task tracker so reviewed work earns slices"),
