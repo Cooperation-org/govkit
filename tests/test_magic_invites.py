@@ -773,3 +773,94 @@ def test_members_page_pool_invite_keeps_the_venture_name_and_ignores_it(client, 
     invite = Invite.objects.get(org=org, name="Walk Up")
     assert invite.kind == InviteKind.POOL
     assert not Org.objects.filter(display_name="Contradiction Inc").exists()
+
+
+# --- Minting an invite for someone already on the wall ------------------------------------
+
+
+def _s2s_mint_url(org):
+    return reverse("s2s_invite_mint", kwargs={"org_slug": org.slug})
+
+
+@pytest.mark.django_db
+def test_mint_requires_bearer_token(client, admin_org, settings):
+    settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
+    org, _ = admin_org
+    r = client.post(
+        _s2s_mint_url(org), {"claim_id": 5}, content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer wrong",
+    )
+    assert r.status_code == 401
+
+
+@pytest.mark.django_db
+def test_mint_binds_the_existing_card_and_is_ready_to_accept(client, admin_org, settings):
+    """The point of the endpoint: their card comes with them."""
+    settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
+    org, _ = admin_org
+    r = client.post(
+        _s2s_mint_url(org),
+        {"claim_id": 4242, "name": "Rania", "audience": "mentor", "kind": "pool"},
+        content_type="application/json",
+        **_auth(),
+    )
+    assert r.status_code == 201
+    minted = Invite.objects.get(org=org, name="Rania")
+    assert minted.committed_claim_id == 4242
+    assert minted.kind == InviteKind.POOL
+    assert minted.audience == "mentor"
+    # Accept works straight from committed — no second commit step in the way.
+    assert minted.status == InviteStatus.COMMITTED
+    assert minted.can_accept
+
+
+@pytest.mark.django_db
+def test_mint_fresh_card_leaves_the_claim_unbound(client, admin_org, settings):
+    settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
+    org, _ = admin_org
+    client.post(
+        _s2s_mint_url(org),
+        {"claim_id": 77, "name": "New Words", "fresh_card": True},
+        content_type="application/json",
+        **_auth(),
+    )
+    minted = Invite.objects.get(org=org, name="New Words")
+    assert minted.committed_claim_id is None
+    assert minted.status == InviteStatus.CREATED
+
+
+@pytest.mark.django_db
+def test_mint_is_idempotent_per_claim(client, admin_org, settings):
+    """Clicking the admin action twice must not mint two links for one person."""
+    settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
+    org, _ = admin_org
+    body = {"claim_id": 91, "name": "Twice", "kind": "pool"}
+    first = client.post(_s2s_mint_url(org), body, content_type="application/json", **_auth())
+    second = client.post(_s2s_mint_url(org), body, content_type="application/json", **_auth())
+    assert first.status_code == 201
+    assert second.status_code == 200
+    assert first.json()["code"] == second.json()["code"]
+    assert Invite.objects.filter(org=org, committed_claim_id=91).count() == 1
+
+
+@pytest.mark.django_db
+def test_mint_refuses_byov(client, admin_org, settings):
+    """BYOV spawns a whole venture org on accept; never a walk-up conversion."""
+    settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
+    org, _ = admin_org
+    r = client.post(
+        _s2s_mint_url(org),
+        {"claim_id": 12, "kind": "byov"},
+        content_type="application/json",
+        **_auth(),
+    )
+    assert r.status_code == 400
+    assert not Invite.objects.filter(org=org, committed_claim_id=12).exists()
+
+
+@pytest.mark.django_db
+def test_mint_needs_a_claim_id(client, admin_org, settings):
+    settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
+    org, _ = admin_org
+    r = client.post(_s2s_mint_url(org), {}, content_type="application/json", **_auth())
+    assert r.status_code == 400

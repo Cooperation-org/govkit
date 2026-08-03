@@ -24,6 +24,7 @@ Doorway S2S (plain Django views, Bearer settings.GOVKIT_S2S_TOKEN — NOT sessio
 the magic-link contract on the coordination board):
   GET  /api/v1/orgs/{org_slug}/invites/{code}/            invite detail for the doorway
   POST /api/v1/orgs/{org_slug}/invites/{code}/committed/  doorway posts the claim id back
+  POST /api/v1/orgs/{org_slug}/invites/mint/    doorway mints an invite for an existing card
   GET  /api/v1/orgs/ventures/public/                      every venture's public card
   GET  /api/v1/orgs/{org_slug}/profile/                   one team's public profile
   PATCH /api/v1/orgs/{org_slug}/profile/write/            set tagline/pitch/site/calendar...
@@ -65,6 +66,8 @@ from .embed_auth import EmbedSessionAuthentication
 from .genesis import modules_for, serialize_modules, toggle_item
 from .models import (
     Invite,
+    InviteAudience,
+    InviteKind,
     InviteStatus,
     Membership,
     MembershipRole,
@@ -340,6 +343,83 @@ def invite_committed(request, org_slug, code):
 
 
 invite_committed.org_context_exempt = True
+
+
+@csrf_exempt
+@require_POST
+def invite_mint(request, org_slug):
+    """S2S: mint an invite for someone who is ALREADY on the wall.
+
+    The other direction from invite_committed. There, a fresh invite is handed
+    to a person who then makes a card. Here, the card exists first — a walk-up
+    the accelerator decided to bring in — and the invite is bound to it, so
+    accepting keeps the card they already have instead of asking for a second
+    one. `committed_claim_id` is the only join between a wall claim and an
+    account (_accounts_by_claim reads it), so binding it here is what lets
+    their profile and bio attach to the card they already made.
+
+    Body: claim_id (int, required), name, email, link, audience, kind, role,
+    and `fresh_card` (bool, default false) — false binds the claim and the
+    person lands on their own card with an accept button; true leaves the
+    claim unbound so they write a new card on the way in.
+
+    Idempotent on (org, claim_id): a second call returns the invite already
+    minted rather than a duplicate. Nothing here approves anything — whether
+    the card shows on the wall stays workers.vc's own ledger decision.
+    """
+    if not _s2s_authorized(request):
+        return JsonResponse({"error": "unauthorized"}, status=401)
+    org = Org.objects.filter(slug=org_slug).first()
+    if org is None:
+        return JsonResponse({"error": "not_found"}, status=404)
+    try:
+        body = json.loads(request.body or b"{}")
+        claim_id = int(body["claim_id"])
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+        return JsonResponse({"error": "claim_id (int) is required"}, status=400)
+
+    kind = str(body.get("kind") or InviteKind.ORG)
+    if kind not in InviteKind.values or kind == InviteKind.BYOV:
+        # BYOV creates a whole venture org on accept. That is a deliberate
+        # founder path, never a conversion of a walk-up.
+        return JsonResponse({"error": "kind must be 'org' or 'pool'"}, status=400)
+    audience = str(body.get("audience") or InviteAudience.SUPPORTER)
+    if audience not in InviteAudience.values:
+        return JsonResponse({"error": "unknown audience"}, status=400)
+    role = str(body.get("role") or MembershipRole.MEMBER)
+    if role not in MembershipRole.values:
+        return JsonResponse({"error": "unknown role"}, status=400)
+
+    existing = Invite.objects.filter(org=org, committed_claim_id=claim_id).first()
+    if existing is not None:
+        return JsonResponse(_invite_payload(existing, request), status=200)
+
+    fresh_card = bool(body.get("fresh_card"))
+    invite = Invite.objects.create(
+        org=org,
+        kind=kind,
+        audience=audience,
+        role=role,
+        name=str(body.get("name", ""))[:255],
+        email=str(body.get("email", ""))[:254],
+        link=str(body.get("link", ""))[:1000],
+        # Both paths route through the doorway: keeping the card, it shows them
+        # their own card and the accept button; writing a fresh one, it is the
+        # ordinary commit page.
+        doorway=bool(settings.DOORWAY_BASE_URL),
+    )
+    if not fresh_card:
+        # can_accept allows COMMITTED, so the accept ceremony works straight
+        # from here — the person never passes through a second commit step.
+        invite.mark_committed(
+            claim_id=claim_id,
+            statement_as_published=str(body.get("statement_as_published", "")),
+            video_url=str(body.get("video_url", "")),
+        )
+    return JsonResponse(_invite_payload(invite, request), status=201)
+
+
+invite_mint.org_context_exempt = True
 
 
 @require_GET
@@ -800,6 +880,8 @@ urlpatterns = router.urls + [
         profile_row,
         name="s2s_profile_row",
     ),
+    # Before the <str:code> route below, or "mint" is read as an invite code.
+    path("<slug:org_slug>/invites/mint/", invite_mint, name="s2s_invite_mint"),
     path("<slug:org_slug>/invites/<str:code>/", invite_detail, name="s2s_invite_detail"),
     path(
         "<slug:org_slug>/invites/<str:code>/committed/",
