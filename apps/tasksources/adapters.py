@@ -89,6 +89,13 @@ class OpenTaskDTO:
     assignee_label: Optional[str] = None  # stable tracker username, never a display name
     ref: Optional[int] = None  # tracker story ref (Taiga's #NN), for board deep links
     project_slug: Optional[str] = None  # tracker project slug, for board deep links
+    # When it is due, when it appeared, and when it last moved. Kept because the
+    # dash shows only the first handful of these: without them the card is the
+    # first six of an unordered list, which in practice is the six oldest and
+    # deadest rows on the board. Ordering needs them; nothing else does.
+    due_date: Optional[str] = None  # 'YYYY-MM-DD', or None when nobody set one
+    created_date: Optional[str] = None  # ISO timestamp from the tracker
+    modified_date: Optional[str] = None  # ISO timestamp from the tracker
 
 
 @dataclass
@@ -426,6 +433,9 @@ class TaigaAdapter(TaskSourceAdapter):
                         assignee_label=extra.get("username") or None,
                         ref=ref if isinstance(ref, int) else None,
                         project_slug=project_extra.get("slug") or None,
+                        due_date=story.get("due_date") or None,
+                        created_date=story.get("created_date") or None,
+                        modified_date=story.get("modified_date") or None,
                     )
                 )
         return results

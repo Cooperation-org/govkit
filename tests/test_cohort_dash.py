@@ -215,6 +215,10 @@ def test_open_tasks_shape_for_member(client, team):
             "status": "In progress",
             "external_url": "https://tracker.example/us/123",
             "project_slug": "acme-board",
+            # Carried so the card can say when something is due, and so the rows
+            # can be ordered most-important-first instead of arriving in
+            # whatever order the tracker walked its projects.
+            "due_date": None,
         }
     ]
     assert data["fetched_at"]  # ISO timestamp of the live fetch

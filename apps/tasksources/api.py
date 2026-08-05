@@ -37,6 +37,7 @@ from apps.orgs.models import MembershipRole
 
 from .adapters import get_adapter
 from .models import TaskSourceConfig, TrackedTask
+from .ordering import most_important_first
 from .services import missing_value_tasks, sync_org
 
 _STEWARD_ROLES = {MembershipRole.ADMIN, MembershipRole.STEWARD}
@@ -118,6 +119,9 @@ class OpenTasksView(APIView):
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
             payload = {
+                # Most important first, so the card's handful of rows are the
+                # ones that need a person — not the first six the tracker
+                # happened to walk past, which is what made it read as stale.
                 "tasks": [
                     {
                         "external_id": t.external_id,
@@ -127,8 +131,9 @@ class OpenTasksView(APIView):
                         "status": t.status,
                         "external_url": t.external_url,
                         "project_slug": t.project_slug,
+                        "due_date": t.due_date,
                     }
-                    for t in tasks
+                    for t in most_important_first(tasks)
                 ],
                 "fetched_at": timezone.now().isoformat(),
             }
