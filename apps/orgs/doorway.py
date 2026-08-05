@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 _TIMEOUT = 4
 _CACHE_SECONDS = 30
 _CACHE_KEY = "doorway-wall-people"
+# Republishing a card is a write through to LinkedTrust, not a cached read.
+_CARD_TIMEOUT = 60
 
 
 def _fetch_wall_people():
@@ -119,3 +121,62 @@ def wall_people_without_accounts():
     )
     left = [p for p in people if p.get("claim_id") not in signed_in]
     return left, "" if left else "Everyone on the wall already has an account."
+
+
+def card_invite_for(user):
+    """The accepted invite that carries this person's wall card, or None.
+
+    An invite is the only join between an account here and a claim on the wall.
+    Newest first, so someone brought in twice edits the card they have now.
+    """
+    return (
+        Invite.objects.filter(accepted_by=user, committed_claim_id__isnull=False)
+        .order_by("-accepted_at", "-id")
+        .first()
+    )
+
+
+def put_video_on_card(invite, video_url):
+    """(new_claim_id, problem) — attach an uploaded video to this person's card.
+
+    The card is the doorway's: it holds the ledger and the LinkedTrust
+    credentials, and it keeps every link already shared working across the
+    replacement. All we do is say which claim and which video, then note the
+    new claim id against the invite so our side stops pointing at a claim that
+    no longer exists.
+    """
+    base = settings.DOORWAY_API_URL
+    token = settings.GOVKIT_S2S_TOKEN
+    if not (base and token):
+        return None, (
+            "Cards are not wired up here: DOORWAY_API_URL or GOVKIT_S2S_TOKEN "
+            "is unset in this app's environment."
+        )
+    payload = json.dumps({"claim_id": invite.committed_claim_id, "video_url": video_url}).encode(
+        "utf-8"
+    )
+    req = urllib.request.Request(
+        f"{base}/api/card/republish/",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=_CARD_TIMEOUT) as resp:  # nosec B310
+            body = json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        logger.warning("card republish failed at %s: %s", base, e, exc_info=True)
+        return (
+            None,
+            "We could not update your card just now. Your video is uploaded — try again in a minute.",
+        )
+    new_id = body.get("claim_id")
+    if not new_id:
+        return None, "The card was not updated. Try again in a minute."
+    invite.committed_claim_id = new_id
+    invite.video_url = video_url
+    invite.save(update_fields=["committed_claim_id", "video_url"])
+    return new_id, ""

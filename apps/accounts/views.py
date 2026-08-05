@@ -23,6 +23,7 @@ from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST
 
 from apps.orgs.invites import consume_pending_invite
 
@@ -97,8 +98,60 @@ def profile(request):
     return render(
         request,
         "accounts/profile.html",
-        {"form": form, "uploads_on": storage.configured()},
+        {
+            "form": form,
+            "uploads_on": storage.configured(),
+            **_card_context(request.user),
+        },
     )
+
+
+def _card_context(user):
+    """What this person's public wall card looks like, if they have one.
+
+    A card is a signed claim on LinkedTrust, published through the doorway when
+    they joined. It is not ours to hold — only the invite that carries its id
+    is — so the section renders from that and links out.
+    """
+    from apps.orgs import doorway
+
+    if not (settings.COHORT_VIDEO_SRC and settings.DOORWAY_API_URL):
+        return {"card_invite": None}
+    invite = doorway.card_invite_for(user)
+    return {
+        "card_invite": invite,
+        "card_video_src": settings.COHORT_VIDEO_SRC,
+        "linkedtrust_url": settings.LINKEDTRUST_URL.rstrip("/"),
+    }
+
+
+@login_required
+@require_POST
+def profile_card_video(request):
+    """Put a video on this person's wall card — theirs to change, any time.
+
+    The browser has already uploaded the video to LinkedTrust and posts back
+    the URL it got. The doorway does the republish and keeps every link the
+    person has already shared pointing at the new card.
+    """
+    from apps.orgs import doorway
+
+    invite = doorway.card_invite_for(request.user)
+    if invite is None:
+        messages.error(request, "You don't have a card on the wall yet.")
+        return redirect("accounts:profile")
+
+    video_url = (request.POST.get("video_url") or "").strip()
+    if not video_url:
+        messages.error(request, "No video was uploaded. Record or choose one, then save.")
+        return redirect("accounts:profile")
+
+    _new_id, problem = doorway.put_video_on_card(invite, video_url)
+    if problem:
+        messages.error(request, problem)
+    else:
+        messages.success(request, "Your video is on your card. Links you've shared still work.")
+    return redirect("accounts:profile")
 
 
 # --- LinkedTrust OIDC (default) --------------------------------------------------------

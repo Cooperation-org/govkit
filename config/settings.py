@@ -35,6 +35,7 @@ env = environ.Env(
     LOGIN_NEXT_ALLOWED_HOSTS=(list, []),
     GOVKIT_OPEN_TASKS_CACHE_SECONDS=(int, 60),
     COHORT_NAV_SRC=(str, ""),
+    COHORT_VIDEO_SRC=(str, ""),
     COHORT_FRONT_DOOR=(str, ""),
     COHORT_POOL_LANDING=(str, ""),
     VENTURE_PAGE_BASE_URL=(str, ""),
@@ -94,6 +95,12 @@ CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 # The cohort's thin cross-app menu (a <cohort-nav> script the doorway serves);
 # empty (default) mounts nothing — self-hosted GovKit stays standalone.
 COHORT_NAV_SRC = env("COHORT_NAV_SRC")
+
+# The video recorder the doorway ships (embed/video-recorder.js), used on the
+# profile page so a member can put a video on their wall card. Same reasoning
+# as the nav: one copy, served by the app that owns the card. Empty hides the
+# card section entirely — a standalone GovKit has no wall to publish to.
+COHORT_VIDEO_SRC = env("COHORT_VIDEO_SRC")
 
 # Where a team's public join page lives — the cohort's public site, not GovKit.
 # The share link is f"{VENTURE_PAGE_BASE_URL}/{org.slug}/", e.g.

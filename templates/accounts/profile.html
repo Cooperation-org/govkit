@@ -28,5 +28,52 @@
 
     <p><button type="submit" class="gk-btn-primary">Save profile</button></p>
   </form>
+
+  {% if card_invite %}
+  <div class="gk-card gk-profile" id="your-card">
+    <h2>Your card on the wall</h2>
+    <p class="gk-muted">Add a video and it goes on the card straight away. Anywhere
+      you've already shared your card, people will see the new one.</p>
+
+    <form method="post" action="{% url 'accounts:profile_card_video' %}" id="card-video-form">
+      {% csrf_token %}
+      <input type="hidden" name="video_url" id="card_video_url">
+
+      <div class="gk-field" id="card-video" data-lt-video-url-target="#card_video_url">
+        <label>Video <small>record it here, or choose a file. Up to a minute.</small></label>
+        <p>
+          <button type="button" class="gk-btn" data-lt-video-record>● Record video</button>
+          <input type="file" accept="video/*" data-lt-video-file hidden>
+          <button type="button" class="gk-btn" data-lt-video-upload>Choose a file</button>
+          <span class="gk-muted" data-lt-video-status></span>
+        </p>
+        <video controls data-lt-video-preview style="display:none;max-width:100%;border-radius:8px"></video>
+      </div>
+
+      <p><button type="submit" class="gk-btn-primary" id="card-video-save" disabled>Put it on my card</button></p>
+    </form>
+
+    {% if card_invite.video_url %}
+    <p class="gk-muted">Your card has a video on it now. Recording a new one replaces it.</p>
+    {% endif %}
+  </div>
+  {% endif %}
 </section>
+{% endblock %}
+
+{% block scripts %}
+{% if card_invite %}
+<script src="{{ card_video_src }}"></script>
+<script>
+  (function () {
+    var save = document.getElementById('card-video-save');
+    LTVideo.attach(document.getElementById('card-video'), {
+      ltApi: '{{ linkedtrust_url|escapejs }}',
+      // Nothing to save until the upload has actually landed, so the button
+      // stays off rather than failing after a click.
+      onUploaded: function () { save.disabled = false; }
+    });
+  })();
+</script>
+{% endif %}
 {% endblock %}
