@@ -14,7 +14,7 @@ from unittest.mock import patch
 import pytest
 from django.core.cache import cache
 
-from apps.orgs.genesis import MODULES, start_genesis, toggle_item
+from apps.orgs.genesis import ITEM_BRIEFS, MODULES, start_genesis, toggle_item
 from apps.orgs.models import ChecklistEvent
 from apps.projects.models import Deal, Payout, Project, ProjectKind, Split
 from apps.tasksources.adapters import OpenTaskDTO
@@ -136,6 +136,7 @@ def test_checklist_shape_for_member(client, team):
     assert first_module["items"][0] == {
         "key": FIRST_KEY,
         "title": MODULES[0][3][0][1],
+        "brief": ITEM_BRIEFS.get(FIRST_KEY, ""),
         "done": True,
         "retired": False,
     }

@@ -63,10 +63,14 @@
                       {% if item.done %}&#10003;{% endif %}
                     </button>
                   </form>
-                  <span class="{% if item.done %}gk-done-title{% endif %}">{{ item.title }}</span>
-                  {% if item.done %}
-                    <span class="gk-muted gk-done-meta">{{ item.done_by.email|default:"" }} · {{ item.done_at|date:"M j" }}</span>
-                  {% endif %}
+                  <div class="gk-cyoa-body">
+                    <span class="{% if item.done %}gk-done-title{% endif %}">{{ item.title }}</span>
+                    {% if item.done %}
+                      <span class="gk-muted gk-done-meta">{{ item.done_by.email|default:"" }} · {{ item.done_at|date:"M j" }}</span>
+                    {% else %}{% if item.brief %}
+                      <p class="gk-cyoa-brief">{{ item.brief }}</p>
+                    {% endif %}{% endif %}
+                  </div>
                 </li>
               {% endfor %}
             </ul>

@@ -39,16 +39,21 @@ MODULES = [
         "Exist",
         1,
         [
+            ("exist.paragraph", "Write one plain paragraph: what this is and why now"),
+            ("exist.one-sentence", "Say in one sentence what you make and who it is for"),
+            ("exist.prior-art", "Find who is already doing this, before you build anything"),
+            (
+                "exist.who-else",
+                "List who is working on this today, and decide: partner, join, or invite them in",
+            ),
+            ("exist.reach-out", "Reach out to one of them"),
             ("exist.invite", "Invite your team members"),
+            ("exist.join-page", "Fill in your page and share the link so people can join you"),
             ("exist.calendar", "Make a team calendar and add it in Settings"),
             (
                 "exist.chat",
-                "Find your team's channel in the LinkedTrust Discord — or set your own chat in Settings",
+                "Find your team's channel in the LinkedTrust Discord, or set your own chat in Settings",
             ),
-            ("exist.join-page", "Fill in your page and share the link so people can join you"),
-            ("exist.prior-art", "Prior art: find who already does this, before building anything"),
-            ("exist.paragraph", "Write one plain paragraph: what this is and why now"),
-            ("exist.who-else", "List who is working on this today"),
         ],
     ),
     (
@@ -90,6 +95,52 @@ MODULES = [
     ),
 ]
 
+# item key -> one line saying how to actually do it. Kept as its own dict rather
+# than a third slot in the item tuples so that everything unpacking (key, title)
+# keeps working. A missing brief is allowed and renders as nothing.
+#
+# AI-DRAFTED 2026-08-05 from golda's curriculum arc
+# (~golda/work/7-15-2026-accelerator-curriculum-arc.md) and the reading page at
+# workers.vc/curriculum/. Reword freely: titles and briefs are free to change,
+# only the keys above are permanent.
+ITEM_BRIEFS = {
+    "exist.paragraph": "Two or three sentences: what it is, who it is for, why now. "
+    "You will rewrite it later. Write it anyway.",
+    "exist.one-sentence": "One sentence, no adjectives. If it takes two, you have "
+    "two products, or you do not know yet which one you have.",
+    "exist.prior-art": "Search the web, ask the people you know, read the ideas board. "
+    "Aim for five. Most teams skip this and pay for it later.",
+    "exist.who-else": "Partner with them, join them, or invite them in as co-owners. "
+    "Here a competitor can become a contributor, because every share comes from work.",
+    "exist.reach-out": "One message to one of them. You are not asking permission. "
+    "You are finding out what they already know.",
+    "exist.invite": "Everyone who will put hours in. Their work starts earning from "
+    "their first approved task, so there is nothing to negotiate up front.",
+    "exist.join-page": "Your page in your own words. The link is how people join you, "
+    "and it is what we point at when we make noise about you.",
+    "exist.calendar": "Without a calendar your page cannot offer anyone a time to meet you.",
+    "exist.chat": "Wherever your team already talks is fine. Tell us which one, so amebo "
+    "can reach you there instead of somewhere you never look.",
+    "who.three-people": "Real names, not a segment. If you cannot name three, you are "
+    "guessing at who this is for.",
+    "who.talk-to-one": "Ask about their problem, not your idea. Write down what they "
+    "said in their words, not your summary of it.",
+    "build.smallest": "The least you can put in front of someone to find out whether "
+    "you are right. List its handful of features, not everything you want.",
+    "build.in-front-of-user": "One real user, using it, while you watch. What they do "
+    "beats what they say about it.",
+    "money.one-page": "Who pays, for what, and how much. A guess with a number on it "
+    "is testable. A guess without one is not.",
+    "money.first-yes": "One person paying a real price tells you more than a room of "
+    "people saying they like it.",
+    "receipts.connect-tracker": "Your own board, your own key, in Settings. After this, "
+    "hours on tasks become slices without anyone deciding anything.",
+    "receipts.first-drop": "Review the week's work and approve it. Approved work drops "
+    "equity to the people who did it.",
+    "receipts.trace-a-slice": "Pick one slice and follow it back to the task it came "
+    "from. If you cannot, the record is not doing its job.",
+}
+
 MODULE_LABELS = {key: label for key, label, _week, _items in MODULES}
 MODULE_WEEKS = {key: week for key, _label, week, _items in MODULES}
 
@@ -111,6 +162,10 @@ def _check_keys():
             seen.add(item_key)
             if not item_key.startswith(f"{module_key}."):
                 raise ValueError(f"item key {item_key!r} must start with {module_key!r}.")
+    # A brief for a key that no longer exists would silently never render.
+    for item_key in ITEM_BRIEFS:
+        if item_key not in seen:
+            raise ValueError(f"brief for unknown curriculum item: {item_key}")
 
 
 _check_keys()
@@ -174,7 +229,7 @@ def latest_events(org):
 class _Item:
     """One rendered checklist item. Derived per request; never stored."""
 
-    __slots__ = ("key", "title", "done", "done_at", "done_by", "retired")
+    __slots__ = ("key", "title", "brief", "done", "done_at", "done_by", "retired")
 
     def __init__(self, key, title, event, retired=False):
         from .models import ChecklistAction
@@ -182,6 +237,8 @@ class _Item:
         done = event is not None and event.action == ChecklistAction.TICK
         self.key = key
         self.title = title
+        # How to actually do it. Retired items have none, which renders as nothing.
+        self.brief = "" if retired else ITEM_BRIEFS.get(key, "")
         self.done = done
         self.done_at = event.at if done else None
         self.done_by = event.actor if done else None
@@ -233,6 +290,7 @@ def serialize_modules(modules):
                 {
                     "key": item.key,
                     "title": item.title,
+                    "brief": item.brief,
                     "done": item.done,
                     "retired": item.retired,
                 }

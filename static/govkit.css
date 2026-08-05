@@ -464,6 +464,17 @@ rect.gk-cat-5, path.gk-cat-5, circle.gk-cat-5 { fill: var(--gk-cat-5); }
   padding: 0.35rem 0;
 }
 .gk-cyoa-items form { display: inline; }
+/* Title, done-stamp and brief share one column so the brief lines up under the
+   title rather than under the checkbox. */
+.gk-cyoa-body { flex: 1; min-width: 0; }
+/* How to do the item. Gone once it is ticked: at that point it is just noise. */
+.gk-cyoa-brief {
+  margin: 0.15rem 0 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--gk-muted);
+  max-width: 62ch;
+}
 .gk-checkbox {
   width: 1.15rem;
   height: 1.15rem;
