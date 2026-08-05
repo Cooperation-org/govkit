@@ -26,6 +26,7 @@ the magic-link contract on the coordination board):
   POST /api/v1/orgs/{org_slug}/invites/{code}/committed/  doorway posts the claim id back
   POST /api/v1/orgs/{org_slug}/invites/mint/    doorway mints an invite for an existing card
   GET  /api/v1/orgs/ventures/public/                      every venture's public card
+  GET  /api/v1/orgs/{org_slug}/members/by-discord/{id}/   who a Discord user is here
   GET  /api/v1/orgs/{org_slug}/profile/                   one team's public profile
   PATCH /api/v1/orgs/{org_slug}/profile/write/            set tagline/pitch/site/calendar...
   GET  /api/v1/orgs/{org_slug}/profile/{kind}/            list pictures|links|posts|quotes
@@ -857,6 +858,45 @@ class OrgDirectoryView(APIView):
         return Response({"orgs": list(orgs)})
 
 
+@require_GET
+def member_by_discord(request, org_slug, discord_user_id):
+    """S2S: who is this Discord user, as far as this org is concerned.
+
+    The team's chat bot needs a name and a role before it will act on anything
+    a person types. Identity has one home and this is it — the bot asks each
+    time rather than keeping its own copy of who anyone is.
+
+    404 means "nobody here has claimed that Discord id", which is the ordinary
+    answer for someone in the server who has not joined the org. Deliberately
+    narrow: a name, a role, and the tracker handle. No rates, no equity, no
+    email beyond what the person already gave the org.
+    """
+    if not _s2s_authorized(request):
+        return JsonResponse({"error": "unauthorized"}, status=401)
+    membership = (
+        Membership.objects.filter(org__slug=org_slug, discord_user_id=str(discord_user_id))
+        .select_related("user", "org")
+        .first()
+    )
+    if membership is None:
+        return JsonResponse({"error": "not_found"}, status=404)
+    user = membership.user
+    return JsonResponse(
+        {
+            # get_full_name() is the user's display_name, falling back to email.
+            "display_name": user.get_full_name(),
+            "email": user.email,
+            "role": membership.role,
+            "org_slug": membership.org.slug,
+            "taiga_username": membership.taiga_username,
+            "discord_user_id": membership.discord_user_id,
+        }
+    )
+
+
+member_by_discord.org_context_exempt = True
+
+
 router = DefaultRouter()
 router.register(r"orgs", OrgViewSet, basename="org")
 router.register(r"memberships", MembershipViewSet, basename="membership")
@@ -870,6 +910,11 @@ urlpatterns = router.urls + [
         name="org-checklist-toggle",
     ),
     path("ventures/public/", ventures_directory, name="s2s_ventures_directory"),
+    path(
+        "<slug:org_slug>/members/by-discord/<str:discord_user_id>/",
+        member_by_discord,
+        name="s2s_member_by_discord",
+    ),
     path("<slug:org_slug>/profile/", org_profile, name="s2s_org_profile"),
     # The public profile, writable by an agent (see profile_write above).
     path("<slug:org_slug>/profile/write/", profile_write, name="s2s_profile_write"),

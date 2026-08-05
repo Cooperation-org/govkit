@@ -473,6 +473,14 @@ class Membership(models.Model):
     taiga_username = models.CharField(max_length=255, blank=True)
     taiga_user_id = models.IntegerField(null=True, blank=True)
 
+    # Chat identity. The team's bot (amebo) asks GovKit "who is this Discord
+    # user" over the S2S API rather than keeping its own copy — this row is the
+    # one home of the answer. The id is Discord's immutable snowflake, stored
+    # as text because it exceeds a 32-bit int; the handle is display only and
+    # may change at any time.
+    discord_user_id = models.CharField(max_length=32, blank=True, db_index=True)
+    discord_username = models.CharField(max_length=255, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

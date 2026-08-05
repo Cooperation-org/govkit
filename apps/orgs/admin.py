@@ -40,9 +40,9 @@ class ValuationConfigAdmin(admin.ModelAdmin):
 
 @admin.register(Membership)
 class MembershipAdmin(admin.ModelAdmin):
-    list_display = ("user", "org", "role", "hourly_rate", "taiga_username")
+    list_display = ("user", "org", "role", "hourly_rate", "taiga_username", "discord_username")
     list_filter = ("role", "org")
-    search_fields = ("user__email", "taiga_username")
+    search_fields = ("user__email", "taiga_username", "discord_username", "discord_user_id")
     autocomplete_fields = ("user",)
 
 
