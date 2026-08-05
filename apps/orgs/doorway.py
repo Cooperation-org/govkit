@@ -147,6 +147,14 @@ def put_video_on_card(invite, video_url):
     """
     base = settings.DOORWAY_API_URL
     token = settings.GOVKIT_S2S_TOKEN
+    # NEVER LOSE SOMEONE'S VIDEO (golda 2026-08-05). It is already uploaded by
+    # the time we are called, and storage keeps no index — so a URL we do not
+    # write down here is a recording nobody can ever find again. It goes on the
+    # row FIRST, before anything that can fail, whether or not the card takes it.
+    if video_url and invite.video_url != video_url:
+        invite.video_url = video_url
+        invite.save(update_fields=["video_url"])
+
     if not (base and token):
         return None, (
             "Cards are not wired up here: DOORWAY_API_URL or GOVKIT_S2S_TOKEN "
@@ -177,6 +185,5 @@ def put_video_on_card(invite, video_url):
     if not new_id:
         return None, "The card was not updated. Try again in a minute."
     invite.committed_claim_id = new_id
-    invite.video_url = video_url
-    invite.save(update_fields=["committed_claim_id", "video_url"])
+    invite.save(update_fields=["committed_claim_id"])
     return new_id, ""

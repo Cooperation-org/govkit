@@ -154,3 +154,13 @@ def test_the_recorder_is_found_next_to_the_nav_embed_without_a_second_setting():
         os.environ.pop("COHORT_NAV_SRC", None)
         reload(s)
     assert django_settings.DEBUG is not None  # settings still usable
+
+
+@pytest.mark.django_db
+def test_the_video_url_is_kept_even_when_the_card_update_fails(client, wired, card):
+    """Never lose a video (golda 2026-08-05). Storage keeps no index, so a URL
+    we do not write down is a recording nobody can find again."""
+    with patch("apps.orgs.doorway.urllib.request.urlopen", side_effect=OSError("down")):
+        client.post(reverse("accounts:profile_card_video"), {"video_url": VIDEO})
+    card.refresh_from_db()
+    assert card.video_url == VIDEO
