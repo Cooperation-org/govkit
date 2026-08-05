@@ -3,6 +3,7 @@ from django.contrib import admin
 from .models import (
     ExternalHolder,
     Invite,
+    InviteLink,
     InviteStatus,
     Membership,
     OpeningBalance,
@@ -59,6 +60,21 @@ class InviteAdmin(admin.ModelAdmin):
     @admin.action(description="Revoke selected invites")
     def revoke(self, request, queryset):
         queryset.update(status=InviteStatus.REVOKED)
+
+
+@admin.register(InviteLink)
+class InviteLinkAdmin(admin.ModelAdmin):
+    """Shared doors: mint one, watch how many came through it, close it."""
+
+    list_display = ("label", "org", "kind", "audience", "uses", "max_uses", "active", "expires_at")
+    list_filter = ("kind", "audience", "active", "org")
+    search_fields = ("label", "code")
+    readonly_fields = ("code", "created_at")
+    actions = ["close"]
+
+    @admin.action(description="Close selected links")
+    def close(self, request, queryset):
+        queryset.update(active=False)
 
 
 @admin.register(OpeningBalance)

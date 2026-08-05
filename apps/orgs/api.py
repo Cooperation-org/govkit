@@ -25,6 +25,7 @@ the magic-link contract on the coordination board):
   GET  /api/v1/orgs/{org_slug}/invites/{code}/            invite detail for the doorway
   POST /api/v1/orgs/{org_slug}/invites/{code}/committed/  doorway posts the claim id back
   POST /api/v1/orgs/{org_slug}/invites/mint/    doorway mints an invite for an existing card
+  GET  /api/v1/orgs/{org_slug}/invite-links/{code}/  what a shared link opens, and if it is open
   GET  /api/v1/orgs/ventures/public/                      every venture's public card
   GET  /api/v1/orgs/{org_slug}/members/by-discord/{id}/   who a Discord user is here
   GET  /api/v1/orgs/{org_slug}/profile/                   one team's public profile
@@ -69,6 +70,7 @@ from .models import (
     Invite,
     InviteAudience,
     InviteKind,
+    InviteLink,
     InviteStatus,
     Membership,
     MembershipRole,
@@ -364,6 +366,11 @@ def invite_mint(request, org_slug):
     person lands on their own card with an accept button; true leaves the
     claim unbound so they write a new card on the way in.
 
+    `link_code` names a shared InviteLink the person walked through. When it is
+    given, the link decides kind/audience/role — the door's terms are the door's
+    to state, not the caller's — and the minted invite records which link it came
+    from. A shut link mints nothing (409).
+
     Idempotent on (org, claim_id): a second call returns the invite already
     minted rather than a duplicate. Nothing here approves anything — whether
     the card shows on the wall stays workers.vc's own ledger decision.
@@ -379,17 +386,31 @@ def invite_mint(request, org_slug):
     except (json.JSONDecodeError, KeyError, TypeError, ValueError):
         return JsonResponse({"error": "claim_id (int) is required"}, status=400)
 
-    kind = str(body.get("kind") or InviteKind.ORG)
-    if kind not in InviteKind.values or kind == InviteKind.BYOV:
-        # BYOV creates a whole venture org on accept. That is a deliberate
-        # founder path, never a conversion of a walk-up.
-        return JsonResponse({"error": "kind must be 'org' or 'pool'"}, status=400)
-    audience = str(body.get("audience") or InviteAudience.SUPPORTER)
-    if audience not in InviteAudience.values:
-        return JsonResponse({"error": "unknown audience"}, status=400)
-    role = str(body.get("role") or MembershipRole.MEMBER)
-    if role not in MembershipRole.values:
-        return JsonResponse({"error": "unknown role"}, status=400)
+    invite_link = None
+    link_code = str(body.get("link_code") or "")
+    if link_code:
+        invite_link = InviteLink.objects.filter(org=org, code=link_code).first()
+        if invite_link is None:
+            return JsonResponse({"error": "not_found"}, status=404)
+        if not invite_link.is_open:
+            return JsonResponse(
+                {"error": "link_closed", "reason": invite_link.closed_reason}, status=409
+            )
+
+    if invite_link is not None:
+        kind, audience, role = invite_link.kind, invite_link.audience, invite_link.role
+    else:
+        kind = str(body.get("kind") or InviteKind.ORG)
+        if kind not in InviteKind.values or kind == InviteKind.BYOV:
+            # BYOV creates a whole venture org on accept. That is a deliberate
+            # founder path, never a conversion of a walk-up.
+            return JsonResponse({"error": "kind must be 'org' or 'pool'"}, status=400)
+        audience = str(body.get("audience") or InviteAudience.SUPPORTER)
+        if audience not in InviteAudience.values:
+            return JsonResponse({"error": "unknown audience"}, status=400)
+        role = str(body.get("role") or MembershipRole.MEMBER)
+        if role not in MembershipRole.values:
+            return JsonResponse({"error": "unknown role"}, status=400)
 
     existing = Invite.objects.filter(org=org, committed_claim_id=claim_id).first()
     if existing is not None:
@@ -401,6 +422,7 @@ def invite_mint(request, org_slug):
         kind=kind,
         audience=audience,
         role=role,
+        from_link=invite_link,
         name=str(body.get("name", ""))[:255],
         email=str(body.get("email", ""))[:254],
         link=str(body.get("link", ""))[:1000],
@@ -421,6 +443,42 @@ def invite_mint(request, org_slug):
 
 
 invite_mint.org_context_exempt = True
+
+
+@require_GET
+def invite_link_detail(request, org_slug, code):
+    """S2S: what a shared link opens, and whether it is still open.
+
+    The doorway renders its own page from this (the audience decides the words
+    on it) and then mints a personal invite per person through invite_mint with
+    `link_code`. Nothing here creates anything: resolving a link is a read, so a
+    crawler or a curious refresh leaves no rows behind. `open` false comes with
+    a `reason` the page can say out loud rather than a dead end.
+    """
+    if not _s2s_authorized(request):
+        return JsonResponse({"error": "unauthorized"}, status=401)
+    link = InviteLink.objects.filter(org__slug=org_slug, code=code).select_related("org").first()
+    if link is None:
+        return JsonResponse({"error": "not_found"}, status=404)
+    return JsonResponse(
+        {
+            "code": link.code,
+            "kind": link.kind,
+            "audience": link.audience,
+            "role": link.role,
+            "label": link.label,
+            "open": link.is_open,
+            "reason": link.closed_reason,
+            "uses": link.uses,
+            "max_uses": link.max_uses,
+            "expires_at": link.expires_at.isoformat() if link.expires_at else None,
+            "org_slug": link.org.slug,
+            "org_name": link.org.display_name,
+        }
+    )
+
+
+invite_link_detail.org_context_exempt = True
 
 
 @require_GET
@@ -927,6 +985,11 @@ urlpatterns = router.urls + [
     ),
     # Before the <str:code> route below, or "mint" is read as an invite code.
     path("<slug:org_slug>/invites/mint/", invite_mint, name="s2s_invite_mint"),
+    path(
+        "<slug:org_slug>/invite-links/<str:code>/",
+        invite_link_detail,
+        name="s2s_invite_link_detail",
+    ),
     path("<slug:org_slug>/invites/<str:code>/", invite_detail, name="s2s_invite_detail"),
     path(
         "<slug:org_slug>/invites/<str:code>/committed/",

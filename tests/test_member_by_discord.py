@@ -68,18 +68,17 @@ def test_scoped_to_the_org_in_the_path(client, s2s, steward, org_factory):
 def test_requires_the_shared_secret(client, s2s, steward):
     org, _, _ = steward
     assert client.get(url(org.slug, "1122334455")).status_code == 401
-    assert client.get(
-        url(org.slug, "1122334455"), HTTP_AUTHORIZATION="Bearer wrong"
-    ).status_code == 401
+    assert (
+        client.get(url(org.slug, "1122334455"), HTTP_AUTHORIZATION="Bearer wrong").status_code
+        == 401
+    )
 
 
 def test_disabled_when_no_token_is_configured(client, settings, steward):
     """An empty GOVKIT_S2S_TOKEN closes the door entirely."""
     settings.GOVKIT_S2S_TOKEN = ""
     org, _, _ = steward
-    assert client.get(
-        url(org.slug, "1122334455"), HTTP_AUTHORIZATION="Bearer "
-    ).status_code == 401
+    assert client.get(url(org.slug, "1122334455"), HTTP_AUTHORIZATION="Bearer ").status_code == 401
 
 
 def test_falls_back_to_email_when_no_display_name(

@@ -507,6 +507,87 @@ def default_invite_expiry():
     return timezone.now() + timedelta(days=30)
 
 
+class InviteLink(models.Model):
+    """
+    A shareable door: one code handed to many people, each of whom still gets
+    their own Invite.
+
+    An Invite is one person's record — accepting it is that person's join, and
+    for a POOL invite the accepted row IS their place in the applicant pool. So
+    a link that a whole cohort uses cannot be an Invite; it is the thing that
+    MINTS one per person. Handing this code out is handing out the right to be
+    invited, not an invitation already spent.
+
+    What the link opens (org, kind, audience, role) is settled here and copied
+    onto each minted Invite, so a person's own record still answers every
+    question about them without reading back through the link.
+    """
+
+    code = models.CharField(max_length=32, unique=True, default=new_invite_code)
+    org = models.ForeignKey(Org, on_delete=models.CASCADE, related_name="invite_links")
+    # What a person gets by walking through this door. Same vocabulary as Invite,
+    # copied onto every invite this link mints. BYOV is not offered: creating a
+    # venture org is a deliberate one-at-a-time act, never a shared door.
+    kind = models.CharField(max_length=10, choices=InviteKind.choices, default=InviteKind.POOL)
+    audience = models.CharField(
+        max_length=20, choices=InviteAudience.choices, default=InviteAudience.FOUNDER
+    )
+    role = models.CharField(
+        max_length=20, choices=MembershipRole.choices, default=MembershipRole.MEMBER
+    )
+    # For the person who minted it, to tell two links apart ("cohort 2 pool").
+    label = models.CharField(max_length=255, blank=True)
+
+    # Closing the door: switch it off, cap it, or let it lapse. All optional —
+    # a link with none of them set stays open.
+    active = models.BooleanField(default=True)
+    max_uses = models.PositiveIntegerField(null=True, blank=True, help_text="Blank means no limit.")
+    expires_at = models.DateTimeField(null=True, blank=True, help_text="Blank means no expiry.")
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="invite_links_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"InviteLink({self.label or self.code} → {self.org.slug}, {self.kind})"
+
+    @property
+    def uses(self) -> int:
+        return self.invites.count()
+
+    @property
+    def is_expired(self) -> bool:
+        return self.expires_at is not None and timezone.now() >= self.expires_at
+
+    @property
+    def is_full(self) -> bool:
+        return self.max_uses is not None and self.uses >= self.max_uses
+
+    @property
+    def is_open(self) -> bool:
+        """Whether the next person through it can still be minted an invite."""
+        return self.active and not self.is_expired and not self.is_full
+
+    @property
+    def closed_reason(self) -> str:
+        """Why it is shut, for the door to say so plainly. Empty while open."""
+        if not self.active:
+            return "closed"
+        if self.is_expired:
+            return "expired"
+        if self.is_full:
+            return "full"
+        return ""
+
+
 class Invite(models.Model):
     """
     A single-use, stateful org invite addressed by an opaque code (magic link).
@@ -577,6 +658,15 @@ class Invite(models.Model):
     # rows accepted before this field existed — they simply predate the feed.
     accepted_at = models.DateTimeField(null=True, blank=True)
     expires_at = models.DateTimeField(default=default_invite_expiry)
+    # Set when this invite was minted by someone walking through a shared link,
+    # so a batch can be told from the invites sent one at a time. Null for those.
+    from_link = models.ForeignKey(
+        "InviteLink",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="invites",
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,

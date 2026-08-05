@@ -10,7 +10,14 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.orgs.models import Invite, InviteKind, InviteStatus, Membership, MembershipRole
+from apps.orgs.models import (
+    Invite,
+    InviteKind,
+    InviteLink,
+    InviteStatus,
+    Membership,
+    MembershipRole,
+)
 from apps.orgs.invites import SESSION_KEY
 
 S2S_TOKEN = "test-s2s-secret"
@@ -787,7 +794,9 @@ def test_mint_requires_bearer_token(client, admin_org, settings):
     settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
     org, _ = admin_org
     r = client.post(
-        _s2s_mint_url(org), {"claim_id": 5}, content_type="application/json",
+        _s2s_mint_url(org),
+        {"claim_id": 5},
+        content_type="application/json",
         HTTP_AUTHORIZATION="Bearer wrong",
     )
     assert r.status_code == 401
@@ -864,3 +873,146 @@ def test_mint_needs_a_claim_id(client, admin_org, settings):
     org, _ = admin_org
     r = client.post(_s2s_mint_url(org), {}, content_type="application/json", **_auth())
     assert r.status_code == 400
+
+
+# --- Shared links: one code, one invite per person ----------------------------------------
+
+
+def _link_url(link):
+    return reverse("s2s_invite_link_detail", kwargs={"org_slug": link.org.slug, "code": link.code})
+
+
+@pytest.fixture
+def pool_link(admin_org):
+    org, admin = admin_org
+    return InviteLink.objects.create(
+        org=org, kind=InviteKind.POOL, audience="founder", label="Cohort pool", created_by=admin
+    )
+
+
+@pytest.mark.django_db
+def test_a_shared_link_is_open_by_default(pool_link):
+    assert pool_link.is_open
+    assert pool_link.closed_reason == ""
+    assert pool_link.uses == 0
+
+
+@pytest.mark.django_db
+def test_link_detail_needs_the_bearer_token(client, pool_link, settings):
+    settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
+    assert client.get(_link_url(pool_link), HTTP_AUTHORIZATION="Bearer wrong").status_code == 401
+
+
+@pytest.mark.django_db
+def test_link_detail_says_what_it_opens(client, pool_link, settings):
+    settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
+    body = client.get(_link_url(pool_link), **_auth()).json()
+    assert body["kind"] == "pool"
+    assert body["audience"] == "founder"
+    assert body["open"] is True
+
+
+@pytest.mark.django_db
+def test_the_same_link_mints_a_separate_invite_for_each_person(client, pool_link, settings):
+    """The whole point: a cohort shares one URL and nobody spends anyone else's place."""
+    settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
+    for i, name in enumerate(["Ana", "Bo", "Cy"], start=1):
+        r = client.post(
+            _s2s_mint_url(pool_link.org),
+            {"claim_id": 900 + i, "name": name, "link_code": pool_link.code},
+            content_type="application/json",
+            **_auth(),
+        )
+        assert r.status_code == 201
+    minted = Invite.objects.filter(from_link=pool_link)
+    assert minted.count() == 3
+    assert len({i.code for i in minted}) == 3
+    assert pool_link.uses == 3
+    # Every one of them is their own pool applicant, ready to accept.
+    assert all(i.kind == InviteKind.POOL and i.can_accept for i in minted)
+
+
+@pytest.mark.django_db
+def test_the_link_decides_what_a_person_gets_not_the_caller(client, pool_link, settings):
+    """Terms are the door's. A caller asking for org membership still gets the pool."""
+    settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
+    client.post(
+        _s2s_mint_url(pool_link.org),
+        {
+            "claim_id": 931,
+            "name": "Dee",
+            "link_code": pool_link.code,
+            "kind": "org",
+            "role": "admin",
+            "audience": "funder",
+        },
+        content_type="application/json",
+        **_auth(),
+    )
+    minted = Invite.objects.get(org=pool_link.org, name="Dee")
+    assert minted.kind == InviteKind.POOL
+    assert minted.audience == "founder"
+    assert minted.role == MembershipRole.MEMBER
+
+
+@pytest.mark.django_db
+def test_a_closed_link_mints_nothing(client, pool_link, settings):
+    settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
+    pool_link.active = False
+    pool_link.save(update_fields=["active"])
+    r = client.post(
+        _s2s_mint_url(pool_link.org),
+        {"claim_id": 940, "name": "Late", "link_code": pool_link.code},
+        content_type="application/json",
+        **_auth(),
+    )
+    assert r.status_code == 409
+    assert r.json()["reason"] == "closed"
+    assert not Invite.objects.filter(org=pool_link.org, name="Late").exists()
+
+
+@pytest.mark.django_db
+def test_a_full_link_and_a_lapsed_link_are_shut_with_a_reason(client, pool_link, settings):
+    settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
+    pool_link.max_uses = 1
+    pool_link.save(update_fields=["max_uses"])
+    client.post(
+        _s2s_mint_url(pool_link.org),
+        {"claim_id": 950, "name": "First", "link_code": pool_link.code},
+        content_type="application/json",
+        **_auth(),
+    )
+    assert client.get(_link_url(pool_link), **_auth()).json() == {
+        **client.get(_link_url(pool_link), **_auth()).json(),
+        "open": False,
+        "reason": "full",
+    }
+    pool_link.max_uses = None
+    pool_link.expires_at = timezone.now() - timedelta(minutes=1)
+    pool_link.save(update_fields=["max_uses", "expires_at"])
+    assert pool_link.closed_reason == "expired"
+
+
+@pytest.mark.django_db
+def test_an_unknown_link_code_is_not_found(client, pool_link, settings):
+    settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
+    r = client.post(
+        _s2s_mint_url(pool_link.org),
+        {"claim_id": 960, "link_code": "nosuchcode"},
+        content_type="application/json",
+        **_auth(),
+    )
+    assert r.status_code == 404
+
+
+@pytest.mark.django_db
+def test_an_ordinary_mint_records_no_link(client, admin_org, settings):
+    settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
+    org, _ = admin_org
+    client.post(
+        _s2s_mint_url(org),
+        {"claim_id": 970, "name": "Solo"},
+        content_type="application/json",
+        **_auth(),
+    )
+    assert Invite.objects.get(org=org, name="Solo").from_link is None
