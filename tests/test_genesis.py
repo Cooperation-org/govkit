@@ -8,7 +8,7 @@ venture fields on the invite mint + S2S payload.
 import pytest
 from django.urls import reverse
 
-from apps.orgs.genesis import MODULES
+from apps.orgs.genesis import ITEM_BRIEFS, MODULES, toggle_item
 from apps.orgs.models import (
     ChecklistEvent,
     Invite,
@@ -130,6 +130,36 @@ def test_dashboard_renders_module_index(client, user_factory, founder_invite):
     for key, _label, _week, _items in MODULES:
         assert f'id="module-{key}"' in body
     assert "gk-cyoa-index" in body
+
+
+def test_brief_tells_you_how_until_you_have_done_it(client, user_factory, founder_invite):
+    """An undone item carries its brief; a ticked one drops it, so a team that is
+    getting on with it is not still reading instructions."""
+
+    user = user_factory()
+    client.force_login(user)
+    _accept(client, founder_invite)
+    venture = Org.objects.get(slug="integral-mass")
+    key = MODULES[0][3][0][0]
+    brief = ITEM_BRIEFS[key]
+
+    url = reverse("orgs:dashboard", kwargs={"org_slug": venture.slug})
+    assert brief in client.get(url).content.decode()
+
+    toggle_item(venture, key, user)
+    assert brief not in client.get(url).content.decode()
+
+
+def test_every_curriculum_item_says_how(client):
+    """A new item with no brief is the old one-line checklist again."""
+
+    missing = [
+        item_key
+        for _m, _l, _w, items in MODULES
+        for item_key, _title in items
+        if not ITEM_BRIEFS.get(item_key)
+    ]
+    assert missing == []
 
 
 def test_member_toggles_checklist_item(client, user_factory, founder_invite):
