@@ -101,6 +101,11 @@ COHORT_NAV_SRC = env("COHORT_NAV_SRC")
 # as the nav: one copy, served by the app that owns the card. Empty hides the
 # card section entirely — a standalone GovKit has no wall to publish to.
 COHORT_VIDEO_SRC = env("COHORT_VIDEO_SRC")
+if not COHORT_VIDEO_SRC and COHORT_NAV_SRC:
+    # Both embeds come from the same app at the same path, so an install that
+    # already mounts the nav gets the recorder without a second variable to
+    # remember. Setting COHORT_VIDEO_SRC explicitly still wins.
+    COHORT_VIDEO_SRC = COHORT_NAV_SRC.rsplit("/", 1)[0] + "/video-recorder.js"
 
 # Where a team's public join page lives — the cohort's public site, not GovKit.
 # The share link is f"{VENTURE_PAGE_BASE_URL}/{org.slug}/", e.g.

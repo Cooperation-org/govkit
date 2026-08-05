@@ -7,6 +7,7 @@ say which claim, hand over the video, and note the id that comes back.
 """
 
 import json
+import os
 from unittest.mock import patch
 
 import pytest
@@ -131,3 +132,25 @@ def test_someone_without_a_card_cannot_republish_one(client, wired, me):
 @pytest.mark.django_db
 def test_it_is_a_post_only_route(client, wired, card):
     assert client.get(reverse("accounts:profile_card_video")).status_code == 405
+
+
+def test_the_recorder_is_found_next_to_the_nav_embed_without_a_second_setting():
+    """An install that already mounts the cohort nav gets the recorder too —
+    same app, same path, one variable to set instead of two."""
+    from django.conf import settings as django_settings
+    from importlib import reload
+
+    import config.settings as s
+
+    old = os.environ.get("COHORT_VIDEO_SRC")
+    os.environ["COHORT_NAV_SRC"] = "https://workers.vc/static/embed/cohort-nav.js"
+    os.environ.pop("COHORT_VIDEO_SRC", None)
+    try:
+        reload(s)
+        assert s.COHORT_VIDEO_SRC == "https://workers.vc/static/embed/video-recorder.js"
+    finally:
+        if old is not None:
+            os.environ["COHORT_VIDEO_SRC"] = old
+        os.environ.pop("COHORT_NAV_SRC", None)
+        reload(s)
+    assert django_settings.DEBUG is not None  # settings still usable
