@@ -13,8 +13,10 @@ NOTE (orchestrator): mount this router by adding to config/urls.py:
 from __future__ import annotations
 
 from django.contrib.auth import get_user_model
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.urls import path
+from django.views.decorators.http import require_GET
 from rest_framework import serializers
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -22,6 +24,7 @@ from rest_framework.routers import DefaultRouter
 from rest_framework.views import APIView
 
 from apps.orgs.models import Invite, InviteKind, InviteStatus, Membership
+from apps.orgs.s2s import authorized as s2s_authorized
 
 from .models import ProfileLink
 
@@ -116,6 +119,57 @@ class PublicProfileView(APIView):
         )
 
 
+@require_GET
+def s2s_identity(request, provider, subject):
+    """Who this login is, for another server that holds one.
+
+    `accounts/me` answers the same question but only to the person's own
+    browser, so a server holding nothing but an OIDC subject could not ask it.
+    That gap is why amebo turned away everyone in the workers pool: no
+    membership anywhere reads, from the outside, exactly like nobody.
+
+    Belonging to no org is a real state, not a broken one. A person in the pool
+    holds an accepted pool invite and no membership, and this says so plainly:
+
+        {"pool": true, "memberships": [], ...}
+
+    A stranger is 404, which is a different answer and must stay one.
+
+    Plain Django, not DRF: the caller is a server with a shared bearer secret,
+    the same channel the doorway and the member directory already use.
+    """
+    if not s2s_authorized(request):
+        return JsonResponse({"error": "unauthorized"}, status=401)
+
+    user = (
+        get_user_model()
+        .objects.filter(auth_provider=provider, auth_provider_id=subject, is_active=True)
+        .first()
+    )
+    if user is None:
+        return JsonResponse({"error": "not found"}, status=404)
+
+    accepted = Invite.objects.filter(accepted_by=user, status=InviteStatus.ACCEPTED)
+    audience_by_org_id = dict(accepted.values_list("org_id", "audience"))
+    memberships = Membership.objects.filter(user=user).select_related("org").order_by("org__slug")
+    return JsonResponse(
+        {
+            "display_name": user.get_full_name(),
+            "email": user.email,
+            "pool": accepted.filter(kind=InviteKind.POOL).exists(),
+            "memberships": [
+                {
+                    "org_slug": m.org.slug,
+                    "org_name": m.org.display_name,
+                    "role": m.role,
+                    "audience": audience_by_org_id.get(m.org_id),
+                }
+                for m in memberships
+            ],
+        }
+    )
+
+
 router = DefaultRouter()  # reserved for future account resources
 
 urlpatterns = router.urls + [
@@ -124,5 +178,10 @@ urlpatterns = router.urls + [
         "profiles/<slug:provider>/<path:subject>/",
         PublicProfileView.as_view(),
         name="public_profile",
+    ),
+    path(
+        "s2s/identity/<slug:provider>/<path:subject>/",
+        s2s_identity,
+        name="s2s_identity",
     ),
 ]

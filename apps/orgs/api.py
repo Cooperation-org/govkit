@@ -43,7 +43,6 @@ agenticable"). Members, rates, pie and governance are deliberately not.
 from __future__ import annotations
 
 import json
-import secrets
 from datetime import date
 
 import logging
@@ -241,11 +240,11 @@ class ChecklistToggleView(APIView):
 
 
 def _s2s_authorized(request) -> bool:
-    expected = settings.GOVKIT_S2S_TOKEN
-    if not expected:
-        return False
-    supplied = request.headers.get("Authorization", "")
-    return secrets.compare_digest(supplied, f"Bearer {expected}")
+    """Kept as a name here; the check itself lives in orgs/s2s.py so the other
+    S2S surfaces (accounts) share one implementation."""
+    from .s2s import authorized
+
+    return authorized(request)
 
 
 def _invite_payload(invite: Invite, request) -> dict:
