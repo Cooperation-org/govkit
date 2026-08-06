@@ -96,11 +96,7 @@ def wall_cards_by_claim(claim_ids):
     if not ids:
         return {}
     people, _problem = _fetch_wall_people()
-    return {
-        p["claim_id"]: p
-        for p in people
-        if p.get("claim_id") in ids
-    }
+    return {p["claim_id"]: p for p in people if p.get("claim_id") in ids}
 
 
 def _accounts_by_claim(claim_ids):

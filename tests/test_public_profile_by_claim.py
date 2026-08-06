@@ -29,11 +29,16 @@ def accepted_invite(db, user_factory, org_factory):
 def test_profile_serves_by_claim(client, accepted_invite):
     user, invite = accepted_invite
     ProfileLink.objects.create(
-        user=user, kind=ProfileLinkKind.GITHUB, url="https://github.com/ada",
-        handle="ada", is_public=True,
+        user=user,
+        kind=ProfileLinkKind.GITHUB,
+        url="https://github.com/ada",
+        handle="ada",
+        is_public=True,
     )
     ProfileLink.objects.create(
-        user=user, kind=ProfileLinkKind.CALENDAR, url="https://cal.example/ada",
+        user=user,
+        kind=ProfileLinkKind.CALENDAR,
+        url="https://cal.example/ada",
         is_public=False,
     )
     resp = client.get(reverse("public_profile_by_claim", args=[4242]))
@@ -41,19 +46,17 @@ def test_profile_serves_by_claim(client, accepted_invite):
     data = resp.json()
     assert data["display_name"] == "Ada Example"
     assert data["bio"] == "I build verification systems."
-    assert [l["kind"] for l in data["links"]] == ["github"]
+    assert [link["kind"] for link in data["links"]] == ["github"]
     assert data["claim_ids"] == [4242]
 
 
 def test_unknown_or_unaccepted_claim_404s(client, db, user_factory, org_factory):
     org = org_factory()
     Invite.objects.create(
-        org=org, kind=InviteKind.POOL, status=InviteStatus.COMMITTED,
+        org=org,
+        kind=InviteKind.POOL,
+        status=InviteStatus.COMMITTED,
         committed_claim_id=5151,
     )
-    assert client.get(
-        reverse("public_profile_by_claim", args=[5151])
-    ).status_code == 404
-    assert client.get(
-        reverse("public_profile_by_claim", args=[999999])
-    ).status_code == 404
+    assert client.get(reverse("public_profile_by_claim", args=[5151])).status_code == 404
+    assert client.get(reverse("public_profile_by_claim", args=[999999])).status_code == 404

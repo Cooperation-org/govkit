@@ -118,11 +118,13 @@ class TestPool:
         org = org_factory()
         person = user_factory(display_name="Pool Person")
         self._pool_accept(org, person, committed_claim_id=700)
-        wall = [{
-            "claim_id": 700,
-            "page_url": "https://workers.vc/p/700/",
-            "skills": ["contract drafting", "Yoruba"],
-        }]
+        wall = [
+            {
+                "claim_id": 700,
+                "page_url": "https://workers.vc/p/700/",
+                "skills": ["contract drafting", "Yoruba"],
+            }
+        ]
         with patch("apps.commons.views.wall_cards_by_claim", return_value={700: wall[0]}):
             html = logged_in.get("/commons/pool/").content.decode()
         assert "contract drafting" in html
