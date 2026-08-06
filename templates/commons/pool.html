@@ -1,20 +1,51 @@
 {% extends "base.html" %}
 {% block title %}Pool — GovKit{% endblock %}
 {% block content %}
+  <style>
+    /* Whole-card link, the stretched-link pattern: the anchor on the name
+       throws a transparent overlay across the card, so a click anywhere goes
+       to the person. Their own links sit above that overlay and still go
+       where they say — which nesting one anchor inside another could not do. */
+    .gk-pool-card { position: relative; }
+    .gk-pool-card h2 { display: flex; align-items: center; gap: 0.5rem; }
+    .gk-pool-card h2 a { color: inherit; }
+    .gk-pool-card h2 a::after { content: ""; position: absolute; inset: 0;
+                                border-radius: var(--gk-radius-card); }
+    .gk-pool-card:hover { border-color: var(--gk-border-strong); }
+    .gk-pool-card:hover h2 a { color: var(--gk-accent); }
+    .gk-pool-card .gk-their-links { position: relative; z-index: 1; }
+    /* What they can do. First thing under the name, because it is what a
+       venture came here to read. */
+    .gk-skills { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.5rem 0; }
+    .gk-skills span { font-size: 0.8rem; line-height: 1.6; padding: 0 0.6rem;
+                      border: 1px solid var(--gk-border); border-radius: 999px;
+                      color: var(--gk-ink-2); }
+  </style>
+
   <h1>Pool</h1>
   <p class="gk-placeholder">People screened in and looking for a team.</p>
 
   {% for invite in invites %}
-    <div class="gk-card">
+    <div class="gk-card gk-pool-card">
       <h2>
         {% if invite.accepted_by.avatar_url %}
           <img src="{{ invite.accepted_by.avatar_url }}" alt="" width="28" height="28"
-               style="border-radius:50%;vertical-align:middle">
+               style="border-radius:50%">
         {% endif %}
-        {{ invite.accepted_by.get_full_name }}
+        {% if invite.wall_url %}
+          <a href="{{ invite.wall_url }}">{{ invite.accepted_by.get_full_name }}</a>
+        {% else %}
+          {{ invite.accepted_by.get_full_name }}
+        {% endif %}
       </h2>
+
+      {% if invite.skills %}
+        <p class="gk-skills">{% for skill in invite.skills %}<span>{{ skill }}</span>{% endfor %}</p>
+      {% endif %}
+
       {% if invite.accepted_by.bio %}<p>{{ invite.accepted_by.bio|linebreaksbr }}</p>{% endif %}
-      <p class="gk-placeholder">
+
+      <p class="gk-placeholder gk-their-links">
         {{ invite.get_audience_display }}
         {% for link in invite.accepted_by.public_links %}
           · <a href="{{ link.url|default:'#' }}" rel="noopener">

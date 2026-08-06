@@ -81,6 +81,28 @@ def mentors():
     return [{**p, "profile": accounts.get(p.get("claim_id"))} for p in people], problem
 
 
+def wall_cards_by_claim(claim_ids):
+    """claim_id -> what the doorway knows about them, for the ones we asked for.
+
+    The card a person made on the wall is theirs and lives there; a page here
+    that lists people should show what is on it rather than a name on its own.
+    Skills are the part a venture is reading for, and `page_url` is the
+    doorway's own address for the person, so nothing here has to know how the
+    wall addresses anybody.
+
+    Empty when the wall is unreachable — a list of people must still render.
+    """
+    ids = {c for c in claim_ids if c}
+    if not ids:
+        return {}
+    people, _problem = _fetch_wall_people()
+    return {
+        p["claim_id"]: p
+        for p in people
+        if p.get("claim_id") in ids
+    }
+
+
 def _accounts_by_claim(claim_ids):
     """claim_id -> that person's profile here, for the ones who have signed in.
 

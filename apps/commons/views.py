@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import ProfileLink
+from apps.orgs.doorway import wall_cards_by_claim
 from apps.orgs.models import Invite, InviteKind, InviteStatus, Org
 
 from .mail import notify_venture_interest
@@ -106,7 +107,14 @@ def idea_interest(request, slug):
 @login_required
 def pool_view(request):
     """People screened into the applicant pool: accepted pool invites, rendered
-    with the person's public profile layer (bio + opted-in links)."""
+    with the person's public profile layer (bio + opted-in links).
+
+    Each person also carries their wall card: the skills they listed and the
+    address of their page on the doorway. A venture comes here to find someone
+    who can do a thing, so the skills are on the card and the whole card is a
+    link through to them. The wall being down costs the skills and the link,
+    never the page.
+    """
     invites = (
         Invite.objects.filter(
             kind=InviteKind.POOL, status=InviteStatus.ACCEPTED, accepted_by__isnull=False
@@ -121,4 +129,9 @@ def pool_view(request):
         )
         .order_by("-expires_at")
     )
+    cards = wall_cards_by_claim([i.committed_claim_id for i in invites])
+    for invite in invites:
+        card = cards.get(invite.committed_claim_id) or {}
+        invite.wall_url = card.get("page_url", "")
+        invite.skills = card.get("skills") or []
     return render(request, "commons/pool.html", {"invites": invites})

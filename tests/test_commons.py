@@ -2,6 +2,8 @@
 signed up; ideas coalesce via support/build interest; pool = accepted pool
 invites rendered with the public profile layer."""
 
+from unittest.mock import patch
+
 import pytest
 
 from apps.accounts.models import ProfileLink, ProfileLinkKind
@@ -108,6 +110,34 @@ class TestPool:
         assert "I cook." in html
         assert "@pool.bsky.social" in html
         assert "secret.example.com" not in html  # private link stays private
+
+    def test_their_skills_and_a_way_through_to_them_come_from_the_wall(
+        self, logged_in, org_factory, user_factory
+    ):
+        """A venture reads this page to find someone who can do a thing."""
+        org = org_factory()
+        person = user_factory(display_name="Pool Person")
+        self._pool_accept(org, person, committed_claim_id=700)
+        wall = [{
+            "claim_id": 700,
+            "page_url": "https://workers.vc/p/700/",
+            "skills": ["contract drafting", "Yoruba"],
+        }]
+        with patch("apps.commons.views.wall_cards_by_claim", return_value={700: wall[0]}):
+            html = logged_in.get("/commons/pool/").content.decode()
+        assert "contract drafting" in html
+        assert "Yoruba" in html
+        assert 'href="https://workers.vc/p/700/"' in html
+
+    def test_the_page_still_renders_when_the_wall_is_down(
+        self, logged_in, org_factory, user_factory
+    ):
+        org = org_factory()
+        person = user_factory(display_name="Pool Person")
+        self._pool_accept(org, person, committed_claim_id=700)
+        with patch("apps.commons.views.wall_cards_by_claim", return_value={}):
+            html = logged_in.get("/commons/pool/").content.decode()
+        assert "Pool Person" in html
 
     def test_org_invites_and_unaccepted_pool_invites_excluded(
         self, logged_in, org_factory, user_factory
