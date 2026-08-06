@@ -69,8 +69,6 @@
     var save = document.getElementById('card-video-save');
     LTVideo.attach(document.getElementById('card-video'), {
       ltApi: '{{ linkedtrust_url|escapejs }}',
-      // Nothing to save until the upload has actually landed, so the button
-      // stays off rather than failing after a click.
       onUploaded: function () { save.disabled = false; }
     });
   })();
