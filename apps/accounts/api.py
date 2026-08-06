@@ -119,6 +119,55 @@ class PublicProfileView(APIView):
         )
 
 
+class PublicProfileByClaimView(APIView):
+    """Public profile for the person whose accepted invite carries this claim.
+
+    The accepted Invite row (committed_claim_id + accepted_by) IS the
+    claim-to-person link — the claim joins their profile the moment they are
+    accepted (golda 2026-08-06), and a person can hold several claims, one per
+    accepted invite; claim_ids lists them all. Consumed by workers.vc person
+    pages. No auth: only opted-in fields serve (same contract as
+    PublicProfileView), and the claims themselves are already public wall
+    content. Walk-ups without a GovKit invite have no profile here — 404.
+    """
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, claim_id):
+        invite = (
+            Invite.objects.filter(
+                committed_claim_id=claim_id,
+                status=InviteStatus.ACCEPTED,
+                accepted_by__isnull=False,
+                accepted_by__is_active=True,
+            )
+            .select_related("accepted_by")
+            .first()
+        )
+        if invite is None:
+            from django.http import Http404
+
+            raise Http404
+        user = invite.accepted_by
+        links = user.profile_links.filter(is_public=True)
+        claim_ids = list(
+            Invite.objects.filter(
+                accepted_by=user,
+                status=InviteStatus.ACCEPTED,
+                committed_claim_id__isnull=False,
+            ).values_list("committed_claim_id", flat=True)
+        )
+        return Response(
+            {
+                "display_name": user.get_full_name(),
+                "avatar_url": user.avatar_url,
+                "bio": user.bio,
+                "links": _PublicProfileLinkSerializer(links, many=True).data,
+                "claim_ids": claim_ids,
+            }
+        )
+
+
 @require_GET
 def s2s_identity(request, provider, subject):
     """Who this login is, for another server that holds one.
@@ -174,6 +223,11 @@ router = DefaultRouter()  # reserved for future account resources
 
 urlpatterns = router.urls + [
     path("me/", MeView.as_view(), name="me"),
+    path(
+        "profiles/by-claim/<int:claim_id>/",
+        PublicProfileByClaimView.as_view(),
+        name="public_profile_by_claim",
+    ),
     path(
         "profiles/<slug:provider>/<path:subject>/",
         PublicProfileView.as_view(),
