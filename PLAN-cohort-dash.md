@@ -71,7 +71,7 @@ overview listing every org the viewer belongs to. Mentor booking info
 
 **Deploys.** Push to main deploys workers.vc / govkit / amebo / marten
 via GitHub Actions → `/opt/earnkit/bin/update-*` (service restart). Odoo
-addons and nginx/env changes deploy by ansible run (see earnkit plan).
+addons and nginx/env changes are made directly on the VM, then recorded in earnkit (no ansible run).
 
 **Sequencing.** GovKit's CORS + bundle is the critical path (4 of the 8
 cards); everything else proceeds in parallel against these contracts, and
