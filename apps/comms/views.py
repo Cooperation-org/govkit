@@ -25,8 +25,8 @@ from django.views.decorators.http import require_POST
 
 from . import rewrite as editor
 from . import services
-from .models import AUDIENCE_KEYS, Edition, Send
-from .sources import govkit
+from .models import AUDIENCE_KEYS, SUPPORTERS, Edition, Send
+from .sources import crm, govkit
 
 
 def _admin_only(view):
@@ -58,6 +58,7 @@ def index(request, org_slug):
     edition = services.open_edition(org_slug)
     send = services.send_for(edition, audience)
     missing, problem = services.missing_events(edition)
+    crm_tags, crm_problem = crm.tags() if audience == SUPPORTERS else ([], "")
 
     page_url = ""
     if send.public_token:
@@ -95,6 +96,13 @@ def index(request, org_slug):
             "plain_text": services.plain_text(edition, audience, send.subject),
             "can_ask": editor.available(),
             "past": _past(org_slug),
+            # Supporters is a list we build up rather than a role, so it is the
+            # one audience with a way to bring people in.
+            "is_list": audience == SUPPORTERS,
+            "list_size": services.audience_size(org_slug, audience),
+            "crm_tags": crm_tags,
+            "crm_problem": crm_problem,
+            "crm_ready": crm.available(),
         },
     )
 
@@ -168,6 +176,38 @@ def add_from_calendar(request, org_slug, pk):
     edition = get_object_or_404(Edition, pk=pk, org_slug=org_slug)
     services.add_event(edition, request.POST.get("uid", ""))
     return redirect(_back(org_slug, _audience(request)))
+
+
+@_admin_only
+@require_POST
+def import_list(request, org_slug, pk):
+    """Bring a CRM tag onto the supporters list.
+
+    The list is built up an import at a time, so this is safe to press again:
+    it adds whoever is new and refreshes the rest from the CRM, and it never
+    removes anybody — leaving a tag is not the same as asking us to stop.
+    """
+    get_object_or_404(Edition, pk=pk, org_slug=org_slug)
+    audience = _audience(request)
+    try:
+        tag_id = int(request.POST.get("tag", ""))
+    except ValueError:
+        messages.error(request, "Pick a tag first.")
+        return redirect(_back(org_slug, audience))
+
+    tag_name = request.POST.get("tag_name", "")
+    added, refreshed, problem = services.import_from_crm(
+        org_slug, audience, tag_id, tag_name
+    )
+    if problem:
+        messages.error(request, problem)
+    else:
+        messages.info(
+            request,
+            f"{added} new from {tag_name}, {refreshed} already here. "
+            f"{services.audience_size(org_slug, audience)} on the list.",
+        )
+    return redirect(_back(org_slug, audience))
 
 
 @_admin_only

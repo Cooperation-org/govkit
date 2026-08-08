@@ -27,3 +27,17 @@ templates read as junk. The reasoning that used to sit in them lives here.
 ## `orgs/mentors.html`
 
 - One card per mentor, in the house language: warm paper, hairline, ink. A face, their own words, and the one thing you came to do.
+
+## comms/_sheet.html and comms/index.html
+
+`_sheet.html` is the email itself, used three times: the sheet being written, a
+past send opened in place, and the page a link in the email points at. `editable`
+is what makes it the first of those — it turns on typing in place. Everything
+inside the sheet is content; nothing inside it is a control, which is the whole
+design (abra `workersvc-comms-wysiwyg`), so the buttons live in `index.html`
+around it.
+
+In `index.html`, `is_list` marks the Supporters tab. It is the one audience that
+is a mailing list rather than a role, so it is the only one with a way to bring
+people in, and the only one with no calendar section — hence the calendar chips
+and the calendar warnings are held back there.

@@ -1268,3 +1268,20 @@ one (abra `workersvc-comms-human-edit-required`).
 The bottom "ask here for ai edits" line is live when COMMS_ANTHROPIC_API_KEY is set;
 unset, it does not render. It only edits lines that are already there — it cannot
 invent a meeting.
+
+### Supporters (2026-08-08, same session)
+Fourth audience, and the only one that is a list rather than a role: `comms_subscriber`
+holds `(source, external_id, email, name, via)` — a handle and a cached address, not a
+second home for a person. Imported from the Odoo CRM by contact TAG (`res.partner.category`),
+never by role, through `sources/crm.py`. `is_blacklisted` is honoured on the way in;
+`res.partner` has no `opt_out` field, whatever older plans say. Re-importing is safe:
+adds the new, refreshes the rest, removes nobody. Unsubscribe is comms-owned and keyed
+by email, so one covers every list.
+
+Supporters gets news, not opportunities: sections `news` + a standing `support` footer
+(follow us, sponsor). Sections marked `carry` are copied forward from last week's edition,
+so the footer is written once and then edited rather than retyped, and each week owns its
+own copy so editing it never rewrites an email that already went.
+
+TO TURN THE IMPORT ON the cohort VM needs COMMS_CRM_URL and COMMS_CRM_KEY in its env
+(deploy config lives in ../earnkit, not here). Unset, the control does not render.

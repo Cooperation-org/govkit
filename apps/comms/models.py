@@ -20,21 +20,37 @@ import secrets
 
 from django.db import models
 
-# The three emails. A slug, not a foreign key: another org can grow its own set
+# The emails. A slug, not a foreign key: another org can grow its own set
 # without a migration, and nothing here assumes the accelerator.
-WORKERS, VENTURES, MENTORS = "w", "v", "m"
-AUDIENCES = [(WORKERS, "Workers"), (VENTURES, "Ventures"), (MENTORS, "Mentors")]
+#
+# The first three are the cohort: who you are in the run decides which one you
+# get. Supporters is not a role — it is a mailing list we build up, of people
+# from the CRM and, later, from here. It gets news rather than things to do, so
+# it does not share the cohort's sections.
+WORKERS, VENTURES, MENTORS, SUPPORTERS = "w", "v", "m", "s"
+COHORT_AUDIENCES = [WORKERS, VENTURES, MENTORS]
+AUDIENCES = [
+    (WORKERS, "Workers"),
+    (VENTURES, "Ventures"),
+    (MENTORS, "Mentors"),
+    (SUPPORTERS, "Supporters"),
+]
 AUDIENCE_KEYS = [k for k, _ in AUDIENCES]
 
 # Sections in the order they read. `cal` marks the one filled from the calendar,
-# where a line carries a day and a time and points at Google Calendar. Titles are
-# edited in place, so this is only the starting set.
+# where a line carries a day and a time and points at Google Calendar. `carry`
+# marks one that is the same every week — it is copied forward from last week's
+# edition, so a standing footer is written once and then edited, never retyped.
+# Titles are edited in place, so this is only the starting set.
 DEFAULT_SECTIONS = [
     {"k": "goals", "title": "Goals this week", "tpl": [WORKERS, VENTURES]},
     {"k": "vent", "title": "Where the ventures are", "tpl": [MENTORS]},
-    {"k": "cal", "title": "Coming up", "tpl": AUDIENCE_KEYS, "cal": True},
-    {"k": "opp", "title": "New opportunities", "tpl": AUDIENCE_KEYS},
-    {"k": "foot", "title": "", "tpl": AUDIENCE_KEYS},
+    {"k": "news", "title": "What's new", "tpl": [SUPPORTERS]},
+    {"k": "cal", "title": "Coming up", "tpl": COHORT_AUDIENCES, "cal": True},
+    {"k": "opp", "title": "New opportunities", "tpl": COHORT_AUDIENCES},
+    {"k": "foot", "title": "", "tpl": COHORT_AUDIENCES},
+    # The standing footer on the supporters' email: follow us, and sponsor.
+    {"k": "support", "title": "", "tpl": [SUPPORTERS], "carry": True},
 ]
 
 
@@ -128,3 +144,51 @@ class Send(models.Model):
         if not self.public_token:
             self.public_token = secrets.token_urlsafe(16)[:32]
         return self.public_token
+
+
+class Subscriber(models.Model):
+    """One address on a list comms sends to, and where it came from.
+
+    The cohort audiences need no rows here: who is a worker or a mentor is a
+    fact GovKit and the doorway already hold, and comms asks them at send time.
+    Supporters is the other kind of list — people who asked to hear from us,
+    with no role in the run — so it is built up an import at a time.
+
+    This is a handle and a cached address, never a second home for a person
+    (apps/comms/BOUNDARIES.md). `source` and `external_id` say where the real
+    record lives; re-importing updates the cached name and address from there.
+    Unsubscribing is comms's own business and is keyed by email, so one
+    unsubscribe covers every list and every source.
+    """
+
+    CRM = "crm"
+    GOVKIT = "govkit"
+    TYPED = "typed"
+
+    org_slug = models.SlugField(max_length=64, db_index=True)
+    audience = models.SlugField(max_length=40)
+
+    source = models.CharField(max_length=16)
+    external_id = models.CharField(max_length=64)
+    email = models.EmailField()
+    name = models.CharField(max_length=255, blank=True)
+    # Which CRM tag brought them in, so a list can say what it is made of.
+    via = models.CharField(max_length=120, blank=True)
+
+    added_at = models.DateTimeField(auto_now_add=True)
+    refreshed_at = models.DateTimeField(auto_now=True)
+    unsubscribed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "comms_subscriber"
+        ordering = ["name", "email"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["org_slug", "audience", "source", "external_id"],
+                name="comms_one_row_per_person_per_list",
+            )
+        ]
+        indexes = [models.Index(fields=["org_slug", "audience", "email"])]
+
+    def __str__(self) -> str:
+        return f"{self.email} ({self.source})"

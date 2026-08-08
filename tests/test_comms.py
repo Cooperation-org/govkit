@@ -286,3 +286,92 @@ def test_the_default_send_date_is_before_the_week_it_is_about(edition):
     when = services.default_send_at(edition)
     assert when.date() < edition.window_start
     assert edition.window_start - when.date() == timedelta(days=services.LEAD_DAYS)
+
+
+# --- Supporters: a list, not a role ------------------------------------------
+
+
+def test_supporters_get_news_not_the_cohort_sections(edition):
+    keys = [s["k"] for s in services.email(edition, "s")]
+    assert "news" in keys
+    assert "goals" not in keys and "opp" not in keys and "cal" not in keys
+
+
+def test_supporters_subject_does_not_talk_about_the_week(edition):
+    assert "week" not in services.default_subject(edition, "s").lower()
+    assert "week" in services.default_subject(edition, "w").lower()
+
+
+def test_importing_a_crm_tag_builds_the_list(calendar_org):
+    found = [
+        {"external_id": "5", "email": "a@example.com", "name": "A"},
+        {"external_id": "9", "email": "b@example.com", "name": "B"},
+    ]
+    with patch("apps.comms.sources.crm.people", return_value=(found, "")):
+        added, refreshed, problem = services.import_from_crm("vc", "s", 13, "Funder")
+
+    assert (added, refreshed, problem) == (2, 0, "")
+    assert services.audience_size("vc", "s") == 2
+    assert set(services.subscribers("vc", "s").values_list("via", flat=True)) == {"Funder"}
+
+
+def test_importing_again_refreshes_and_never_duplicates(calendar_org):
+    first = [{"external_id": "5", "email": "a@example.com", "name": "A"}]
+    with patch("apps.comms.sources.crm.people", return_value=(first, "")):
+        services.import_from_crm("vc", "s", 13, "Funder")
+
+    moved = [{"external_id": "5", "email": "new@example.com", "name": "A Renamed"}]
+    with patch("apps.comms.sources.crm.people", return_value=(moved, "")):
+        added, refreshed, _problem = services.import_from_crm("vc", "s", 13, "Funder")
+
+    assert (added, refreshed) == (0, 1)
+    row = services.subscribers("vc", "s").get()
+    assert (row.email, row.name) == ("new@example.com", "A Renamed")
+
+
+def test_one_address_twice_in_the_crm_is_one_row(calendar_org):
+    twice = [
+        {"external_id": "5", "email": "same@example.com", "name": "A"},
+        {"external_id": "6", "email": "same@example.com", "name": "A again"},
+    ]
+    with patch("apps.comms.sources.crm.people", return_value=(twice, "")):
+        added, _refreshed, _problem = services.import_from_crm("vc", "s", 13, "Funder")
+    assert added == 1
+    assert services.audience_size("vc", "s") == 1
+
+
+def test_unsubscribing_is_by_address_so_it_covers_every_list(calendar_org):
+    who = [{"external_id": "5", "email": "a@example.com", "name": "A"}]
+    with patch("apps.comms.sources.crm.people", return_value=(who, "")):
+        services.import_from_crm("vc", "s", 13, "Funder")
+        services.import_from_crm("vc", "w", 13, "Funder")
+
+    assert services.unsubscribe("vc", "A@Example.com ") == 2
+    assert services.audience_size("vc", "s") == 0
+
+
+def test_an_unreachable_crm_is_a_sentence_not_a_crash(calendar_org):
+    with patch("apps.comms.sources.crm.people", return_value=([], "Could not read the CRM: no")):
+        added, refreshed, problem = services.import_from_crm("vc", "s", 13, "Funder")
+    assert (added, refreshed) == (0, 0)
+    assert "Could not read" in problem
+
+
+def test_the_standing_footer_carries_forward_to_next_week(calendar_org, now_ics):
+    with patch("urllib.request.urlopen", return_value=_Feed(now_ics)):
+        first = services.open_edition("vc")
+    first.items.append(
+        {
+            **services.blank_item(first, "support"),
+            "title": "Sponsor the cohort",
+            "href": "https://workers.vc/sponsor",
+        }
+    )
+    first.save(update_fields=["items"])
+
+    with patch("urllib.request.urlopen", return_value=_Feed(now_ics)):
+        later = services.open_edition("vc", today=first.window_start + timedelta(days=7))
+
+    titles = [r["title"] for s in services.email(later, "s") if s["k"] == "support" for r in s["rows"]]
+    assert "Sponsor the cohort" in titles
+    assert later.pk != first.pk

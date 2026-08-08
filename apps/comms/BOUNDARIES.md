@@ -19,7 +19,14 @@ welds it in place.
 never `ForeignKey(orgs.Org)` or `ForeignKey(accounts.User)`. Resolution goes through one
 adapter module. On spin-out, that adapter becomes an HTTP client and nothing else changes.
 
-**One adapter file names every GovKit fact comms uses.** `apps/comms/sources/govkit.py`.
+**One adapter file per source.** `apps/comms/sources/govkit.py` names every GovKit
+fact comms uses; `apps/comms/sources/crm.py` is the same thing for Odoo. Contacts live
+in the CRM, so an import brings back a `res.partner` id, the address to send to and the
+name to say, and re-importing refreshes those from the CRM. Editing who a person is
+still happens there. Odoo's own opt-out (`is_blacklisted`, backed by `mail.blacklist`)
+is honoured on the way in and never written back.
+
+`apps/comms/sources/govkit.py`.
 Who is in a group, what their address is, what org they belong to, what is on the calendar.
 Nothing else in comms touches a GovKit model directly. The list of things in that file is the
 exact API a spun-out service would need.

@@ -27,10 +27,12 @@ from . import calendar as calendar_feed
 from .models import (
     AUDIENCE_KEYS,
     DEFAULT_SECTIONS,
+    SUPPORTERS,
     Edition,
     Send,
+    Subscriber,
 )
-from .sources import govkit
+from .sources import crm, govkit
 
 # The email is about the week ahead. It is written and sent in the days before
 # that week starts, so "the current edition" is the week that has not begun yet.
@@ -81,6 +83,7 @@ def open_edition(org_slug: str, today: date | None = None) -> Edition:
         items=[],
     )
     edition.items = [item_from_event(edition, e) for e in events]
+    edition.items += _carried_forward(org_slug, edition)
     try:
         with transaction.atomic():
             edition.save()
@@ -88,6 +91,31 @@ def open_edition(org_slug: str, today: date | None = None) -> Edition:
         # Two tabs opened the same week at once; the first one wins.
         edition = Edition.objects.get(org_slug=org_slug, window_start=start)
     return edition
+
+
+def _carried_forward(org_slug: str, edition: Edition) -> list[dict]:
+    """The standing sections, copied from last week so they are not retyped.
+
+    A footer that says how to follow us and how to sponsor is the same every
+    week until someone changes it, and changing it should hold. Copying the
+    lines forward means this week's edition owns its own copy: editing it does
+    not rewrite an email that already went.
+    """
+    carried = [s["k"] for s in edition.sections if s.get("carry")]
+    if not carried:
+        return []
+    previous = (
+        Edition.objects.filter(org_slug=org_slug, window_start__lt=edition.window_start)
+        .order_by("-window_start")
+        .first()
+    )
+    if previous is None:
+        return []
+    out = []
+    for item in previous.items:
+        if item.get("sec") in carried:
+            out.append({**item, "id": secrets.token_hex(4), "off": list(item.get("off") or [])})
+    return out
 
 
 def read_calendar(org_slug: str, start: date, end: date):
@@ -102,15 +130,29 @@ def send_for(edition: Edition, audience: str) -> Send:
     send, _made = Send.objects.get_or_create(
         edition=edition,
         audience=audience,
-        defaults={"subject": default_subject(edition)},
+        defaults={"subject": default_subject(edition, audience)},
     )
     return send
 
 
-def default_subject(edition: Edition) -> str:
+def default_subject(edition: Edition, audience: str = "") -> str:
+    """Supporters are not in the run, so a week number means nothing to them."""
+    if audience == SUPPORTERS:
+        return f"News from {govkit.display_name(edition.org_slug)}"
     if edition.week_number:
         return f"Welcome to week {edition.week_number}"
     return f"Week of {edition.window_start:%b %-d}"
+
+
+def audience_size(org_slug: str, audience: str):
+    """How many people one email would go to, or None when it is not knowable.
+
+    None renders as nothing. A made-up recipient count on a screen whose next
+    button sends email is worse than no number at all.
+    """
+    if audience == SUPPORTERS:
+        return subscribers(org_slug, audience).count()
+    return govkit.audience_size(org_slug, audience)
 
 
 def audience_state(edition: Edition, org_slug: str) -> list[dict]:
@@ -129,7 +171,7 @@ def audience_state(edition: Edition, org_slug: str) -> list[dict]:
             {
                 "key": key,
                 "label": label,
-                "size": govkit.audience_size(org_slug, key),
+                "size": audience_size(org_slug, key),
                 "sent": bool(send and send.is_sent),
                 "scheduled_for": send.scheduled_for if send else None,
                 "sent_at": send.sent_at if send else None,
@@ -348,6 +390,78 @@ def zone(edition: Edition):
             except ZoneInfoNotFoundError:
                 continue
     return timezone.get_default_timezone()
+
+
+# --- the mailing list --------------------------------------------------------
+
+
+def subscribers(org_slug: str, audience: str):
+    """Everyone on one list who has not unsubscribed."""
+    return Subscriber.objects.filter(
+        org_slug=org_slug, audience=audience, unsubscribed_at__isnull=True
+    )
+
+
+def import_from_crm(org_slug: str, audience: str, tag_id: int, tag_name: str):
+    """Bring a CRM tag onto a list. Returns (added, refreshed, problem).
+
+    Re-importing the same tag is the normal thing to do: it picks up whoever was
+    tagged since, and refreshes the name and address of everyone already here
+    from the CRM, which stays the home of both. It never removes anybody — a
+    person leaving a tag is not the same as asking us to stop, and only the
+    second one is ours to act on.
+    """
+    found, problem = crm.people(tag_id)
+    if problem:
+        return 0, 0, problem
+
+    known = {
+        s.external_id: s
+        for s in Subscriber.objects.filter(
+            org_slug=org_slug, audience=audience, source=Subscriber.CRM
+        )
+    }
+    # One person, one row: the CRM can hold the same address twice, and a list
+    # that mails it twice looks broken to the person receiving it.
+    seen_emails = set(
+        subscribers(org_slug, audience).values_list("email", flat=True)
+    )
+    added, refreshed, new_rows = 0, 0, []
+
+    for person in found:
+        existing = known.get(person["external_id"])
+        if existing is not None:
+            existing.email = person["email"]
+            existing.name = person["name"]
+            existing.via = tag_name
+            existing.save(update_fields=["email", "name", "via", "refreshed_at"])
+            refreshed += 1
+            continue
+        if person["email"] in seen_emails:
+            continue
+        seen_emails.add(person["email"])
+        new_rows.append(
+            Subscriber(
+                org_slug=org_slug,
+                audience=audience,
+                source=Subscriber.CRM,
+                external_id=person["external_id"],
+                email=person["email"],
+                name=person["name"],
+                via=tag_name,
+            )
+        )
+        added += 1
+
+    Subscriber.objects.bulk_create(new_rows, ignore_conflicts=True)
+    return added, refreshed, ""
+
+
+def unsubscribe(org_slug: str, email: str) -> int:
+    """One unsubscribe covers every list here, because it is keyed by address."""
+    return Subscriber.objects.filter(
+        org_slug=org_slug, email=email.strip().lower(), unsubscribed_at__isnull=True
+    ).update(unsubscribed_at=timezone.now())
 
 
 # --- sending -----------------------------------------------------------------

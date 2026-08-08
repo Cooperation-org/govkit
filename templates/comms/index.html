@@ -48,9 +48,29 @@
   {% endfor %}
 </div>
 
-{% if problem %}
+{% if is_list %}
+  <div class="v2-list">
+    <span class="v2-list-n">{{ list_size }} on the list</span>
+    {% if crm_problem %}
+      <span class="gk-error">{{ crm_problem }}</span>
+    {% elif crm_tags %}
+      <form method="post" action="{% url 'comms:import_list' org_slug=org_slug pk=edition.pk %}">
+        {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
+        <select name="tag" aria-label="CRM tag" onchange="this.form.tag_name.value = this.options[this.selectedIndex].dataset.name">
+          {% for tag in crm_tags %}
+            <option value="{{ tag.id }}" data-name="{{ tag.name }}">{{ tag.name }} · {{ tag.count }}</option>
+          {% endfor %}
+        </select>
+        <input type="hidden" name="tag_name" value="{{ crm_tags.0.name }}">
+        <button class="gk-btn">Bring them in</button>
+      </form>
+    {% endif %}
+  </div>
+{% endif %}
+
+{% if problem and not is_list %}
   <p class="gk-error">{{ problem }} <a href="{{ calendar_settings_url }}#your-page">Calendar link</a></p>
-{% elif not calendar_url %}
+{% elif not calendar_url and not is_list %}
   <p class="gk-note">No calendar on this team yet, so nothing comes in on its own.
     <a href="{{ calendar_settings_url }}#your-page">Add the calendar link</a></p>
 {% endif %}
@@ -73,13 +93,13 @@
       <button class="gk-btn">{{ row.title }}</button>
     </form>
   {% endfor %}
-  {% for e in missing %}
+  {% for e in missing %}{% if not is_list %}
     <form method="post" action="{% url 'comms:add_from_calendar' org_slug=org_slug pk=edition.pk %}">
       {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
       <input type="hidden" name="uid" value="{{ e.uid }}">
       <button class="gk-btn">{{ e.when }} {{ e.title }}</button>
     </form>
-  {% endfor %}
+  {% endif %}{% endfor %}
   {% if edition.previous %}
     <form method="post" action="{% url 'comms:undo' org_slug=org_slug pk=edition.pk %}">
       {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">

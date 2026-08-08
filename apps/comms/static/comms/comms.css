@@ -68,6 +68,20 @@
 .v2-back .gk-btn:hover { color: var(--gk-ink); }
 .v2-back form { display: contents; }
 
+/* Supporters: the one list that is built up rather than looked up */
+.v2-list {
+  display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;
+  margin: 0 0 0.6rem; font-size: 0.9rem;
+}
+.v2-list-n { color: var(--gk-ink-2); }
+.v2-list form { display: flex; gap: 0.35rem; align-items: center; }
+.v2-list select {
+  font-size: 0.85rem; padding: 0.2rem 0.4rem; max-width: 16rem;
+  border: 1px solid var(--gk-border-strong); border-radius: var(--gk-radius);
+  background: var(--gk-surface); color: var(--gk-ink);
+}
+.v2-list .gk-btn { font-size: 0.85rem; padding: 0.15rem 0.55rem; }
+
 /* the line you talk to */
 .v2-ask {
   position: sticky; bottom: 0; background: var(--gk-bg);

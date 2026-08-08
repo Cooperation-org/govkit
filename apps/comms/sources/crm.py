@@ -1,0 +1,131 @@
+"""
+The CRM adapter — the one file in comms that talks to Odoo.
+
+Contacts live in the CRM and nowhere else. Comms does not copy them: an import
+brings back a handle (`res.partner` id), the address to send to, and the name to
+say, and re-importing refreshes those from the CRM again. Editing who a person
+is still happens in the CRM.
+
+Two things are honoured on the way in, because getting them wrong sends mail to
+someone who said no:
+
+  * `is_blacklisted` — Odoo 17's own opt-out, backed by `mail.blacklist` and
+    keyed by email. There is no `opt_out` field on `res.partner`; a plan that
+    names one is out of date.
+  * no address, no row. A contact with no email is not a recipient.
+
+The selector is a contact tag (`res.partner.category`), not a role — that is the
+point of this list. Tags are read back from the CRM so a person picks a real one
+from a real count instead of typing a name that has to match.
+
+Off unless `COMMS_CRM_URL` and `COMMS_CRM_KEY` are set. Nothing renders when it
+is off; an Import button that cannot import is worse than no button.
+"""
+
+from __future__ import annotations
+
+import logging
+import xmlrpc.client
+
+from django.conf import settings
+from django.core.cache import cache
+
+logger = logging.getLogger(__name__)
+
+PAGE = 500
+# Counting every tag is one round trip per tag, so the picker's list is held for
+# a few minutes. The import itself always reads the CRM fresh.
+TAGS_CACHE_KEY = "comms:crm:tags"
+TAGS_CACHE_SECONDS = 300
+# What we read back per contact. Nothing else is copied.
+FIELDS = ["id", "name", "email", "is_blacklisted"]
+
+
+def available() -> bool:
+    return bool(
+        getattr(settings, "COMMS_CRM_URL", "") and getattr(settings, "COMMS_CRM_KEY", "")
+    )
+
+
+def _connect():
+    """(uid, models proxy, db, key). Raises on anything that is not a connection."""
+    url = settings.COMMS_CRM_URL.rstrip("/")
+    db = settings.COMMS_CRM_DB
+    user = settings.COMMS_CRM_USER
+    key = settings.COMMS_CRM_KEY
+    common = xmlrpc.client.ServerProxy(f"{url}/xmlrpc/2/common")
+    uid = common.authenticate(db, user, key, {})
+    if not uid:
+        raise PermissionError("the CRM did not accept those credentials")
+    return uid, xmlrpc.client.ServerProxy(f"{url}/xmlrpc/2/object"), db, key
+
+
+def tags() -> tuple[list[dict], str]:
+    """([{id, name, count}], problem) — the CRM's own contact tags.
+
+    `count` is how many of that tag's contacts could actually be mailed, so the
+    number on screen is the number that would be imported.
+    """
+    if not available():
+        return [], ""
+    cached = cache.get(TAGS_CACHE_KEY)
+    if cached is not None:
+        return cached
+    try:
+        uid, models, db, key = _connect()
+        rows = models.execute_kw(
+            db, uid, key, "res.partner.category", "search_read", [[]],
+            {"fields": ["id", "name"], "order": "name"},
+        )
+        out = []
+        for row in rows:
+            count = models.execute_kw(
+                db, uid, key, "res.partner", "search_count", [_domain(row["id"])]
+            )
+            if count:
+                out.append({"id": row["id"], "name": row["name"], "count": count})
+        result = (out, "")
+    except Exception as exc:
+        logger.warning("comms: could not read CRM tags: %s", exc, exc_info=True)
+        result = ([], f"Could not read the CRM: {exc}")
+    cache.set(TAGS_CACHE_KEY, result, TAGS_CACHE_SECONDS)
+    return result
+
+
+def people(tag_id: int) -> tuple[list[dict], str]:
+    """([{external_id, email, name}], problem) — everyone under one tag."""
+    if not available():
+        return [], ""
+    try:
+        uid, models, db, key = _connect()
+        out, offset = [], 0
+        while True:
+            rows = models.execute_kw(
+                db, uid, key, "res.partner", "search_read", [_domain(tag_id)],
+                {"fields": FIELDS, "limit": PAGE, "offset": offset, "order": "id"},
+            )
+            if not rows:
+                break
+            out += [
+                {
+                    "external_id": str(row["id"]),
+                    "email": (row.get("email") or "").strip().lower(),
+                    "name": (row.get("name") or "").strip(),
+                }
+                for row in rows
+                if row.get("email") and not row.get("is_blacklisted")
+            ]
+            offset += PAGE
+        return out, ""
+    except Exception as exc:
+        logger.warning("comms: CRM import failed: %s", exc, exc_info=True)
+        return [], f"Could not read the CRM: {exc}"
+
+
+def _domain(tag_id: int) -> list:
+    """Tagged, has an address, and has not asked us to stop."""
+    return [
+        ["category_id", "in", [tag_id]],
+        ["email", "!=", False],
+        ["is_blacklisted", "=", False],
+    ]
