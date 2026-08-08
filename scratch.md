@@ -1283,5 +1283,12 @@ Supporters gets news, not opportunities: sections `news` + a standing `support` 
 so the footer is written once and then edited rather than retyped, and each week owns its
 own copy so editing it never rewrites an email that already went.
 
-TO TURN THE IMPORT ON the cohort VM needs COMMS_CRM_URL and COMMS_CRM_KEY in its env
-(deploy config lives in ../earnkit, not here). Unset, the control does not render.
+It is the TEAM's own CRM, not the LinkedTrust one on VM 200 — those share no databases.
+Each team has its own Odoo database named after its slug, and Odoo's dbfilter there makes
+the hostname the database name (crm-vc.workers.vc serves crm-vc, verified 2026-08-08). So
+both settings are patterns keyed on {slug}, which is also what makes a venture importing
+its own supporters the same code path.
+
+TO TURN THE IMPORT ON the cohort VM needs COMMS_CRM_URL_PATTERN=https://crm-{slug}.workers.vc
+and COMMS_CRM_KEY in its env (deploy config lives in ../earnkit, not here). The key has to
+exist in each team database it is used against. Unset, the control does not render.

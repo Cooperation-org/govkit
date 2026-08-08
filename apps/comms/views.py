@@ -58,7 +58,7 @@ def index(request, org_slug):
     edition = services.open_edition(org_slug)
     send = services.send_for(edition, audience)
     missing, problem = services.missing_events(edition)
-    crm_tags, crm_problem = crm.tags() if audience == SUPPORTERS else ([], "")
+    crm_tags, crm_problem = crm.tags(org_slug) if audience == SUPPORTERS else ([], "")
 
     page_url = ""
     if send.public_token:

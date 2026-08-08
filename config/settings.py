@@ -75,10 +75,13 @@ env = environ.Env(
     # can move with it. Unset key => the "ask for edits" line does not render.
     COMMS_ANTHROPIC_API_KEY=(str, ""),
     COMMS_REWRITE_MODEL=(str, "claude-opus-5"),
-    # The CRM the Supporters list is imported from (Odoo 17, XML-RPC). Unset
-    # url or key => no import control renders on that tab.
-    COMMS_CRM_URL=(str, ""),
-    COMMS_CRM_DB=(str, "linkedtrust_crm"),
+    # The CRM the Supporters list is imported from (Odoo 17, XML-RPC). Each
+    # team has its OWN CRM database, named after its slug, and Odoo's dbfilter
+    # there makes the hostname the database name — so both are patterns, not
+    # fixed values, and a venture importing its own supporters is the same code
+    # path. Unset pattern or key => no import control renders.
+    COMMS_CRM_URL_PATTERN=(str, ""),
+    COMMS_CRM_DB_PATTERN=(str, "crm-{slug}"),
     COMMS_CRM_USER=(str, "admin"),
     COMMS_CRM_KEY=(str, ""),
 )
@@ -156,8 +159,8 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 # No key => the page renders without the "ask for edits" line.
 COMMS_ANTHROPIC_API_KEY = env("COMMS_ANTHROPIC_API_KEY")
 COMMS_REWRITE_MODEL = env("COMMS_REWRITE_MODEL")
-COMMS_CRM_URL = env("COMMS_CRM_URL")
-COMMS_CRM_DB = env("COMMS_CRM_DB")
+COMMS_CRM_URL_PATTERN = env("COMMS_CRM_URL_PATTERN")
+COMMS_CRM_DB_PATTERN = env("COMMS_CRM_DB_PATTERN")
 COMMS_CRM_USER = env("COMMS_CRM_USER")
 COMMS_CRM_KEY = env("COMMS_CRM_KEY")
 CORS_ALLOW_CREDENTIALS = True

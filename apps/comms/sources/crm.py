@@ -1,6 +1,15 @@
 """
 The CRM adapter — the one file in comms that talks to Odoo.
 
+Each team has its own CRM: one Odoo database per team, named after the team's
+slug, and Odoo's dbfilter there makes the hostname the database name
+(`crm-vc.workers.vc` serves `crm-vc`, one to one). So the address and the
+database are worked out from the org whose comms this is, not fixed in config —
+which is also what makes a venture importing its own supporters the same code
+path as the accelerator importing its own. The accelerator's CRM is one of these
+teams' CRMs; it is not the LinkedTrust CRM on the dev VM, which shares no
+databases with it.
+
 Contacts live in the CRM and nowhere else. Comms does not copy them: an import
 brings back a handle (`res.partner` id), the address to send to, and the name to
 say, and re-importing refreshes those from the CRM again. Editing who a person
@@ -18,8 +27,8 @@ The selector is a contact tag (`res.partner.category`), not a role — that is t
 point of this list. Tags are read back from the CRM so a person picks a real one
 from a real count instead of typing a name that has to match.
 
-Off unless `COMMS_CRM_URL` and `COMMS_CRM_KEY` are set. Nothing renders when it
-is off; an Import button that cannot import is worse than no button.
+Off unless `COMMS_CRM_URL_PATTERN` and `COMMS_CRM_KEY` are set. Nothing renders
+when it is off; an Import button that cannot import is worse than no button.
 """
 
 from __future__ import annotations
@@ -43,14 +52,20 @@ FIELDS = ["id", "name", "email", "is_blacklisted"]
 
 def available() -> bool:
     return bool(
-        getattr(settings, "COMMS_CRM_URL", "") and getattr(settings, "COMMS_CRM_KEY", "")
+        getattr(settings, "COMMS_CRM_URL_PATTERN", "")
+        and getattr(settings, "COMMS_CRM_KEY", "")
     )
 
 
-def _connect():
+def where(org_slug: str) -> tuple[str, str]:
+    """(base url, database) for one org's own CRM."""
+    url = settings.COMMS_CRM_URL_PATTERN.format(slug=org_slug).rstrip("/")
+    return url, settings.COMMS_CRM_DB_PATTERN.format(slug=org_slug)
+
+
+def _connect(org_slug: str):
     """(uid, models proxy, db, key). Raises on anything that is not a connection."""
-    url = settings.COMMS_CRM_URL.rstrip("/")
-    db = settings.COMMS_CRM_DB
+    url, db = where(org_slug)
     user = settings.COMMS_CRM_USER
     key = settings.COMMS_CRM_KEY
     common = xmlrpc.client.ServerProxy(f"{url}/xmlrpc/2/common")
@@ -60,7 +75,7 @@ def _connect():
     return uid, xmlrpc.client.ServerProxy(f"{url}/xmlrpc/2/object"), db, key
 
 
-def tags() -> tuple[list[dict], str]:
+def tags(org_slug: str) -> tuple[list[dict], str]:
     """([{id, name, count}], problem) — the CRM's own contact tags.
 
     `count` is how many of that tag's contacts could actually be mailed, so the
@@ -68,11 +83,12 @@ def tags() -> tuple[list[dict], str]:
     """
     if not available():
         return [], ""
-    cached = cache.get(TAGS_CACHE_KEY)
+    key_ = f"{TAGS_CACHE_KEY}:{org_slug}"
+    cached = cache.get(key_)
     if cached is not None:
         return cached
     try:
-        uid, models, db, key = _connect()
+        uid, models, db, key = _connect(org_slug)
         rows = models.execute_kw(
             db, uid, key, "res.partner.category", "search_read", [[]],
             {"fields": ["id", "name"], "order": "name"},
@@ -88,16 +104,16 @@ def tags() -> tuple[list[dict], str]:
     except Exception as exc:
         logger.warning("comms: could not read CRM tags: %s", exc, exc_info=True)
         result = ([], f"Could not read the CRM: {exc}")
-    cache.set(TAGS_CACHE_KEY, result, TAGS_CACHE_SECONDS)
+    cache.set(key_, result, TAGS_CACHE_SECONDS)
     return result
 
 
-def people(tag_id: int) -> tuple[list[dict], str]:
+def people(org_slug: str, tag_id: int) -> tuple[list[dict], str]:
     """([{external_id, email, name}], problem) — everyone under one tag."""
     if not available():
         return [], ""
     try:
-        uid, models, db, key = _connect()
+        uid, models, db, key = _connect(org_slug)
         out, offset = [], 0
         while True:
             rows = models.execute_kw(

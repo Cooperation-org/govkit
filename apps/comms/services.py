@@ -411,7 +411,7 @@ def import_from_crm(org_slug: str, audience: str, tag_id: int, tag_name: str):
     person leaving a tag is not the same as asking us to stop, and only the
     second one is ours to act on.
     """
-    found, problem = crm.people(tag_id)
+    found, problem = crm.people(org_slug, tag_id)
     if problem:
         return 0, 0, problem
 

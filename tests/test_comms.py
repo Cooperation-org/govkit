@@ -375,3 +375,14 @@ def test_the_standing_footer_carries_forward_to_next_week(calendar_org, now_ics)
     titles = [r["title"] for s in services.email(later, "s") if s["k"] == "support" for r in s["rows"]]
     assert "Sponsor the cohort" in titles
     assert later.pk != first.pk
+
+
+def test_each_org_imports_from_its_own_crm(settings):
+    """A team's CRM is its own database, named after the team — never a shared one."""
+    from apps.comms.sources import crm
+
+    settings.COMMS_CRM_URL_PATTERN = "https://crm-{slug}.workers.vc"
+    settings.COMMS_CRM_DB_PATTERN = "crm-{slug}"
+
+    assert crm.where("vc") == ("https://crm-vc.workers.vc", "crm-vc")
+    assert crm.where("kelp-route") == ("https://crm-kelp-route.workers.vc", "crm-kelp-route")
