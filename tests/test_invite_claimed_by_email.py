@@ -128,7 +128,9 @@ def test_a_login_never_mints_a_venture(org, user_factory):
 
 
 @pytest.mark.django_db
-def test_an_existing_member_still_uses_their_link(org, org_factory, user_factory, membership_factory):
+def test_an_existing_member_still_uses_their_link(
+    org, org_factory, user_factory, membership_factory
+):
     """Someone already in a team joins a second one by clicking, not by signing in."""
     user = user_factory(email="jefferson@richards.plus")
     membership_factory(org=org, user=user, role=MembershipRole.ADMIN)
