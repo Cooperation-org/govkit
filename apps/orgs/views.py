@@ -53,7 +53,6 @@ from .models import (
     Cohort,
     ExternalHolder,
     Invite,
-    InviteKind,
     InviteStatus,
     Membership,
     MembershipRole,
@@ -1175,15 +1174,17 @@ def accept_invite(request, code):
     # OAuth button) completes the join right after login.
     request.session[SESSION_KEY] = code
 
-    # A founder bringing their own venture (BYOV) MUST authenticate with LinkedTrust:
-    # the per-team Odoo CRM user is provisioned by matching the member's LinkedTrust
-    # OIDC `sub`, so an email-only account (no sub) never gets CRM access — no user,
-    # no sales team, no pipeline. Force LinkedTrust before any account is made; the
-    # code is already stashed above, so consume_pending_invite finishes the venture
-    # join (with a sub) after the OIDC round-trip. Only BYOV is gated — ORG / POOL /
-    # SUPPORTER invites keep the frictionless email door untouched. Gate also on a
-    # configured provider so standalone GovKit (no LinkedTrust) still works.
-    if invite.kind == InviteKind.BYOV and settings.LINKEDTRUST_CLIENT_ID:
+    # LinkedTrust is the only door (golda, 2026-08-08). Every tool behind this
+    # invite hangs off the member's LinkedTrust OIDC `sub`: the per-team Odoo CRM
+    # user is provisioned by matching it, so an email-only account (no sub) never
+    # gets CRM access — no user, no sales team, no pipeline. It used to be gated
+    # for BYOV founders only and everyone else got an email door that quietly
+    # produced an account the rest of the stack could not use. Now nobody is
+    # offered a door that does not work: one click, OIDC, back, everything works.
+    # The code is already stashed above, so consume_pending_invite finishes the
+    # join (with a sub) after the round-trip. Gate on a configured provider so
+    # standalone GovKit (no LinkedTrust) still falls through to the email door.
+    if settings.LINKEDTRUST_CLIENT_ID:
         return redirect("accounts:linkedtrust_start")
 
     door_context = {

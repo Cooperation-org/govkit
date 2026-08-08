@@ -498,6 +498,26 @@ def test_door_founder_accept_goes_through_linkedtrust_first(client, admin_org, s
     assert client.session[SESSION_KEY] == invite.code
 
 
+@pytest.mark.django_db
+def test_door_is_linkedtrust_only_when_configured(client, invite, settings):
+    """Wherever LinkedTrust is the SSO provider, it is the only door (golda, 2026-08-08).
+
+    Every tool behind the invite hangs off the member's LinkedTrust sub, so an
+    email-only account is one the rest of the stack cannot use. Nobody is offered
+    a door that does not work: the invite goes straight to the round-trip, code
+    stashed, and consume_pending_invite finishes the join on the way back.
+    """
+    settings.LINKEDTRUST_CLIENT_ID = "test-client"
+    resp = client.get(_accept_url(invite))
+
+    assert resp.status_code == 302
+    assert resp["Location"] == reverse("accounts:linkedtrust_start")
+    assert client.session[SESSION_KEY] == invite.code
+    # No account is made before the round-trip; the invite is still live.
+    invite.refresh_from_db()
+    assert invite.status == InviteStatus.CREATED
+
+
 def test_signed_in_founder_accept_creates_the_venture(client, admin_org, user_factory):
     from apps.orgs.models import Org
 

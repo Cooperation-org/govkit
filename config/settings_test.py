@@ -19,6 +19,10 @@ FORCE_SCRIPT_NAME = None
 STATIC_URL = "/static/"
 SESSION_COOKIE_PATH = "/"
 CSRF_COOKIE_PATH = "/"
+# Same reason: whether a developer's .env happens to hold LinkedTrust credentials
+# decides whether the invite door is the LinkedTrust hop or the standalone email
+# door. Off by default here; the tests that want the hop set it themselves.
+LINKEDTRUST_CLIENT_ID = ""
 
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
