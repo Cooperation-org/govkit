@@ -47,6 +47,10 @@ urlpatterns = [
     path(ORG + "exports/", include("apps.exports.urls")),
     path(ORG + "tasks/", include("apps.tasksources.urls")),
     path(ORG + "projects/", include("apps.projects.urls")),
+    path(ORG + "comms/", include("apps.comms.urls")),
+    # --- The sent week, on its own page. No org in the path: it is the link
+    # that went out in the email, and it has to keep working on its own.
+    path("week/", include("apps.comms.public_urls")),
     # --- Commons: orgs / ideas / pool, for anyone invited or signed up ---
     path("commons/", include("apps.commons.urls")),
     # --- Non-org + dashboard HTML routes ---

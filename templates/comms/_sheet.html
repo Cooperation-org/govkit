@@ -1,0 +1,23 @@
+{% comment %}
+The email itself. Inside the border is exactly what is sent, and nothing in here
+is a control. `editable` turns on typing in place; the sent page renders the same
+markup without it.
+{% endcomment %}
+<div class="mail-sheet">
+  {% for section in sections %}
+    {% if section.title %}
+      <h2 {% if editable %}contenteditable="true" data-sec-title="{{ section.k }}"{% endif %}>{{ section.title }}</h2>
+    {% endif %}
+    <ul {% if editable %}contenteditable="true" data-sec="{{ section.k }}"{% endif %}>
+      {% for row in section.rows %}
+        <li data-id="{{ row.id }}">{% spaceless %}
+          {% if row.day %}<span class="mail-when">{{ row.day }}{% if row.time %}, {{ row.time }}{% endif %}</span> {% endif %}
+          <a class="mail-t{% if row.optional %} is-opt{% endif %}" href="{{ row.href|default:'#' }}">{{ row.title }}</a>
+          {% if row.flag %} <span class="mail-opt">{{ row.flag }}</span>{% endif %}
+          {% if row.optional %} <span class="mail-opt">optional</span>{% endif %}
+          {% if row.note %}<span class="mail-note">{{ row.note }}</span>{% endif %}
+        {% endspaceless %}</li>
+      {% endfor %}
+    </ul>
+  {% endfor %}
+</div>

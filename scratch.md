@@ -1244,3 +1244,27 @@ TO GO LIVE both this and the email match need a deploy to the cohort VM
 (dash.workers.vc) plus `manage.py migrate` for orgs 0021. And a task is only
 worth 50 if the ORG's hourly rate is actually 50 — that is data on that box,
 set on the members page, not something this checkout can see.
+
+## COMMS SHIPPED (2026-08-08)
+`apps/comms` built to the approved mockup (demos.linkedtrust.us/comms-flows/v2/,
+source /var/www/demos/comms-flows/v2/, handoff in abra `workersvc-comms-mockup-handoff`).
+
+Two tables, `comms_edition` and `comms_send`, in week-data.js's shape: one week is
+an Edition holding the sections and the lines; each audience (Workers / Ventures /
+Mentors) gets a Send with its own subject, date and page. A line is written once and
+carries `tpl` / `off`, so cutting the standup from Mentors leaves Workers alone.
+
+The compose screen IS the email: a bordered sheet, contenteditable, no controls
+inside it. Deleting a line cuts it and it returns as a chip underneath. `Coming up`
+is pulled from the org's `calendar_url` (icalendar + recurring-ical-events, so a
+weekly standup is five lines). Route `/o/<org>/comms/`, admins only, entry added to
+the cohort bar in ../workers.vc (gate `cohort-admin`), NOT to the org tab row.
+
+NOT WIRED, on purpose: delivery. `Send now` records the send and publishes the page
+at `/week/<token>/`; the text is on a Copy button until SMTP is decided. Scheduling
+writes a date and sends nothing — there is no auto-send path and there must never be
+one (abra `workersvc-comms-human-edit-required`).
+
+The bottom "ask here for ai edits" line is live when COMMS_ANTHROPIC_API_KEY is set;
+unset, it does not render. It only edits lines that are already there — it cannot
+invent a meeting.

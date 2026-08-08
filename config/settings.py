@@ -71,6 +71,10 @@ env = environ.Env(
     EMAIL_HOST_PASSWORD=(str, ""),
     EMAIL_USE_TLS=(bool, True),
     DEFAULT_FROM_EMAIL=(str, ""),
+    # apps.comms keeps its own settings (see apps/comms/BOUNDARIES.md), so they
+    # can move with it. Unset key => the "ask for edits" line does not render.
+    COMMS_ANTHROPIC_API_KEY=(str, ""),
+    COMMS_REWRITE_MODEL=(str, "claude-opus-5"),
 )
 
 # Load a local .env if present (dev). In prod, real env vars win.
@@ -141,6 +145,11 @@ EMAIL_HOST_USER = env("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
 EMAIL_USE_TLS = env("EMAIL_USE_TLS")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
+
+# --- apps.comms. Namespaced so they move with the app (apps/comms/BOUNDARIES.md).
+# No key => the page renders without the "ask for edits" line.
+COMMS_ANTHROPIC_API_KEY = env("COMMS_ANTHROPIC_API_KEY")
+COMMS_REWRITE_MODEL = env("COMMS_REWRITE_MODEL")
 CORS_ALLOW_CREDENTIALS = True
 CORS_URLS_REGEX = r"^/api/"
 # The dash's one write (checklist toggle) authenticates with the session cookie
@@ -181,6 +190,7 @@ INSTALLED_APPS = [
     "apps.sortition",
     "apps.projects",
     "apps.commons",
+    "apps.comms",
     # --- Auth seam (uncomment once django-linkedtrust-auth is installed) ---
     # "linkedtrust_auth",
 ]

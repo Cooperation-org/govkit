@@ -1,0 +1,111 @@
+/* Comms, on govkit tokens. From the approved mockup, demos.linkedtrust.us/comms-flows/v2/.
+   No animation. The border is the email; everything else is the page around it. */
+
+.v2-head { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+.v2-head h1 { margin-bottom: 0; }
+.v2-when { color: var(--gk-muted); font-size: 0.9rem; }
+
+/* which email you are looking at */
+.v2-pick {
+  display: flex; gap: 0.2rem; margin: 0.8rem 0 0.9rem;
+  border-bottom: 1px solid var(--gk-border); padding-bottom: 0.5rem;
+}
+.v2-pick a {
+  font-family: var(--gk-font-head); font-size: 1rem;
+  padding: 0.2rem 0.6rem; border: 1px solid transparent; border-radius: var(--gk-radius);
+  color: var(--gk-ink-2);
+}
+.v2-pick a:hover { text-decoration: none; color: var(--gk-ink); }
+.v2-pick a[aria-pressed="true"] {
+  background: var(--gk-surface); border-color: var(--gk-border-strong); color: var(--gk-ink);
+}
+.v2-pick small { color: var(--gk-muted); font-family: var(--gk-font-body); }
+.v2-pick .gk-badge { font-family: var(--gk-font-body); font-size: 0.72rem; vertical-align: 0.1em; }
+
+/* ---- inside this border is exactly what is sent ------------------------- */
+.mail {
+  border: 1px solid var(--gk-border-strong);
+  border-radius: var(--gk-radius-card);
+  background: var(--gk-surface);
+  max-width: 40rem;
+  margin: 0.2rem 0 0.8rem;
+}
+/* the subject is sent, but it is not the body, so it sits above the border */
+.mail-subject {
+  display: flex; align-items: baseline; gap: 0.5rem;
+  max-width: 40rem; margin: 0.9rem 0 0.35rem;
+  font-family: var(--gk-font-head); font-weight: 600; font-size: 1.05rem;
+}
+.mail-subject [contenteditable] { outline: none; flex: 1; }
+.mail-subject [contenteditable]:hover { background: var(--gk-surface); }
+.mail-lbl {
+  font-family: var(--gk-font-body); font-weight: 400;
+  font-size: 0.8rem; color: var(--gk-muted);
+}
+.mail-head {
+  font-family: var(--gk-font-head); font-weight: 600; font-size: 1.05rem;
+  padding: 0.7rem 1.4rem 0.6rem;
+  border-bottom: 1px solid var(--gk-border);
+}
+.mail-sheet { padding: 1rem 1.4rem 1.3rem; }
+.mail-sheet h2 { font-size: 1.05rem; margin: 1.1rem 0 0.3rem; outline: none; }
+.mail-sheet ul { margin: 0 0 0.9rem; padding-left: 1.1rem; outline: none; }
+.mail-sheet li { margin: 0.25rem 0; }
+.mail-when { color: var(--gk-ink-2); }
+.mail-t { font-weight: 600; color: var(--gk-accent); }
+.mail-t.is-opt { font-weight: 400; color: var(--gk-ink-2); }
+.mail-opt { color: var(--gk-muted); font-size: 0.85em; }
+.mail-note { display: block; color: var(--gk-ink-2); font-size: 0.9em; }
+.mail-sheet [contenteditable]:focus { outline: none; }
+.mail-sheet [contenteditable]:hover { background: var(--gk-bg); }
+
+/* what is not in this one: press to put it in. Outside the border, always. */
+.v2-back { display: flex; gap: 0.35rem; flex-wrap: wrap; padding: 0.4rem 0 0; align-items: center; }
+.v2-back .gk-btn {
+  font-size: 0.8rem; padding: 0.12rem 0.5rem;
+  color: var(--gk-muted); border-style: dashed;
+}
+.v2-back .gk-btn:hover { color: var(--gk-ink); }
+.v2-back form { display: contents; }
+
+/* the line you talk to */
+.v2-ask {
+  position: sticky; bottom: 0; background: var(--gk-bg);
+  border-top: 1px solid var(--gk-border-strong);
+  padding: 0.6rem 0 0.7rem; margin-top: 1rem;
+}
+.v2-ask-row { display: flex; gap: 0.4rem; align-items: center; }
+.v2-ask-row input {
+  flex: 1; font-size: 0.95rem; padding: 0.4rem 0.6rem;
+  border: 1px solid var(--gk-border-strong); border-radius: var(--gk-radius);
+  background: var(--gk-surface); color: var(--gk-ink);
+}
+.v2-ask-row input::placeholder { color: var(--gk-border-strong); }
+
+/* the send */
+.v2-send { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; flex: 1; }
+.v2-sendform { display: flex; gap: 0.4rem; align-items: center; }
+.v2-send #out {
+  font-size: 0.9rem; padding: 0.25rem 0.5rem;
+  border: 1px solid var(--gk-border-strong); border-radius: var(--gk-radius);
+  background: var(--gk-surface); color: var(--gk-ink);
+}
+.v2-done { color: var(--gk-ok); font-size: 0.9rem; }
+
+/* the email as it lands */
+.v2-read { max-width: 40rem; }
+
+/* what already went out: one line each, opens where it is */
+.v2-past { margin-top: 1.4rem; }
+.v2-past details { border-top: 1px solid var(--gk-border); }
+.v2-past summary {
+  display: flex; gap: 0.6rem; align-items: baseline;
+  padding: 0.45rem 0; cursor: pointer; list-style: none; font-size: 0.9rem;
+}
+.v2-past summary::-webkit-details-marker { display: none; }
+.v2-past summary:hover { background: var(--gk-surface); }
+.v2-past-when { color: var(--gk-muted); width: 6rem; flex: none; }
+.v2-past-sub { color: var(--gk-ink); font-weight: 500; }
+.v2-past-to { color: var(--gk-ink-2); }
+.v2-past-r { color: var(--gk-muted); margin-left: auto; }
+.v2-past .mail { margin: 0.2rem 0 1rem; }

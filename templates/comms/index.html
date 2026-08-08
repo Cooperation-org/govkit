@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Comms — {{ current_org.display_name }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{% static 'comms/comms.css' %}">{% endblock %}
+
+{% block content %}
+<div class="v2-head">
+  <h1>{% if edition.week_number %}Week {{ edition.week_number }}{% else %}Week of {{ edition.window_start|date:"M j" }}{% endif %}</h1>
+  <span class="v2-when">{{ edition.window_start|date:"M j" }} – {{ edition.window_end|date:"M j" }}</span>
+
+  <span class="v2-send">
+    {% if send.sent_at %}
+      <span class="v2-done">Sent {{ send.sent_at|date:"M j" }}{% if send.recipients %} to {{ send.recipients }}{% endif %}</span>
+      {% if page_url %}<a href="{{ page_url }}" target="_blank" rel="noopener">{{ page_url|cut:"https://" }} ↗</a>{% endif %}
+      <form method="post" action="{% url 'comms:reopen' org_slug=org_slug pk=edition.pk %}">
+        {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
+        <button class="gk-btn">Change</button>
+      </form>
+    {% elif send.scheduled_for %}
+      <span class="v2-done">Scheduled {{ send.scheduled_for|date:"M j, g:ia" }}</span>
+      <form method="post" action="{% url 'comms:reopen' org_slug=org_slug pk=edition.pk %}">
+        {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
+        <button class="gk-btn">Change</button>
+      </form>
+    {% else %}
+      <form method="post" action="{% url 'comms:schedule' org_slug=org_slug pk=edition.pk %}" class="v2-sendform">
+        {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
+        <button class="gk-btn-primary">Schedule</button>
+        <input id="out" type="datetime-local" name="when"
+               value="{{ default_send_at|date:'Y-m-d\TH:i' }}" aria-label="When it goes out">
+      </form>
+      <form method="post" action="{% url 'comms:send_now' org_slug=org_slug pk=edition.pk %}">
+        {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
+        <button class="gk-btn">Send now</button>
+      </form>
+    {% endif %}
+  </span>
+</div>
+
+<div class="v2-pick">
+  {% for a in audiences %}
+    <a href="?t={{ a.key }}" aria-pressed="{% if a.key == audience %}true{% else %}false{% endif %}">
+      {{ a.label }}
+      {% if a.sent %}<span class="gk-badge gk-badge-approved">sent</span>
+      {% elif a.scheduled_for %}<span class="gk-badge gk-badge-open">{{ a.scheduled_for|date:"M j" }}</span>
+      {% elif a.size %}<small>{{ a.size }}</small>{% endif %}
+    </a>
+  {% endfor %}
+</div>
+
+{% if problem %}
+  <p class="gk-error">{{ problem }} <a href="{{ calendar_settings_url }}#your-page">Calendar link</a></p>
+{% elif not calendar_url %}
+  <p class="gk-note">No calendar on this team yet, so nothing comes in on its own.
+    <a href="{{ calendar_settings_url }}#your-page">Add the calendar link</a></p>
+{% endif %}
+
+<p class="mail-subject">
+  <span class="mail-lbl">Subject</span>
+  <span contenteditable="true" data-f="subject">{{ send.subject }}</span>
+</p>
+
+<div class="mail" id="mail"
+     data-save="{% url 'comms:save' org_slug=org_slug pk=edition.pk %}"
+     data-t="{{ audience }}" data-csrf="{{ csrf_token }}">
+  {% include "comms/_sheet.html" with editable=True %}
+</div>
+
+<div class="v2-back">
+  {% for row in cut %}
+    <form method="post" action="{% url 'comms:put_back' org_slug=org_slug pk=edition.pk item_id=row.id %}">
+      {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
+      <button class="gk-btn">{{ row.title }}</button>
+    </form>
+  {% endfor %}
+  {% for e in missing %}
+    <form method="post" action="{% url 'comms:add_from_calendar' org_slug=org_slug pk=edition.pk %}">
+      {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
+      <input type="hidden" name="uid" value="{{ e.uid }}">
+      <button class="gk-btn">{{ e.when }} {{ e.title }}</button>
+    </form>
+  {% endfor %}
+  {% if edition.previous %}
+    <form method="post" action="{% url 'comms:undo' org_slug=org_slug pk=edition.pk %}">
+      {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
+      <button class="gk-btn v2-undo">Put it back the way it was</button>
+    </form>
+  {% endif %}
+  <button type="button" class="gk-copy gk-btn" data-link="{{ plain_text }}">Copy the text</button>
+</div>
+
+<div class="v2-past">
+  {% for p in past %}
+    <details>
+      <summary>
+        <span class="v2-past-when">{{ p.send.sent_at|date:"M j" }}</span>
+        <span class="v2-past-sub">{{ p.send.subject }}</span>
+        <span class="v2-past-to">{{ p.label }}{% if p.send.recipients %} {{ p.send.recipients }}{% endif %}</span>
+        {% if p.send.public_token %}<a class="v2-past-r" href="{% url 'comms_public:bulletin' token=p.send.public_token %}">page ↗</a>{% endif %}
+      </summary>
+      <div class="mail">
+        <div class="mail-head">{{ p.send.subject }}</div>
+        {% include "comms/_sheet.html" with sections=p.sections editable=False %}
+      </div>
+    </details>
+  {% endfor %}
+</div>
+
+{% if can_ask %}
+  <form class="v2-ask" method="post" action="{% url 'comms:ask' org_slug=org_slug pk=edition.pk %}">
+    {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
+    <div class="v2-ask-row">
+      <input name="instruction" placeholder="ask here for ai edits" aria-label="Ask for edits">
+    </div>
+  </form>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}<script src="{% static 'comms/comms.js' %}" defer></script>{% endblock %}

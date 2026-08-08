@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ send.subject }} — {{ org_name }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{% static 'comms/comms.css' %}">{% endblock %}
+
+{% block content %}
+<div class="mail v2-read">
+  <div class="mail-head">{{ send.subject }}</div>
+  {% include "comms/_sheet.html" with editable=False %}
+</div>
+<p class="gk-muted">{{ org_name }} · {{ send.sent_at|date:"F j, Y" }}</p>
+{% endblock %}

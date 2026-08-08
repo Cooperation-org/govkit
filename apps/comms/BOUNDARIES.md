@@ -28,8 +28,8 @@ exact API a spun-out service would need.
 org. There is no implicit "the current cohort". workers.vc is one org among many; a venture
 using this for its own people must be the same code path, not a variant.
 
-**Channel-agnostic core.** The model knows a campaign has per-channel variants. It does not
-know that email is special. Email is the first channel adapter, not the base case.
+**Channel-agnostic core.** A send is one audience's copy of an edition. Nothing in the
+model says that copy has to be an email. Email is the first channel, not the base case.
 
 **Own tables, own prefix.** All tables `comms_*`. No columns added to GovKit tables, no
 migrations touching another app. Comms data can be dumped and moved on its own.
@@ -39,8 +39,14 @@ to GovKit's mail config.
 
 ## What comms owns
 
-Campaigns, drafts, templates, per-group and per-channel content variants, send records,
-opens and clicks, opt-out, and the schedule.
+Editions (one week of the cohort: its sections and its lines) and sends (one audience's
+copy of an edition: its subject, its date, whether it went, and the page it published).
+Also, when they arrive: opt-out, opens and clicks.
+
+The shape follows the approved mockup (`demos.linkedtrust.us/comms-flows/v2/`,
+`week-data.js`). One line is written once and carries `tpl` (which audiences it belongs
+in at all) and `off` (which of them a person cut it from), so cutting the standup from
+Mentors leaves Workers alone without copying the line three times.
 
 ## What comms never owns
 
