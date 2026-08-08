@@ -29,6 +29,7 @@ from .models import (
     Invite,
     InviteAudience,
     InviteKind,
+    InviteStatus,
     Membership,
     MembershipRole,
     Org,
@@ -162,8 +163,6 @@ def consume_pending_invite(request):
     deployment every invite path sends people to the dash, never a GovKit page
     (golda, 2026-07-21).
     """
-    from django.shortcuts import resolve_url
-
     code = request.session.pop(SESSION_KEY, None)
     if not code or not request.user.is_authenticated:
         return None
@@ -172,6 +171,13 @@ def consume_pending_invite(request):
         membership, venture_org = accept_invite_for_user(invite, request.user)
     except InviteError:
         return None
+    return landing_after_accept(membership, venture_org)
+
+
+def landing_after_accept(membership, venture_org):
+    """Where an accepted invite lands the person."""
+    from django.shortcuts import resolve_url
+
     if membership is None and venture_org is None:
         # Pool/supporter accept: no org joined AND no venture created, so nothing
         # to land on. A BYOV accept returns (None, venture_org) — membership None
@@ -181,3 +187,47 @@ def consume_pending_invite(request):
         return settings.COHORT_POOL_LANDING or resolve_url("orgs:landing")
     org = venture_org or membership.org
     return cohort_front_door_url(org) or resolve_url("orgs:dashboard", org_slug=org.slug)
+
+
+def claim_invite_for_email(request):
+    """A live invite addressed to the person who just signed in admits them.
+
+    Signing in and being invited used to be two separate doors, and only the invite
+    link opened one: the code was the sole key. Someone who was invited but reached
+    sign-in another way (never got the link, used a bookmark, typed workers.vc) landed
+    on an empty org picker with no way to say who they were and no sign anything was
+    wrong. "If i approve someone they should be IN ... if they signin from workers.vc
+    signin link and i accepted them it should be IN just ON DASH" (golda, 2026-08-08).
+
+    Deliberately narrow, so nothing that works today changes:
+      - only for someone who belongs to no org yet, so an existing member's further
+        invites still travel by their own link;
+      - never BYOV — a venture org is minted when a founder brings a venture, never
+        as a side effect of a login (golda, 2026-07-20);
+      - matched on the email the identity provider just verified, and only against
+        invites that are still live.
+
+    Returns the URL to land on, or None when there was nothing to claim.
+    """
+    user = request.user
+    if not user.is_authenticated or not user.email:
+        return None
+    if Membership.objects.filter(user=user).exists():
+        return None
+    invite = (
+        Invite.objects.filter(
+            email__iexact=user.email,
+            status__in=(InviteStatus.CREATED, InviteStatus.COMMITTED),
+        )
+        .exclude(kind=InviteKind.BYOV)
+        .select_related("org")
+        .order_by("-created_at")
+        .first()
+    )
+    if invite is None or not invite.can_accept:
+        return None
+    try:
+        membership, venture_org = accept_invite_for_user(invite, user)
+    except InviteError:
+        return None
+    return landing_after_accept(membership, venture_org)

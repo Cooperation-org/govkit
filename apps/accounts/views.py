@@ -25,7 +25,7 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from apps.orgs.invites import consume_pending_invite
+from apps.orgs.invites import claim_invite_for_email, consume_pending_invite
 
 from . import google_oauth, oidc
 from .auth_handlers import UserUpsertError, upsert_oauth_user
@@ -271,6 +271,10 @@ def _complete_login(request, user, next_url=None):
     # Where the pending invite lands them (org join -> cohort front door / org
     # dashboard; pool accept -> pool landing) — the URL logic lives with the invite.
     invite_destination = consume_pending_invite(request)
+    if invite_destination is None:
+        # No code in hand, but they may still have been invited: an invite addressed
+        # to the email they just signed in with admits them (golda, 2026-08-08).
+        invite_destination = claim_invite_for_email(request)
 
     destination = _safe_next(next_url) or _safe_next(request.session.pop(NEXT_SESSION_KEY, None))
     if destination:
@@ -285,7 +289,10 @@ def _complete_login(request, user, next_url=None):
     front_door = _cohort_front_door_for(user)
     if front_door:
         return redirect(front_door)
-    return redirect("orgs:landing")
+    # Nobody's org. On a cohort deployment keep them on the apex they signed in from
+    # (the 0-org page, which offers the ways in) instead of bouncing them to GovKit's
+    # own empty org picker on another subdomain — a dead end nobody recognises.
+    return redirect(settings.COHORT_POOL_LANDING or "orgs:landing")
 
 
 def _login_error(request, message):
