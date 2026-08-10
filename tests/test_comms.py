@@ -19,9 +19,10 @@ from unittest.mock import patch
 import pytest
 from django.core.cache import cache
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.comms import calendar, services
-from apps.comms.models import AUDIENCE_KEYS, WORKERS, Edition, Send
+from apps.comms.models import AUDIENCE_KEYS, MENTORS, SUPPORTERS, WORKERS, Edition, Send
 from apps.orgs.models import MembershipRole
 
 COMMS = pathlib.Path(__file__).resolve().parent.parent / "apps" / "comms"
@@ -209,6 +210,58 @@ def test_a_calendar_someone_emptied_on_purpose_stays_empty(edition):
 
 def now_ics_text():
     return ics_for(services.week_window()[0])
+
+
+def test_the_addresses_come_off_the_invites(calendar_org, user_factory):
+    """Delivery is not wired, so the addresses have to be copyable. The invite
+    is the join record: it says the address and which door they came through."""
+    from apps.orgs.models import Invite, InviteStatus
+
+    signed_in = user_factory(email="mentor-who-signed-in@example.com")
+    Invite.objects.create(
+        org=calendar_org, audience="mentor", kind="org", role="member",
+        email="what-the-inviter-typed@example.com", accepted_by=signed_in,
+        expires_at=timezone.now() + timedelta(days=30),
+    )
+    Invite.objects.create(
+        org=calendar_org, audience="mentor", kind="org", role="member",
+        email="not-clicked-yet@example.com",
+        expires_at=timezone.now() + timedelta(days=30),
+    )
+    Invite.objects.create(
+        org=calendar_org, audience="mentor", kind="org", role="member",
+        email="changed-our-mind@example.com", status=InviteStatus.REVOKED,
+        expires_at=timezone.now() + timedelta(days=30),
+    )
+    Invite.objects.create(
+        org=calendar_org, audience="founder", kind="pool", role="member",
+        email="in-the-pool@example.com",
+        expires_at=timezone.now() + timedelta(days=30),
+    )
+
+    assert services.recipient_emails("vc", MENTORS) == [
+        # The address they signed in with wins over the one typed for them.
+        "mentor-who-signed-in@example.com",
+        "not-clicked-yet@example.com",
+    ]
+    assert services.recipient_emails("vc", WORKERS) == ["in-the-pool@example.com"]
+
+
+def test_one_unsubscribe_holds_for_a_list_govkit_hands_over(calendar_org):
+    """models.Subscriber: one unsubscribe covers every list and every source."""
+    from apps.comms.models import Subscriber
+    from apps.orgs.models import Invite
+
+    Invite.objects.create(
+        org=calendar_org, audience="mentor", kind="org", role="member",
+        email="no-thanks@example.com",
+        expires_at=timezone.now() + timedelta(days=30),
+    )
+    Subscriber.objects.create(
+        org_slug="vc", audience=SUPPORTERS, source="crm", external_id="1",
+        email="no-thanks@example.com", unsubscribed_at=timezone.now(),
+    )
+    assert services.recipient_emails("vc", MENTORS) == []
 
 
 def test_an_unreachable_calendar_is_a_sentence_not_a_crash(calendar_org):

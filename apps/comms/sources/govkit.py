@@ -77,6 +77,40 @@ def audience_size(org_slug: str, audience: str):
     return None
 
 
+# Which invites make up each cohort audience. The invite is the join record:
+# its `audience` is the door a person came through and its `kind` is where
+# accepting put them, and between them they say which email a person gets.
+# Applicant pool = the workers. A founder, whether they brought their own
+# venture or joined one here, is on the ventures list.
+_AUDIENCE_INVITES = {
+    "w": {"kind__in": ["pool"]},
+    "v": {"audience": "founder", "kind__in": ["byov", "org"]},
+    "m": {"audience": "mentor"},
+}
+
+
+def audience_emails(org_slug: str, audience: str) -> list[str]:
+    """Everyone one cohort email would go to, by address.
+
+    The address is the one they signed in with when they have accepted, and
+    the one the inviter wrote when they have not — an invited person who has
+    not clicked yet is still on the list. A revoked invite is nobody.
+    """
+    from apps.orgs.models import Invite, InviteStatus
+
+    where = _AUDIENCE_INVITES.get(audience)
+    if where is None:
+        return []
+    rows = (
+        Invite.objects.filter(org__slug=org_slug, **where)
+        .exclude(status=InviteStatus.REVOKED)
+        .values_list("email", "accepted_by__email")
+    )
+    return sorted(
+        {(signed_in or invited).strip() for invited, signed_in in rows if signed_in or invited}
+    )
+
+
 def viewer_is_admin(request) -> bool:
     """Comms is admin-only. Superusers pass so the team can inspect any org."""
     user = getattr(request, "user", None)

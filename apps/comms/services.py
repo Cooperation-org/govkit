@@ -490,17 +490,22 @@ def subscribers(org_slug: str, audience: str):
 def recipient_emails(org_slug: str, audience: str) -> list[str]:
     """The addresses this email would go to, for pasting into a mail client.
 
-    Only the lists comms actually holds. Supporters is built up here an import
-    at a time, so those addresses are ours to hand back. Who is a worker, a
-    venture or a mentor is a fact GovKit and the doorway hold, and neither
-    hands over addresses — so this returns nothing for them rather than a
-    partial list. Half a recipient list on a send screen is worse than none.
+    Supporters is a list comms builds up itself. The cohort audiences are
+    GovKit's: the invite is the join record, and it carries both the address
+    and which door the person came through. Either way an unsubscribe wins.
     """
-    if audience != SUPPORTERS:
-        return []
-    return sorted(
-        e for e in subscribers(org_slug, audience).values_list("email", flat=True) if e
+    if audience == SUPPORTERS:
+        found = subscribers(org_slug, audience).values_list("email", flat=True)
+    else:
+        found = govkit.audience_emails(org_slug, audience)
+    gone = set(
+        Subscriber.objects.filter(
+            org_slug=org_slug, unsubscribed_at__isnull=False
+        ).values_list("email", flat=True)
     )
+    # One unsubscribe covers every list and every source (models.Subscriber),
+    # so it has to hold for a list GovKit hands over too.
+    return sorted({e.strip() for e in found if e and e.strip() not in gone})
 
 
 def import_from_crm(org_slug: str, audience: str, tag_id: int, tag_name: str):
