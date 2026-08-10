@@ -9,6 +9,7 @@ app_name = "comms_public"
 urlpatterns = [
     # Before <str:token>, or "stop" is read as somebody's bulletin token.
     path("stop/<slug:org_slug>/<slug:audience>/", views.unsubscribe, name="unsubscribe"),
-    path("event/<int:edition_id>/<str:item_id>.ics", views.public_event, name="event"),
+    # slug, not str: str is greedy and would swallow the .ics too.
+    path("event/<int:edition_id>/<slug:item_id>.ics", views.public_event, name="event"),
     path("<str:token>/", views.public_bulletin, name="bulletin"),
 ]
