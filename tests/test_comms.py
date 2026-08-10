@@ -218,11 +218,13 @@ def test_an_unreachable_calendar_is_a_sentence_not_a_crash(calendar_org):
     assert "Could not reach" in problem
 
 
-def test_the_window_is_the_week_that_has_not_started(calendar_org):
+def test_the_window_starts_at_the_week_that_has_not_started_and_runs_a_fortnight(calendar_org):
+    """People book travel and childcare further out than seven days, so the
+    email lists two weeks and the too-early lines get cut (golda 2026-08-10)."""
     start, end = services.week_window(date(2026, 8, 28))  # a Friday
     assert start.weekday() == 0
     assert start > date(2026, 8, 28)
-    assert (end - start).days == 6
+    assert (end - start).days == 13
 
 
 # --- the page ----------------------------------------------------------------

@@ -12,6 +12,7 @@ asks `sources/govkit.py` — nothing here imports a GovKit model.
 
 import json
 from functools import wraps
+from urllib.parse import quote
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -57,7 +58,7 @@ def index(request, org_slug):
     audience = _audience(request)
     edition = services.open_edition(org_slug)
     send = services.send_for(edition, audience)
-    missing, problem = services.missing_events(edition)
+    _missing, problem = services.missing_events(edition)
     crm_tags, crm_problem = crm.tags(org_slug) if audience == SUPPORTERS else ([], "")
 
     page_url = ""
@@ -78,22 +79,20 @@ def index(request, org_slug):
             "audiences": services.audience_state(edition, org_slug),
             "sections": services.email(edition, audience),
             "cut": services.cut_items(edition, audience),
-            "missing": [
-                {
-                    "uid": e.uid,
-                    "title": e.title,
-                    "when": e.starts.astimezone(services.zone(edition)).strftime(
-                        "%a %b %-d" if e.all_day else "%a %b %-d, %-I:%M %p"
-                    ),
-                }
-                for e in missing
-            ],
             "problem": problem,
             "calendar_url": govkit.calendar_url(org_slug),
             "calendar_settings_url": govkit.calendar_settings_url(org_slug),
             "default_send_at": services.default_send_at(edition),
             "page_url": page_url,
             "plain_text": services.plain_text(edition, audience, send.subject),
+            "html_text": services.html_body(edition, audience, send.subject),
+            "recipient_emails": ", ".join(services.recipient_emails(org_slug, audience)),
+            # Gmail's compose URL takes a subject; a formatted body cannot ride
+            # a URL, so the email itself goes on the clipboard and gets pasted.
+            "gmail_url": (
+                "https://mail.google.com/mail/?view=cm&fs=1&su="
+                + quote(send.subject or "")
+            ),
             "can_ask": editor.available(),
             "past": _past(org_slug),
             # Supporters is a list we build up rather than a role, so it is the

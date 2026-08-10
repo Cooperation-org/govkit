@@ -97,27 +97,32 @@
   {% include "comms/_sheet.html" with editable=True %}
 </div>
 
-<div class="v2-back">
+{% if cut %}
+<div class="v2-cut">
+  <span class="v2-cut-lbl">Cut from this one. Press to put it back.</span>
   {% for row in cut %}
     <form method="post" action="{% url 'comms:put_back' org_slug=org_slug pk=edition.pk item_id=row.id %}">
       {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
       <button class="gk-btn">{{ row.title }}</button>
     </form>
   {% endfor %}
-  {% for e in missing %}{% if not is_list %}
-    <form method="post" action="{% url 'comms:add_from_calendar' org_slug=org_slug pk=edition.pk %}">
-      {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
-      <input type="hidden" name="uid" value="{{ e.uid }}">
-      <button class="gk-btn">{{ e.when }} {{ e.title }}</button>
-    </form>
-  {% endif %}{% endfor %}
+</div>
+{% endif %}
+
+<div class="v2-back">
   {% if edition.previous %}
     <form method="post" action="{% url 'comms:undo' org_slug=org_slug pk=edition.pk %}">
       {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
       <button class="gk-btn v2-undo">Put it back the way it was</button>
     </form>
   {% endif %}
-  <button type="button" class="gk-copy gk-btn" data-link="{{ plain_text }}">Copy the text</button>
+  <button type="button" class="gk-copy gk-btn" data-link="{{ plain_text }}"
+          data-html="{{ html_text }}">Copy the email</button>
+  <button type="button" class="gk-copy gk-btn" data-link="{{ plain_text }}"
+          data-html="{{ html_text }}" data-open="{{ gmail_url }}">Copy and open Gmail</button>
+  {% if recipient_emails %}
+    <button type="button" class="gk-copy gk-btn" data-link="{{ recipient_emails }}">Copy the addresses</button>
+  {% endif %}
 </div>
 
 <div class="v2-past">

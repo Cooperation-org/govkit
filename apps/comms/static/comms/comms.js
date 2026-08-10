@@ -71,8 +71,11 @@
     });
   });
 
+  // A click inside the sheet is a click into the text: following a link would
+  // take the caret away mid-edit. The arrow beside a line is the way to go
+  // there, so it is the one anchor that keeps its click.
   mail.addEventListener("click", function (e) {
     var a = e.target.closest("a");
-    if (a) e.preventDefault();
+    if (a && !a.classList.contains("mail-go")) e.preventDefault();
   });
 })();

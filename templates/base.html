@@ -68,11 +68,23 @@
     document.addEventListener("click", function (e) {
       var btn = e.target.closest(".gk-copy");
       if (!btn || !btn.dataset.link) return;
-      navigator.clipboard.writeText(btn.dataset.link).then(function () {
+      var opened = btn.dataset.open ? window.open(btn.dataset.open, "_blank", "noopener") : null;
+      var wrote;
+      if (btn.dataset.html && window.ClipboardItem) {
+        wrote = navigator.clipboard.write([new ClipboardItem({
+          "text/html": new Blob([btn.dataset.html], {type: "text/html"}),
+          "text/plain": new Blob([btn.dataset.link], {type: "text/plain"})
+        })]).catch(function () {
+          return navigator.clipboard.writeText(btn.dataset.link);
+        });
+      } else {
+        wrote = navigator.clipboard.writeText(btn.dataset.link);
+      }
+      wrote.then(function () {
         if (btn.dataset.copyBusy) return;
         var was = btn.innerHTML;
         btn.dataset.copyBusy = "1";
-        btn.innerHTML = btn.textContent.trim() ? "Copied" : TICK;
+        btn.innerHTML = btn.textContent.trim() ? (opened ? "Copied — now paste" : "Copied") : TICK;
         btn.classList.add("gk-copied");
         setTimeout(function () {
           btn.innerHTML = was;

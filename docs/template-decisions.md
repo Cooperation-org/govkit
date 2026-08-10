@@ -41,3 +41,13 @@ In `index.html`, `is_list` marks the Supporters tab. It is the one audience that
 is a mailing list rather than a role, so it is the only one with a way to bring
 people in, and the only one with no calendar section — hence the calendar chips
 and the calendar warnings are held back there.
+
+## `comms/index.html`
+
+- Copy carries the email as HTML as well as text, because a plain-text paste into Gmail arrives with no links and no headings. Gmail's compose URL takes a subject but cannot carry a formatted body, so "Copy and open Gmail" copies and opens the compose tab, and the person pastes (golda 2026-08-10).
+- Copy the addresses shows only where comms actually holds the list. Supporters is built up here; who is a worker, a venture or a mentor lives in GovKit and the doorway, and neither hands over addresses.
+- The row of chips under the email says what it is. An unlabelled row of dashed boxes reads as junk (golda 2026-08-10). The "on the calendar, not in this email" chips are gone: the calendar fills the draft itself now, two weeks out.
+
+## `base.html`
+
+- The copy button opens `data-open` on the click itself. Opening it after awaiting the clipboard write is a popup a blocker eats.

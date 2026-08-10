@@ -55,19 +55,25 @@
    any space put between the time and the title in the template. */
 .mail-when { color: var(--gk-ink-2); margin-right: 0.45rem; }
 .mail-t { font-weight: 600; color: var(--gk-accent); }
+/* Where a line goes. The title itself stays editable, so the arrow is the way
+   to actually follow it, and hovering either one names the destination. */
+.mail-go { margin-left: 0.3rem; font-size: 0.8em; text-decoration: none; color: var(--gk-muted); }
+.mail-go:hover { color: var(--gk-accent); }
 .mail-t.is-opt { font-weight: 400; color: var(--gk-ink-2); }
 .mail-opt { color: var(--gk-muted); font-size: 0.85em; }
 .mail-note { display: block; color: var(--gk-ink-2); font-size: 0.9em; }
 .mail-sheet [contenteditable]:focus { outline: none; }
 .mail-sheet [contenteditable]:hover { background: var(--gk-bg); }
 
-/* what is not in this one: press to put it in. Outside the border, always. */
-.v2-back { display: flex; gap: 0.35rem; flex-wrap: wrap; padding: 0.4rem 0 0; align-items: center; }
-.v2-back .gk-btn {
-  font-size: 0.8rem; padding: 0.12rem 0.5rem;
-  color: var(--gk-muted); border-style: dashed;
-}
-.v2-back .gk-btn:hover { color: var(--gk-ink); }
+/* Cut from this one: press to put it back. Outside the border, always, and
+   it says what it is — an unlabelled row of chips reads as junk. */
+.v2-cut { display: flex; gap: 0.35rem; flex-wrap: wrap; padding: 0.5rem 0 0; align-items: center; }
+.v2-cut-lbl { font-size: 0.8rem; color: var(--gk-muted); }
+.v2-cut form { display: contents; }
+.v2-cut .gk-btn { font-size: 0.8rem; padding: 0.12rem 0.5rem; color: var(--gk-muted); }
+.v2-cut .gk-btn:hover { color: var(--gk-ink); }
+
+.v2-back { display: flex; gap: 0.5rem; flex-wrap: wrap; padding: 0.6rem 0 0; align-items: center; }
 .v2-back form { display: contents; }
 
 /* where the meetings come from: go look at it, re-read it, or change it */

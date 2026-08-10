@@ -20,6 +20,7 @@ from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.conf import settings
+from django.utils.html import escape
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
@@ -38,17 +39,22 @@ from .sources import crm, govkit
 # that week starts, so "the current edition" is the week that has not begun yet.
 CALENDAR_SECTION = "cal"
 LEAD_DAYS = 3
+# How far ahead the email looks. It goes out weekly and is named for its own
+# week, but it lists the fortnight: people book travel and childcare further
+# out than seven days, and a line that is too early is one press to cut
+# (golda 2026-08-10).
+WEEKS_AHEAD = 2
 
 
 def week_window(today: date | None = None) -> tuple[date, date]:
-    """(Monday, Sunday) of the week the next email is about."""
+    """(first Monday, last day) of the stretch the next email is about."""
     today = today or timezone.localdate()
     monday = today - timedelta(days=today.weekday())
     if (monday + timedelta(days=7) - today).days <= LEAD_DAYS + 1:
         monday += timedelta(days=7)
     elif today.weekday() >= 4:
         monday += timedelta(days=7)
-    return monday, monday + timedelta(days=6)
+    return monday, monday + timedelta(days=7 * WEEKS_AHEAD - 1)
 
 
 def week_number(org_slug: str, window_start: date):
@@ -70,7 +76,7 @@ def open_edition(org_slug: str, today: date | None = None) -> Edition:
     start, end = week_window(today)
     existing = Edition.objects.filter(org_slug=org_slug, window_start=start).first()
     if existing is not None:
-        _fill_empty_calendar(existing)
+        _catch_up(existing, end)
         return existing
 
     events, tz_name, _problem = read_calendar(org_slug, start, end)
@@ -94,30 +100,33 @@ def open_edition(org_slug: str, today: date | None = None) -> Edition:
     return edition
 
 
-def _fill_empty_calendar(edition: Edition) -> None:
-    """Put the week's meetings into an email that never got any.
+def _catch_up(edition: Edition, end: date) -> None:
+    """Bring a draft up to the stretch it should be showing.
 
-    The week is built once and then left alone, so nobody's edit is overwritten
-    by a later read. An edition holding not one calendar line was built while
-    the calendar was unreachable: there is nothing to overwrite, and the
-    meetings belong in the draft rather than in the row of leftovers under it.
+    Two ways it can fall short. It was built while the calendar was unreachable
+    and holds no meeting at all, or the stretch itself moved out (one week to
+    two). Neither is an overwrite: those meetings were never offered to anybody.
 
-    A line that was cut still sits in `items` carrying `off`, so this cannot
-    mistake a deliberately emptied calendar for one that never arrived.
+    A cut line keeps its uid in `items`, so nothing here puts back what someone
+    took out, and a meeting already in the email is left exactly as it is.
     """
-    if any(i.get("sec") == CALENDAR_SECTION for i in edition.items):
+    widened = end > edition.window_end
+    empty = not any(i.get("sec") == CALENDAR_SECTION for i in edition.items)
+    if not (widened or empty):
         return
-    events, tz_name, _problem = read_calendar(
-        edition.org_slug, edition.window_start, edition.window_end
-    )
-    if not events:
-        return
+    if widened:
+        edition.window_end = end
+    events, tz_name, _problem = read_calendar(edition.org_slug, edition.window_start, end)
     if tz_name and not edition.tz_name:
         # Set before the items are built: their day and time read in this zone.
         edition.tz_name = tz_name
-    edition.items = [item_from_event(edition, e) for e in events] + edition.items
+    known = {i.get("uid") for i in edition.items if i.get("uid")}
+    fresh = [item_from_event(edition, e) for e in events if e.uid not in known]
+    if not (fresh or widened):
+        return
+    edition.items += fresh
     _sort_calendar(edition)
-    edition.save(update_fields=["items", "tz_name", "updated_at"])
+    edition.save(update_fields=["items", "window_end", "tz_name", "updated_at"])
 
 
 def reread_calendar(edition: Edition) -> None:
@@ -415,17 +424,26 @@ def blank_item(edition: Edition, sec_key: str) -> dict:
     }
 
 
+_SUFFIX = {1: "st", 2: "nd", 3: "rd"}
+
+
+def _ordinal(day: int) -> str:
+    if 11 <= day <= 13:
+        return f"{day}th"
+    return f"{day}{_SUFFIX.get(day % 10, 'th')}"
+
+
 def event_facts(edition: Edition, event) -> dict:
     """What the CALENDAR says about a meeting: when it is, and what it is called.
 
-    The email carries the zone with every time. This list goes to people in
-    Phoenix, Lagos and Berlin at once, and "8:00am" on its own is a meeting
-    somebody misses.
+    The date carries its month, and the time carries its zone. The email looks
+    a fortnight ahead and goes to people in Phoenix, Lagos and Berlin at once,
+    so a bare "11" and a bare "8:00am" are both a meeting somebody misses.
     """
     local = event.starts.astimezone(zone(edition))
     return {
         "starts": event.starts.isoformat(),
-        "day": local.strftime("%a %-d"),
+        "day": f"{local:%a %b} {_ordinal(local.day)}",
         "time": "" if event.all_day else (
             local.strftime("%-I:%M%p").lower() + " " + local.strftime("%Z")
         ).strip(),
@@ -466,6 +484,22 @@ def subscribers(org_slug: str, audience: str):
     """Everyone on one list who has not unsubscribed."""
     return Subscriber.objects.filter(
         org_slug=org_slug, audience=audience, unsubscribed_at__isnull=True
+    )
+
+
+def recipient_emails(org_slug: str, audience: str) -> list[str]:
+    """The addresses this email would go to, for pasting into a mail client.
+
+    Only the lists comms actually holds. Supporters is built up here an import
+    at a time, so those addresses are ours to hand back. Who is a worker, a
+    venture or a mentor is a fact GovKit and the doorway hold, and neither
+    hands over addresses — so this returns nothing for them rather than a
+    partial list. Half a recipient list on a send screen is worse than none.
+    """
+    if audience != SUPPORTERS:
+        return []
+    return sorted(
+        e for e in subscribers(org_slug, audience).values_list("email", flat=True) if e
     )
 
 
@@ -556,6 +590,48 @@ def mark_sent(send: Send, recipients: int = 0) -> None:
     send.sent_at = timezone.now()
     send.recipients = recipients or send.recipients
     send.save(update_fields=["public_token", "sent_at", "recipients", "updated_at"])
+
+
+def html_body(edition: Edition, audience: str, subject: str) -> str:
+    """The email as HTML a person can paste straight into Gmail.
+
+    Every style is inline. A mail client keeps no stylesheet and strips class
+    names, so anything that lives in comms.css arrives as unstyled text — which
+    is what "copy the text" gave you before. The link stays a link: that is the
+    whole reason to paste rich text rather than plain.
+    """
+    out = [f'<div style="{_MAIL}">', f'<p style="{_SUBJECT}">{escape(subject)}</p>']
+    for section in email(edition, audience):
+        if section.get("title"):
+            out.append(f'<h2 style="{_H2}">{escape(section["title"])}</h2>')
+        out.append(f'<ul style="{_UL}">')
+        for row in section["rows"]:
+            when = " ".join(p for p in (row.get("day"), row.get("time")) if p)
+            title = escape(row["title"])
+            if row.get("href"):
+                title = f'<a href="{escape(row["href"])}" style="{_LINK}">{title}</a>'
+            line = f'<span style="{_WHEN}">{escape(when)}</span> ' if when else ""
+            line += title
+            if row.get("optional"):
+                line += f' <span style="{_QUIET}">optional</span>'
+            if row.get("note"):
+                line += f'<br><span style="{_NOTE}">{escape(row["note"])}</span>'
+            out.append(f'<li style="{_LI}">{line}</li>')
+        out.append("</ul>")
+    out.append("</div>")
+    return "".join(out)
+
+
+# Inline styles for html_body, kept together so the email reads as one thing.
+_MAIL = "font-family:Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:#1a1a1a"
+_SUBJECT = "font-size:16px;font-weight:600;margin:0 0 12px"
+_H2 = "font-size:15px;font-weight:600;margin:16px 0 4px"
+_UL = "margin:0 0 12px;padding-left:20px"
+_LI = "margin:4px 0"
+_WHEN = "color:#555"
+_LINK = "font-weight:600;color:#0b6b63;text-decoration:none"
+_QUIET = "color:#777;font-size:13px"
+_NOTE = "color:#555;font-size:13px"
 
 
 def plain_text(edition: Edition, audience: str, subject: str) -> str:
