@@ -27,6 +27,8 @@ from django.utils import timezone
 from . import calendar as calendar_feed
 from .models import (
     AUDIENCE_KEYS,
+    MENTORS,
+    VENTURES,
     WORKERS,
     DEFAULT_SECTIONS,
     SUPPORTERS,
@@ -164,20 +166,41 @@ def _goal_lines(edition: Edition) -> list[dict]:
     line carries the audiences it goes to, so they live side by side rather
     than needing a section each.
     """
-    return [
-        {"title": title, "href": url, "tpl": [WORKERS]}
-        for title, url in govkit.worker_goals()
+    lines = [
+        {"title": title, "href": url, "tpl": [WORKERS]} for title, url in govkit.worker_goals()
     ]
+    lines += [
+        {"title": title, "href": url, "tpl": [VENTURES]} for title, url in govkit.venture_goals()
+    ]
+    return lines
+
+
+# Past this many names a list stops being people and becomes a wall of text,
+# so it is counted and pointed at instead (golda 2026-08-10).
+NAMES_BEFORE_A_COUNT = 6
+
+
+def _people_line(names: list[str], plural: str, url: str) -> dict | None:
+    """New arrivals as one line: the names, or how many and where they are."""
+    if not names:
+        return None
+    if len(names) <= NAMES_BEFORE_A_COUNT:
+        title = f"{', '.join(names)} joined as {plural}"
+    else:
+        title = f"{len(names)} new {plural} joined"
+    return {"title": title, "href": url, "flag": "new", "tpl": [VENTURES]}
 
 
 def _opportunity_lines(edition: Edition) -> list[dict]:
-    """The ventures that turned up in the week before this email is about.
+    """Who and what turned up in the week before this email is about.
 
-    New teams are the opportunity a worker in the pool is reading for, so they
-    are the section rather than something to be typed in by hand each week.
+    A worker in the pool is reading this for the teams that just arrived. A
+    team is reading it for the people — the mentors by name, and the workers
+    by name until there are too many to read, and then by how many.
     """
     since = edition.window_start - timedelta(days=7)
-    return [
+    org_slug = edition.org_slug
+    lines = [
         {
             "title": v["name"],
             "href": v["url"],
@@ -185,8 +208,14 @@ def _opportunity_lines(edition: Edition) -> list[dict]:
             "flag": "new",
             "tpl": [WORKERS],
         }
-        for v in govkit.new_ventures(edition.org_slug, since)
+        for v in govkit.new_ventures(org_slug, since)
     ]
+    wall = getattr(settings, "COHORT_WALL_URL", "") or ""
+    for audience, plural in ((MENTORS, "mentors"), (WORKERS, "workers")):
+        line = _people_line(govkit.new_people(org_slug, since, audience), plural, wall)
+        if line is not None:
+            lines.append(line)
+    return lines
 
 
 def reread_calendar(edition: Edition, overwrite: bool = False) -> None:
@@ -512,9 +541,11 @@ def event_facts(edition: Edition, event) -> dict:
     return {
         "starts": event.starts.isoformat(),
         "day": f"{local:%a %b} {_ordinal(local.day)}",
-        "time": "" if event.all_day else (
-            local.strftime("%-I:%M%p").lower() + " " + local.strftime("%Z")
-        ).strip(),
+        "time": (
+            ""
+            if event.all_day
+            else (local.strftime("%-I:%M%p").lower() + " " + local.strftime("%Z")).strip()
+        ),
         "title": event.title,
         # What a person clicks a meeting for is the way in: its Meet or Zoom
         # link. Only a meeting that has none falls back to the calendar.
@@ -582,9 +613,9 @@ def recipient_emails(org_slug: str, audience: str) -> list[str]:
     else:
         found = govkit.audience_emails(org_slug, audience)
     gone = set(
-        Subscriber.objects.filter(
-            org_slug=org_slug, unsubscribed_at__isnull=False
-        ).values_list("email", flat=True)
+        Subscriber.objects.filter(org_slug=org_slug, unsubscribed_at__isnull=False).values_list(
+            "email", flat=True
+        )
     )
     # One unsubscribe covers every list and every source (models.Subscriber),
     # so it has to hold for a list GovKit hands over too.

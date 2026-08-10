@@ -190,8 +190,6 @@ def _event(occurrence) -> Event | None:
         # What a person clicks a meeting for is the way into it. Google puts the
         # Meet link in X-GOOGLE-CONFERENCE and leaves URL empty, so a line that
         # read URL alone always fell back to the calendar as a whole.
-        url=str(
-            occurrence.get("X-GOOGLE-CONFERENCE") or occurrence.get("URL") or ""
-        ).strip(),
+        url=str(occurrence.get("X-GOOGLE-CONFERENCE") or occurrence.get("URL") or "").strip(),
         detail=str(occurrence.get("DESCRIPTION") or "").strip(),
     )

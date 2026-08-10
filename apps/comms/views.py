@@ -90,8 +90,7 @@ def index(request, org_slug):
             # Gmail's compose URL takes a subject; a formatted body cannot ride
             # a URL, so the email itself goes on the clipboard and gets pasted.
             "gmail_url": (
-                "https://mail.google.com/mail/?view=cm&fs=1&su="
-                + quote(send.subject or "")
+                "https://mail.google.com/mail/?view=cm&fs=1&su=" + quote(send.subject or "")
             ),
             "can_ask": editor.available(),
             "past": _past(org_slug),

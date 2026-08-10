@@ -136,6 +136,50 @@ def new_ventures(org_slug: str, since):
     ]
 
 
+def new_people(org_slug: str, since, audience: str):
+    """Who came in through one door since `since`, by name.
+
+    An accepted invite is the join: it carries the name and the date they took
+    it. The wall is public and this is not — a name on a list of who is new is
+    for the cohort's own email.
+    """
+    from apps.orgs.models import Invite
+
+    where = _AUDIENCE_INVITES.get(audience)
+    if where is None:
+        return []
+    rows = (
+        Invite.objects.filter(org__slug=org_slug, accepted_at__date__gte=since, **where)
+        .order_by("accepted_at")
+        .values_list("name", flat=True)
+    )
+    return [name.strip() for name in rows if name and name.strip()]
+
+
+def venture_goals():
+    """Where a venture is being sent this week, as (title, url) pairs.
+
+    The org profile link is the landing page rather than one team's settings:
+    one email goes to every team, and landing puts each person on their own.
+    """
+    from django.conf import settings
+    from django.urls import reverse
+
+    public = (settings.PUBLIC_BASE_URL or "").rstrip("/")
+    goals = [
+        (
+            "Complete your org profile",
+            f"{public}{reverse('orgs:landing')}" if public else "",
+        ),
+        ("Find your team", settings.COHORT_WALL_URL or ""),
+        (
+            "Optionally, post on Wellfound to recruit team members",
+            settings.COHORT_RECRUIT_URL or "",
+        ),
+    ]
+    return [(title, url) for title, url in goals if url]
+
+
 def worker_goals():
     """Where a worker is being sent this week, as (title, url) pairs.
 

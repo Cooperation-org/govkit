@@ -22,7 +22,15 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.comms import calendar, services
-from apps.comms.models import AUDIENCE_KEYS, MENTORS, SUPPORTERS, WORKERS, Edition, Send
+from apps.comms.models import (
+    AUDIENCE_KEYS,
+    MENTORS,
+    SUPPORTERS,
+    VENTURES,
+    WORKERS,
+    Edition,
+    Send,
+)
 from apps.orgs.models import MembershipRole
 
 COMMS = pathlib.Path(__file__).resolve().parent.parent / "apps" / "comms"
@@ -333,6 +341,56 @@ def test_taking_the_page_down_keeps_the_address(client, admin_at_vc, edition):
     assert client.get(page).status_code == 200
 
 
+def test_the_ventures_get_their_own_goals(calendar_org, settings, now_ics):
+    settings.PUBLIC_BASE_URL = "https://dash.example"
+    settings.COHORT_WALL_URL = "https://front.example/wall/"
+    settings.COHORT_RECRUIT_URL = "https://wellfound.example/"
+    with patch("urllib.request.urlopen", return_value=_Feed(now_ics)):
+        made = services.open_edition("vc")
+
+    titles = [r["title"] for r in _rows(made, VENTURES, "goals")]
+    assert "Complete your org profile" in titles
+    assert "Find your team" in titles
+    assert any("Wellfound" in t for t in titles)
+    # A venture's goals are not a worker's.
+    assert "Update your profile" not in titles
+    assert "Complete your org profile" not in [r["title"] for r in _rows(made, WORKERS, "goals")]
+
+
+def test_new_people_are_named_until_there_are_too_many(calendar_org, settings, now_ics):
+    """A team reads this for the people; past a few names it is a wall of text
+    and becomes a count with a pointer (golda 2026-08-10)."""
+    from apps.orgs.models import Invite
+
+    settings.COHORT_WALL_URL = "https://front.example/wall/"
+
+    def joined(name, audience, kind):
+        Invite.objects.create(
+            org=calendar_org,
+            audience=audience,
+            kind=kind,
+            role="member",
+            name=name,
+            email=f"{name.lower()}@example.com",
+            accepted_at=timezone.now(),
+            expires_at=timezone.now() + timedelta(days=30),
+        )
+
+    for who in ("Ada", "Grace"):
+        joined(who, "mentor", "org")
+    for n in range(9):
+        joined(f"Worker{n}", "founder", "pool")
+
+    with patch("urllib.request.urlopen", return_value=_Feed(now_ics)):
+        made = services.open_edition("vc")
+
+    titles = [r["title"] for r in _rows(made, VENTURES, "opp")]
+    assert "Ada, Grace joined as mentors" in titles
+    assert "9 new workers joined" in titles
+    hrefs = [r["href"] for r in _rows(made, VENTURES, "opp")]
+    assert "https://front.example/wall/" in hrefs
+
+
 def test_the_email_says_which_timezone_a_time_is_in(edition):
     """It goes to people in Phoenix, Lagos and Berlin at once."""
     times = [i["time"] for i in edition.items if i.get("sec") == "cal" and i["time"]]
@@ -345,7 +403,7 @@ def test_a_week_built_without_a_calendar_takes_one_when_it_arrives(calendar_org,
     meetings only ever showed as leftovers under the email."""
     with patch("urllib.request.urlopen", side_effect=OSError("nope")):
         edition = services.open_edition("vc")
-    assert edition.items == []
+    assert [i for i in edition.items if i["sec"] == "cal"] == []
 
     cache.clear()
     with patch("urllib.request.urlopen", return_value=_Feed(now_ics)):
