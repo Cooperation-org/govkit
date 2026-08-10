@@ -53,34 +53,6 @@ docs/design/       pattern-language.md — how it should look
 
 Business logic goes in `services.py`, not in a view and not in a serializer.
 
-## How your work lands
-
-**Commit straight to `main` and push, as soon as a change is coherent**
-(golda 2026-08-10). Small commits, often. Pull before you start and before you
-push, and resolve any conflict on the spot — many sessions work these repos in
-parallel and fast integration is the safety mechanism, not branches. No
-long-lived branches, and never a `git stash` or a worktree.
-
-Pushing to `main` deploys, so a commit is a release: get the tests green first.
-
-## Ask, don't guess
-
-These are not forbidden. They are the things where guessing makes a mess that
-someone else has to unpick, so **stop and ask on the board (`scratch.md`) or ask
-a person**:
-
-- A fact that could live in two places, or a new table for something another
-  system already knows.
-- A new service, database, repo, or system dependency.
-- Anything that changes what an issued line, a share, or a vote weight means.
-- A migration that is not additive, or that touches issued equity.
-- Editing another app's data, or reaching into another app's database.
-- A UX pattern you are inventing rather than following
-  (`docs/design/pattern-language.md`, `UX_PRINCIPLES.md`) — look up the standard
-  one first.
-- Access you don't have: a path, a permission, a server. That boundary is
-  usually deliberate. Ask how the team does it.
-
 ## Also read
 
 `UX_PRINCIPLES.md` before touching anything a person looks at.
