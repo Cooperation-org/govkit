@@ -152,4 +152,10 @@ def pool_view(request):
             else ""
         )
         invite.skills = card.get("skills") or []
+        # Their card, the way the mentors page draws one: the profile they
+        # filled in here wins, and their wall card fills in for everyone who
+        # has not. Reading only the profile left the people who wrote their
+        # words on the way in looking like they had written nothing.
+        invite.face = invite.accepted_by.avatar_url or card.get("image") or ""
+        invite.words = invite.accepted_by.bio or card.get("statement") or ""
     return render(request, "commons/pool.html", {"invites": invites})

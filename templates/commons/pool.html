@@ -22,9 +22,8 @@
   {% for invite in invites %}
     <div class="gk-card gk-pool-card">
       <h2>
-        {% if invite.accepted_by.avatar_url %}
-          <img src="{{ invite.accepted_by.avatar_url }}" alt="" width="28" height="28"
-               style="border-radius:50%">
+        {% if invite.face %}
+          <img src="{{ invite.face }}" alt="" width="28" height="28" style="border-radius:50%">
         {% endif %}
         {% if invite.wall_url %}
           <a href="{{ invite.wall_url }}">{{ invite.accepted_by.get_full_name }}</a>
@@ -37,15 +36,16 @@
         <p class="gk-skills">{% for skill in invite.skills %}<span>{{ skill }}</span>{% endfor %}</p>
       {% endif %}
 
-      {% if invite.accepted_by.bio %}<p>{{ invite.accepted_by.bio|linebreaksbr }}</p>{% endif %}
+      {% if invite.words %}<p>{{ invite.words|linebreaksbr }}</p>{% endif %}
 
+      {% if invite.accepted_by.public_links %}
       <p class="gk-placeholder gk-their-links">
-        {{ invite.get_audience_display }}
         {% for link in invite.accepted_by.public_links %}
-          · <a href="{{ link.url|default:'#' }}" rel="noopener">
+          {% if not forloop.first %}· {% endif %}<a href="{{ link.url|default:'#' }}" rel="noopener">
               {{ link.label|default:link.handle|default:link.get_kind_display }}</a>
         {% endfor %}
       </p>
+      {% endif %}
     </div>
   {% empty %}
     <div class="gk-card"><p class="gk-placeholder">No one in the pool yet.</p></div>

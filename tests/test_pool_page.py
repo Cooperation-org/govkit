@@ -69,3 +69,31 @@ def test_a_card_links_even_when_the_wall_does_not_answer(
     response = client.get("/commons/pool/")
 
     assert response.context["invites"][0].wall_url == "https://front.example/p/124770/"
+
+
+def test_their_wall_words_show_when_they_wrote_no_bio(
+    client, pool, user_factory, membership_factory, monkeypatch
+):
+    """Somebody who wrote their words on the way in and never filled the
+    profile here was showing as a bare name (golda 2026-08-10)."""
+    monkeypatch.setattr(
+        "apps.commons.views.wall_cards_by_claim",
+        lambda ids: {
+            124774: {
+                "statement": "I build data pipelines.",
+                "image": "https://img.example/jaya.jpg",
+                "skills": ["Python"],
+            }
+        },
+    )
+    org, joined = pool
+    jaya = user_factory(email="jaya@example.com")
+    joined(jaya, 124774)
+
+    admin = user_factory()
+    membership_factory(org, admin, role=MembershipRole.ADMIN)
+    client.force_login(admin)
+    card = client.get("/commons/pool/").context["invites"][0]
+
+    assert card.words == "I build data pipelines."
+    assert card.face == "https://img.example/jaya.jpg"
