@@ -232,9 +232,14 @@ def _opportunity_lines(edition: Edition) -> list[dict]:
         }
         for v in govkit.new_ventures(org_slug, since)
     ]
+    # Each list points at the page that holds those people. The mentors have
+    # their own page; the workers' pool page is thinner than the wall, and the
+    # wall is where a team is already being sent to find them (golda
+    # 2026-08-10).
     wall = getattr(settings, "COHORT_WALL_URL", "") or ""
-    for audience, plural in ((MENTORS, "mentors"), (WORKERS, "workers")):
-        line = _people_line(govkit.new_people(org_slug, since, audience), plural, wall)
+    where = ((MENTORS, "mentors", govkit.mentors_url()), (WORKERS, "workers", wall))
+    for audience, plural, url in where:
+        line = _people_line(govkit.new_people(org_slug, since, audience), plural, url)
         if line is not None:
             lines.append(line)
     return lines

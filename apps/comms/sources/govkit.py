@@ -156,6 +156,15 @@ def new_people(org_slug: str, since, audience: str):
     return [name.strip() for name in rows if name and name.strip()]
 
 
+def mentors_url() -> str:
+    """GovKit's own page listing the cohort's mentors."""
+    from django.conf import settings
+    from django.urls import reverse
+
+    public = (settings.PUBLIC_BASE_URL or "").rstrip("/")
+    return f"{public}{reverse('orgs:mentors')}" if public else ""
+
+
 def venture_goals():
     """Where a venture is being sent this week, as (title, url) pairs.
 

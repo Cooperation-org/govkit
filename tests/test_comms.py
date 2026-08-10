@@ -363,6 +363,7 @@ def test_new_people_are_named_until_there_are_too_many(calendar_org, settings, n
     from apps.orgs.models import Invite
 
     settings.COHORT_WALL_URL = "https://front.example/wall/"
+    settings.PUBLIC_BASE_URL = "https://dash.example"
 
     def joined(name, audience, kind):
         Invite.objects.create(
@@ -387,8 +388,10 @@ def test_new_people_are_named_until_there_are_too_many(calendar_org, settings, n
     titles = [r["title"] for r in _rows(made, VENTURES, "opp")]
     assert "Ada, Grace joined as mentors" in titles
     assert "9 new workers joined" in titles
-    hrefs = [r["href"] for r in _rows(made, VENTURES, "opp")]
-    assert "https://front.example/wall/" in hrefs
+    rows = {r["title"]: r["href"] for r in _rows(made, VENTURES, "opp")}
+    # Each list points at the page that holds those people.
+    assert rows["Ada, Grace joined as mentors"] == "https://dash.example/mentors/"
+    assert rows["9 new workers joined"] == "https://front.example/wall/"
 
 
 def test_what_has_gone_out_is_a_record_not_a_draft(client, admin_at_vc, edition, settings):
