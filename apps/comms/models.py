@@ -44,10 +44,13 @@ AUDIENCE_KEYS = [k for k, _ in AUDIENCES]
 # Titles are edited in place, so this is only the starting set.
 DEFAULT_SECTIONS = [
     {"k": "goals", "title": "Goals this week", "tpl": [WORKERS, VENTURES]},
+    # A mentor opens this to see when to turn up, and then who they would be
+    # sitting with — so the week comes before the teams, and there is no
+    # opportunities section for them at all (golda 2026-08-10).
+    {"k": "cal", "title": "Coming up", "tpl": COHORT_AUDIENCES, "cal": True},
     {"k": "vent", "title": "Where the ventures are", "tpl": [MENTORS]},
     {"k": "news", "title": "What's new", "tpl": [SUPPORTERS]},
-    {"k": "cal", "title": "Coming up", "tpl": COHORT_AUDIENCES, "cal": True},
-    {"k": "opp", "title": "New opportunities", "tpl": COHORT_AUDIENCES},
+    {"k": "opp", "title": "New opportunities", "tpl": [WORKERS, VENTURES]},
     {"k": "foot", "title": "", "tpl": COHORT_AUDIENCES},
     # The standing footer on the supporters' email: follow us, and sponsor.
     {"k": "support", "title": "", "tpl": [SUPPORTERS], "carry": True},

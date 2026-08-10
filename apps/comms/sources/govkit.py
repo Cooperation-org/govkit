@@ -111,29 +111,32 @@ def audience_emails(org_slug: str, audience: str) -> list[str]:
     )
 
 
-def new_ventures(org_slug: str, since):
-    """Teams that turned up since `since`, with their public page.
+def ventures(org_slug: str, since=None):
+    """The teams, with their public page and whether they are new.
 
     A venture is an org of its own; the accelerator is the one everybody else
-    joined, so it is never news to itself. Ordered oldest first, so a week with
-    three of them reads in the order they arrived.
+    joined, so it is never news to itself. Oldest first, so the list reads in
+    the order they arrived and stays the same shape week to week. `since`
+    marks which ones are new rather than filtering the rest out.
     """
     from django.conf import settings
 
     base = (settings.VENTURE_PAGE_BASE_URL or "").rstrip("/")
-    rows = (
-        Org.objects.filter(created_at__date__gte=since)
-        .exclude(slug=org_slug)
-        .order_by("created_at")
-    )
+    rows = Org.objects.exclude(slug=org_slug).order_by("created_at")
     return [
         {
             "name": row.display_name or row.slug,
             "url": f"{base}/{row.slug}/" if base else "",
             "note": (row.tagline or "").strip(),
+            "is_new": bool(since and row.created_at.date() >= since),
         }
         for row in rows
     ]
+
+
+def new_ventures(org_slug: str, since):
+    """Only the teams that turned up since `since`."""
+    return [v for v in ventures(org_slug, since) if v["is_new"]]
 
 
 def new_people(org_slug: str, since, audience: str):

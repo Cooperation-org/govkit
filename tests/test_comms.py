@@ -411,17 +411,26 @@ def test_what_has_gone_out_is_a_record_not_a_draft(client, admin_at_vc, edition,
     assert b'contenteditable="true"' not in page.content
 
 
-def test_the_mentors_hear_which_teams_arrived(calendar_org, org_factory, now_ics):
-    """The arrivals are the part nobody has to type. What a team DID this week
-    is not derivable from anything we hold, so that is written in."""
+def test_the_mentors_get_every_team_with_the_new_ones_marked(calendar_org, org_factory, now_ics):
+    """A mentor is reading this to know who is in the run, and a team that
+    joined three weeks ago is still who they might sit with (golda)."""
+    from apps.orgs.models import Org
+
     newcomer = org_factory(slug="brand-new")
     newcomer.display_name = "Brand New"
     newcomer.save(update_fields=["display_name"])
+    old_hand = org_factory(slug="been-here-ages")
+    old_hand.display_name = "Been Here Ages"
+    old_hand.save(update_fields=["display_name"])
+    Org.objects.filter(pk=old_hand.pk).update(created_at=timezone.now() - timedelta(days=60))
 
     with patch("urllib.request.urlopen", return_value=_Feed(now_ics)):
         made = services.open_edition("vc")
 
-    assert "Brand New" in [r["title"] for r in _rows(made, MENTORS, "vent")]
+    rows = {r["title"]: r for r in _rows(made, MENTORS, "vent")}
+    assert rows["Brand New"]["flag"] == "new"
+    assert rows["Been Here Ages"]["flag"] == ""
+    assert "Workers VC" not in rows
     assert _rows(made, WORKERS, "vent") == []
 
 
@@ -851,3 +860,13 @@ def test_every_copy_carries_a_way_out(edition, settings):
 
     assert stop in services.html_body(edition, MENTORS, send.subject)
     assert stop in services.plain_text(edition, MENTORS, send.subject)
+
+
+def test_a_mentor_reads_the_week_then_the_teams(edition):
+    """When to turn up, then who they would be sitting with. No opportunities
+    section for them at all (golda 2026-08-10)."""
+    keys = [s["k"] for s in services.email(edition, MENTORS)]
+    assert keys.index("cal") < keys.index("vent")
+    assert "opp" not in keys
+    # The other two still get theirs.
+    assert "opp" in [s["k"] for s in services.email(edition, WORKERS)]

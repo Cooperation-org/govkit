@@ -216,9 +216,13 @@ def _people_line(people: list[dict], plural: str, url: str) -> list[dict]:
 def _venture_news_lines(edition: Edition) -> list[dict]:
     """What the mentors are told about the teams.
 
-    The teams that arrived are the part nobody has to type. What a team has
-    actually DONE this week is not derivable from anything we hold, so the
-    section is seeded with the arrivals and the highlights are written in.
+    Every team, not only the ones that just arrived: a mentor is reading this
+    to know who is in the run, and a team that joined three weeks ago is still
+    who they might sit with (golda 2026-08-10). The recent ones are marked.
+
+    What a team has actually DONE this week is not derivable from anything we
+    hold, so the section is seeded with the teams and the highlights are
+    written in.
     """
     since = edition.window_start - timedelta(days=7)
     return [
@@ -226,10 +230,10 @@ def _venture_news_lines(edition: Edition) -> list[dict]:
             "title": v["name"],
             "href": v["url"],
             "note": v["note"],
-            "flag": "new",
+            "flag": "new" if v["is_new"] else "",
             "tpl": [MENTORS],
         }
-        for v in govkit.new_ventures(edition.org_slug, since)
+        for v in govkit.ventures(edition.org_slug, since)
     ]
 
 
@@ -837,8 +841,7 @@ def html_body(edition: Edition, audience: str, subject: str) -> str:
     stop = stop_url(edition.org_slug, audience)
     if stop:
         out.append(
-            f'<p style="{_STOP}">'
-            f'<a href="{escape(stop)}" style="{_STOP}">Unsubscribe</a></p>'
+            f'<p style="{_STOP}">' f'<a href="{escape(stop)}" style="{_STOP}">Unsubscribe</a></p>'
         )
     out.append("</div>")
     return "".join(out)
