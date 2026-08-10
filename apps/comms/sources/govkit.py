@@ -40,7 +40,7 @@ def calendar_settings_url(org_slug: str) -> str:
     """Where an admin goes to put a calendar in, when there isn't one."""
     from django.urls import reverse
 
-    return reverse("orgs:settings", kwargs={"org_slug": org_slug})
+    return reverse("orgs:settings", kwargs={"org_slug": org_slug}) + "#calendar"
 
 
 def cohort_start(org_slug: str):

@@ -69,10 +69,10 @@
 {% endif %}
 
 {% if problem and not is_list %}
-  <p class="gk-error">{{ problem }} <a href="{{ calendar_settings_url }}#your-page">Calendar link</a></p>
+  <p class="gk-error">{{ problem }} <a href="{{ calendar_settings_url }}">Calendar link</a></p>
 {% elif not calendar_url and not is_list %}
   <p class="gk-note">No calendar on this team yet, so nothing comes in on its own.
-    <a href="{{ calendar_settings_url }}#your-page">Add the calendar link</a></p>
+    <a href="{{ calendar_settings_url }}">Add the calendar link</a></p>
 {% endif %}
 
 <p class="mail-subject">

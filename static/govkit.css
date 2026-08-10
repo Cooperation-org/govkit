@@ -640,6 +640,8 @@ details.gk-unfold fieldset { border: none; padding: 0.25rem 0 0.75rem; margin: 0
 @media (max-width: 640px) { .gk-form-grid { grid-template-columns: 1fr; } }
 .gk-field { display: flex; flex-direction: column; gap: 0.15rem; }
 .gk-field.gk-span-2 { grid-column: 1 / -1; }
+/* linked-to field: land above it, and mark it so the eye finds it */
+.gk-field:target { scroll-margin-top: 1.5rem; box-shadow: 0 0 0 0.5rem var(--gk-neutral-soft); border-radius: 4px; }
 .gk-field input, .gk-field select, .gk-field textarea { width: 100%; }
 .gk-field label small, .gk-check small { color: var(--gk-muted); font-weight: 400; }
 .gk-check input { width: auto; margin-right: 0.4rem; }
