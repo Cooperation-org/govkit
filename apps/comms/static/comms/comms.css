@@ -56,7 +56,8 @@
 .mail-when { color: var(--gk-ink-2); margin-right: 0.45rem; }
 .mail-t { font-weight: 600; color: var(--gk-accent); }
 .mail-t.is-opt { font-weight: 400; color: var(--gk-ink-2); }
-.mail-opt { color: var(--gk-muted); font-size: 0.85em; }
+/* The gap is here for the same reason as .mail-when: spaceless eats it. */
+.mail-opt { color: var(--gk-muted); font-size: 0.85em; margin-left: 0.35rem; }
 .mail-note { display: block; color: var(--gk-ink-2); font-size: 0.9em; }
 .mail-sheet [contenteditable]:focus { outline: none; }
 .mail-sheet [contenteditable]:hover { background: var(--gk-bg); }

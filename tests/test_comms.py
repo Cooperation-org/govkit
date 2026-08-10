@@ -357,9 +357,9 @@ def test_the_ventures_get_their_own_goals(calendar_org, settings, now_ics):
     assert "Complete your org profile" not in [r["title"] for r in _rows(made, WORKERS, "goals")]
 
 
-def test_new_people_are_named_until_there_are_too_many(calendar_org, settings, now_ics):
-    """A team reads this for the people; past a few names it is a wall of text
-    and becomes a count with a pointer (golda 2026-08-10)."""
+def test_new_people_are_one_line_pointing_at_where_they_all_are(calendar_org, settings, now_ics):
+    """A team reads this for the people. Naming each on its own line does not
+    survive a busy week, and no one name is the destination (golda)."""
     from apps.orgs.models import Invite
 
     settings.COHORT_WALL_URL = "https://front.example/wall/"
@@ -388,11 +388,11 @@ def test_new_people_are_named_until_there_are_too_many(calendar_org, settings, n
         made = services.open_edition("vc")
 
     rows = {r["title"]: r for r in _rows(made, VENTURES, "opp")}
-    # One line each, so every name is its own link to that person's page.
-    assert rows["Ada"]["note"] == "joined as a mentor"
-    assert rows["Grace"]["href"].startswith("https://front.example/p/")
-    # Past a handful it is a count, pointing at the page that holds them.
-    assert rows["9 new workers joined"]["href"] == "https://front.example/wall/"
+    # One line per group, not per person: a busy week cannot be listed out.
+    assert rows["Ada, Grace joined as mentors"]["href"] == "https://dash.example/mentors/"
+    workers = next(t for t in rows if t.endswith("joined as workers"))
+    assert rows[workers]["href"] == "https://dash.example/commons/pool/"
+    assert "Worker0" in workers
 
 
 def test_what_has_gone_out_is_a_record_not_a_draft(client, admin_at_vc, edition, settings):

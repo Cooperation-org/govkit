@@ -166,13 +166,23 @@ def new_people(org_slug: str, since, audience: str):
     return people
 
 
-def mentors_url() -> str:
-    """GovKit's own page listing the cohort's mentors."""
+def _own_page(url_name: str) -> str:
+    """One of GovKit's own pages, addressed the way a person outside would."""
     from django.conf import settings
     from django.urls import reverse
 
     public = (settings.PUBLIC_BASE_URL or "").rstrip("/")
-    return f"{public}{reverse('orgs:mentors')}" if public else ""
+    return f"{public}{reverse(url_name)}" if public else ""
+
+
+def mentors_url() -> str:
+    """The page listing the cohort's mentors."""
+    return _own_page("orgs:mentors")
+
+
+def pool_url() -> str:
+    """The page listing the people in the applicant pool."""
+    return _own_page("commons:pool")
 
 
 def venture_goals():

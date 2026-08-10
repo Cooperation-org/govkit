@@ -197,38 +197,17 @@ def _goal_lines(edition: Edition) -> list[dict]:
     return lines
 
 
-# Past this many names a list stops being people and becomes a wall of text,
-# so it is counted and pointed at instead (golda 2026-08-10).
-NAMES_BEFORE_A_COUNT = 6
+def _people_line(people: list[dict], plural: str, url: str) -> list[dict]:
+    """New arrivals as one line: their names, and where the rest of them are.
 
-
-def _people_lines(people: list[dict], plural: str, url: str) -> list[dict]:
-    """New arrivals, one line each so every name is its own link.
-
-    Past a handful the names stop being people and become a wall of text, so
-    they become how many there are and where to go and read them.
+    Naming each one on its own line does not survive a busy week — you cannot
+    list everybody (golda 2026-08-10). The link is to the page that holds all
+    of them rather than to any one person.
     """
     if not people:
         return []
-    if len(people) > NAMES_BEFORE_A_COUNT:
-        return [
-            {
-                "title": f"{len(people)} new {plural} joined",
-                "href": url,
-                "flag": "new",
-                "tpl": [VENTURES],
-            }
-        ]
-    return [
-        {
-            "title": person["name"],
-            "href": person["url"] or url,
-            "note": f"joined as a {plural[:-1]}",
-            "flag": "new",
-            "tpl": [VENTURES],
-        }
-        for person in people
-    ]
+    names = ", ".join(person["name"] for person in people)
+    return [{"title": f"{names} joined as {plural}", "href": url, "flag": "new", "tpl": [VENTURES]}]
 
 
 def _opportunity_lines(edition: Edition) -> list[dict]:
@@ -250,14 +229,13 @@ def _opportunity_lines(edition: Edition) -> list[dict]:
         }
         for v in govkit.new_ventures(org_slug, since)
     ]
-    # Each list points at the page that holds those people. The mentors have
-    # their own page; the workers' pool page is thinner than the wall, and the
-    # wall is where a team is already being sent to find them (golda
-    # 2026-08-10).
-    wall = getattr(settings, "COHORT_WALL_URL", "") or ""
-    where = ((MENTORS, "mentors", govkit.mentors_url()), (WORKERS, "workers", wall))
+    # Each list points at the page that holds all of those people.
+    where = (
+        (MENTORS, "mentors", govkit.mentors_url()),
+        (WORKERS, "workers", govkit.pool_url()),
+    )
     for audience, plural, url in where:
-        lines += _people_lines(govkit.new_people(org_slug, since, audience), plural, url)
+        lines += _people_line(govkit.new_people(org_slug, since, audience), plural, url)
     return lines
 
 

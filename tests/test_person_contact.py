@@ -32,8 +32,10 @@ def _url(claim_id=124772):
     return f"/api/v1/orgs/people/{claim_id}/contact/"
 
 
-def test_a_stranger_gets_nothing(client, worker):
-    assert client.get(_url()).status_code in (401, 403)
+def test_a_stranger_is_asked_to_sign_in(client, worker):
+    """401 and 403 are different answers: one says sign in, the other says this
+    is not for you. One code for both leaves nobody able to tell which."""
+    assert client.get(_url()).status_code == 401
 
 
 def test_someone_in_the_pool_gets_nothing(client, worker, user_factory, membership_factory):

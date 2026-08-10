@@ -57,7 +57,7 @@ from django.views.decorators.http import require_GET, require_POST
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.routers import DefaultRouter
 from rest_framework.views import APIView
@@ -932,9 +932,20 @@ class PersonContactView(APIView):
     the source. It is fetched on the press instead, and refused here.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, claim_id):
+        # Two different refusals, and they must not look the same: "sign in"
+        # and "you are not a venture" send a person to different places, and a
+        # single 403 for both leaves nobody able to say which happened.
+        if not request.user.is_authenticated:
+            # Returned rather than raised: DRF turns NotAuthenticated into a
+            # 403 when the authenticator offers no WWW-Authenticate, which is
+            # the very conflation this is here to undo.
+            return Response(
+                {"detail": "Sign in and we will see who you are."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
         runs_a_venture = Membership.objects.filter(
             user=request.user, role=MembershipRole.ADMIN
         ).exists()
