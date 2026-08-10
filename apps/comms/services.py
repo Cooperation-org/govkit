@@ -15,6 +15,7 @@ cut line comes back as a chip outside the border.
 
 from __future__ import annotations
 
+import re
 import secrets
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -812,6 +813,24 @@ def stop_url(org_slug: str, audience: str) -> str:
     )
 
 
+def email_html(edition: Edition, send: Send) -> str:
+    """The email for this audience: theirs if they wrote one, ours if not.
+
+    The generated draft is never thrown away and never stops being maintained,
+    so returning to it hands back something current rather than something the
+    week left behind.
+    """
+    if send.is_written_by_hand:
+        return send.body_html
+    return html_body(edition, send.audience, send.subject)
+
+
+def write_by_hand(send: Send, html: str) -> None:
+    """Take the email over. Blank hands it back to the generated draft."""
+    send.body_html = (html or "").strip()
+    send.save(update_fields=["body_html", "updated_at"])
+
+
 def html_body(edition: Edition, audience: str, subject: str) -> str:
     """The email as HTML a person can paste straight into Gmail.
 
@@ -858,6 +877,17 @@ _LINK = "font-weight:600;color:#0b6b63;text-decoration:none"
 _QUIET = "color:#777;font-size:13px"
 _NOTE = "color:#555;font-size:13px"
 _STOP = "color:#888;font-size:12px;margin:20px 0 0"
+
+
+def plain_text_of(html: str, subject: str) -> str:
+    """A hand-written email as plain text, for the copy that carries no markup."""
+    from django.utils.html import strip_tags
+
+    text = re.sub(r"<(br|/p|/div|/li|/h[1-6])[^>]*>", "\n", html, flags=re.I)
+    text = strip_tags(text)
+    text = "\n".join(line.strip() for line in text.splitlines())
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    return f"{subject}\n\n{text}\n"
 
 
 def plain_text(edition: Edition, audience: str, subject: str) -> str:

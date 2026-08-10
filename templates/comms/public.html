@@ -6,7 +6,11 @@
 {% block content %}
 <div class="mail v2-read">
   <div class="mail-head">{{ send.subject }}</div>
-  {% include "comms/_sheet.html" with editable=False %}
+  {% if body_html %}
+    <div class="mail-sheet">{{ body_html|safe }}</div>
+  {% else %}
+    {% include "comms/_sheet.html" with editable=False %}
+  {% endif %}
 </div>
-<p class="gk-muted">{{ org_name }} · {{ send.sent_at|date:"F j, Y" }}</p>
+<p class="gk-muted">{{ org_name }} · {{ send.sent_at|default:send.published_at|date:"F j, Y" }}</p>
 {% endblock %}

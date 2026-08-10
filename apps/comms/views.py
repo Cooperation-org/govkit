@@ -78,6 +78,7 @@ def index(request, org_slug):
             "audience": audience,
             "audiences": services.audience_state(edition, org_slug),
             "sections": services.email(edition, audience),
+            "written_by_hand": send.is_written_by_hand,
             "cut": services.cut_items(edition, audience),
             "problem": problem,
             "calendar_url": govkit.calendar_url(org_slug),
@@ -86,9 +87,13 @@ def index(request, org_slug):
             "page_url": page_url,
             # What went out is the record of what went out: it is read from
             # here on, never typed into (golda 2026-08-10).
-            "editable": not send.is_sent,
-            "plain_text": services.plain_text(edition, audience, send.subject),
-            "html_text": services.html_body(edition, audience, send.subject),
+            "editable": not send.is_sent and not send.is_written_by_hand,
+            "plain_text": (
+                services.plain_text_of(send.body_html, send.subject)
+                if send.is_written_by_hand
+                else services.plain_text(edition, audience, send.subject)
+            ),
+            "html_text": services.email_html(edition, send),
             "recipient_emails": ", ".join(services.recipient_emails(org_slug, audience)),
             # Gmail's compose URL takes a subject; a formatted body cannot ride
             # a URL, so the email itself goes on the clipboard and gets pasted.
@@ -284,6 +289,50 @@ def send_now(request, org_slug, pk):
 
 
 @_admin_only
+def edit_html(request, org_slug, pk):
+    """Write this audience's email out by hand, markup and all.
+
+    The line-by-line editor is a good draft and a bad final pass: it owns the
+    shape of a line, so styling one or typing around it fights the thing that
+    is trying to keep it tidy. Here the email is just HTML, inline styles and
+    all, which is what a mail client wants anyway.
+
+    Saving it takes the email over: nothing regenerates on top of it from then
+    on. The generated draft goes on being built and re-read underneath, so
+    handing it back returns something current.
+    """
+    edition = get_object_or_404(Edition, pk=pk, org_slug=org_slug)
+    audience = _audience(request)
+    send = services.send_for(edition, audience)
+    if send.is_sent:
+        raise PermissionDenied("That one has gone out. Press Change to open it again.")
+
+    if request.method == "POST":
+        if request.POST.get("revert"):
+            services.write_by_hand(send, "")
+            messages.info(request, "Back to the generated draft.")
+            return redirect(_back(org_slug, audience))
+        services.write_by_hand(send, request.POST.get("body_html", ""))
+        return redirect(_back(org_slug, audience))
+
+    return render(
+        request,
+        "comms/edit_html.html",
+        {
+            "page_title": "Edit the email",
+            "org_slug": org_slug,
+            "edition": edition,
+            "send": send,
+            "audience": audience,
+            "body_html": services.email_html(edition, send),
+            # What pressing "start over" puts back in the box.
+            "generated": services.html_body(edition, audience, send.subject),
+            "back_url": _back(org_slug, audience),
+        },
+    )
+
+
+@_admin_only
 @require_POST
 def publish(request, org_slug, pk):
     """Put this week on its page, without saying it has been sent.
@@ -331,6 +380,7 @@ def public_bulletin(request, token):
         {
             "send": send,
             "edition": edition,
+            "body_html": send.body_html if send.is_written_by_hand else "",
             "sections": services.email(edition, send.audience),
             "org_name": govkit.display_name(edition.org_slug),
         },

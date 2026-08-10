@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Edit the email — {{ current_org.display_name }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{% static 'comms/comms.css' %}">{% endblock %}
+
+{% block content %}
+<div class="v2-head">
+  <h1>Edit the email</h1>
+  <span class="v2-when">{{ send.get_audience_display|default:audience }} · week of {{ edition.window_start|date:"M j" }}</span>
+</div>
+
+<p class="gk-note">This is the email, markup and all. Inline styles only — a mail
+  client keeps no stylesheet. Saving takes it over: nothing is generated on top of
+  it after that, and the draft underneath goes on being built if you want it back.</p>
+
+<form method="post" class="v2-html" id="html-form">
+  {% csrf_token %}
+  <input type="hidden" name="t" value="{{ audience }}">
+  {{ generated|json_script:"generated-html" }}
+  <div class="v2-html-panes">
+    <textarea name="body_html" id="body-html" spellcheck="false"
+              aria-label="The email as HTML">{{ body_html }}</textarea>
+    <div class="v2-html-preview" id="preview" aria-label="How it looks"></div>
+  </div>
+  <div class="v2-back">
+    <button class="gk-btn-primary">Save</button>
+    <a class="gk-btn" href="{{ back_url }}">Cancel</a>
+    <button type="button" class="gk-btn" id="start-over">Start over from the generated draft</button>
+    {% if send.is_written_by_hand %}
+      <button class="gk-btn" name="revert" value="1"
+              formnovalidate>Hand it back to the generated draft</button>
+    {% endif %}
+  </div>
+</form>
+
+<script>
+(function () {
+  var box = document.getElementById('body-html');
+  var preview = document.getElementById('preview');
+  var generated = JSON.parse(document.getElementById('generated-html').textContent);
+
+  function draw() { preview.innerHTML = box.value; }
+  box.addEventListener('input', draw);
+  draw();
+
+  document.getElementById('start-over').addEventListener('click', function () {
+    box.value = generated;
+    draw();
+    box.focus();
+  });
+})();
+</script>
+{% endblock %}

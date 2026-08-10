@@ -142,3 +142,19 @@
 .v2-past-to { color: var(--gk-ink-2); }
 .v2-past-r { color: var(--gk-muted); margin-left: auto; }
 .v2-past .mail { margin: 0.2rem 0 1rem; }
+
+/* writing the email out by hand: the markup and how it lands, side by side */
+.v2-html-panes { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; align-items: start; }
+@media (max-width: 62rem) { .v2-html-panes { grid-template-columns: 1fr; } }
+.v2-html-panes textarea {
+  width: 100%; min-height: 32rem; padding: 0.8rem;
+  font-family: var(--gk-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.85rem; line-height: 1.5;
+  border: 1px solid var(--gk-border-strong); border-radius: var(--gk-radius);
+  background: var(--gk-surface); color: var(--gk-ink); resize: vertical;
+}
+.v2-html-preview {
+  min-height: 32rem; padding: 1rem 1.4rem; overflow-x: auto;
+  border: 1px solid var(--gk-border-strong); border-radius: var(--gk-radius-card);
+  background: var(--gk-surface);
+}

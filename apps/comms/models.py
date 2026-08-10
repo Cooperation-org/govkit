@@ -122,6 +122,12 @@ class Send(models.Model):
     # the email links there — but an email copied out and sent by hand still
     # needs a page to point at, and a link to paste in chat (golda 2026-08-10).
     published_at = models.DateTimeField(null=True, blank=True)
+    # The email, written out by hand. Empty means it is still the draft this
+    # app builds from the calendar and the lists. Once there is something here
+    # it IS the email for this audience and nothing regenerates over it: the
+    # line-by-line editor kept losing edits, and a person who has taken the
+    # thing over should own it outright (golda 2026-08-10).
+    body_html = models.TextField(blank=True)
     # Who it actually went to, recorded at send time. Never re-derived.
     recipients = models.PositiveIntegerField(default=0)
 
@@ -151,6 +157,10 @@ class Send(models.Model):
     @property
     def is_published(self) -> bool:
         return self.published_at is not None
+
+    @property
+    def is_written_by_hand(self) -> bool:
+        return bool(self.body_html.strip())
 
     def mint_token(self) -> str:
         if not self.public_token:

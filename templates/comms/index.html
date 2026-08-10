@@ -94,14 +94,21 @@
   <span {% if editable %}contenteditable="true"{% endif %} data-f="subject">{{ send.subject }}</span>
 </p>
 
-{% if not editable %}
+{% if send.sent_at %}
   <p class="gk-note">This one has gone out, so it reads as it was sent. Press
     Change above to open it again.</p>
+{% elif written_by_hand %}
+  <p class="gk-note">You wrote this one out by hand, so it is yours: nothing is
+    generated on top of it. <a href="{% url 'comms:edit_html' org_slug=org_slug pk=edition.pk %}?t={{ audience }}">Edit the HTML</a></p>
 {% endif %}
 <div class="mail" id="{% if editable %}mail{% endif %}"
      data-save="{% url 'comms:save' org_slug=org_slug pk=edition.pk %}"
      data-t="{{ audience }}" data-csrf="{{ csrf_token }}">
-  {% include "comms/_sheet.html" %}
+  {% if written_by_hand %}
+    <div class="mail-sheet">{{ html_text|safe }}</div>
+  {% else %}
+    {% include "comms/_sheet.html" %}
+  {% endif %}
 </div>
 
 {% if cut %}
@@ -135,6 +142,9 @@
       {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
       <button class="gk-btn">Publish to site</button>
     </form>
+  {% endif %}
+  {% if not send.sent_at and not written_by_hand %}
+    <a class="gk-btn" href="{% url 'comms:edit_html' org_slug=org_slug pk=edition.pk %}?t={{ audience }}">Edit as HTML</a>
   {% endif %}
   <button type="button" class="gk-copy gk-btn" data-link="{{ plain_text }}"
           data-html="{{ html_text }}">Copy the email</button>

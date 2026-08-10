@@ -870,3 +870,52 @@ def test_a_mentor_reads_the_week_then_the_teams(edition):
     assert "opp" not in keys
     # The other two still get theirs.
     assert "opp" in [s["k"] for s in services.email(edition, WORKERS)]
+
+
+# --- writing the email out by hand -------------------------------------------
+
+
+def test_writing_it_by_hand_takes_the_email_over(client, admin_at_vc, edition):
+    """The line editor is a good draft and a bad final pass. Once a person has
+    written the thing out, nothing regenerates on top of it (golda 2026-08-10)."""
+    send = services.send_for(edition, WORKERS)
+    url = reverse("comms:edit_html", kwargs={"org_slug": "vc", "pk": edition.pk})
+    mine = '<p style="color:#b00">Read this bit first.</p>'
+
+    client.post(url, {"t": WORKERS, "body_html": mine}, follow=True)
+    send.refresh_from_db()
+
+    assert send.is_written_by_hand
+    assert services.email_html(edition, send) == mine
+    # Copied out, published and read: all of it is theirs now.
+    assert "Read this bit first." in services.plain_text_of(send.body_html, send.subject)
+
+
+def test_the_generated_draft_is_still_there_underneath(client, admin_at_vc, edition):
+    """Handing it back has to return something current, not what the week left
+    behind, so the draft goes on being built while the hand-written one stands."""
+    send = services.send_for(edition, WORKERS)
+    url = reverse("comms:edit_html", kwargs={"org_slug": "vc", "pk": edition.pk})
+    client.post(url, {"t": WORKERS, "body_html": "<p>mine</p>"}, follow=True)
+
+    client.post(url, {"t": WORKERS, "revert": "1"}, follow=True)
+    send.refresh_from_db()
+
+    assert not send.is_written_by_hand
+    assert "Week 2 kickoff" in services.email_html(edition, send)
+
+
+def test_a_sent_email_cannot_be_rewritten(client, admin_at_vc, edition):
+    services.mark_sent(services.send_for(edition, WORKERS))
+    url = reverse("comms:edit_html", kwargs={"org_slug": "vc", "pk": edition.pk})
+    assert client.get(url, {"t": WORKERS}).status_code == 403
+
+
+def test_the_page_shows_what_was_written(client, admin_at_vc, edition):
+    send = services.send_for(edition, WORKERS)
+    services.write_by_hand(send, "<p>Only this.</p>")
+    services.publish(send)
+
+    page = client.get(reverse("comms_public:bulletin", kwargs={"token": send.public_token}))
+    assert b"Only this." in page.content
+    assert b"Week 2 kickoff" not in page.content
