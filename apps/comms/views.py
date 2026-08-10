@@ -23,7 +23,6 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_POST
 
-from . import calendar
 from . import rewrite as editor
 from . import services
 from .models import AUDIENCE_KEYS, SUPPORTERS, Edition, Send
@@ -182,13 +181,13 @@ def add_from_calendar(request, org_slug, pk):
 @_admin_only
 @require_POST
 def refresh_calendar(request, org_slug, pk):
-    """Read the calendar again now, for a meeting added a minute ago.
+    """Read the calendar again now, for a meeting added or renamed a minute ago.
 
-    Comms holds a calendar for a few minutes so a page load is not a fetch.
-    Someone who just added an event should not have to wait that out.
+    The lines already in the email take the calendar's word for when a meeting
+    is and what it is called; anything a person wrote about it stands.
     """
-    get_object_or_404(Edition, pk=pk, org_slug=org_slug)
-    calendar.forget(govkit.calendar_url(org_slug))
+    edition = get_object_or_404(Edition, pk=pk, org_slug=org_slug)
+    services.reread_calendar(edition)
     return redirect(_back(org_slug, _audience(request)))
 
 

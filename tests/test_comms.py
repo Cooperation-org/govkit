@@ -147,6 +147,37 @@ def test_reading_it_again_goes_back_to_the_calendar(client, admin_at_vc, edition
         assert fetch.call_count > held
 
 
+def test_reading_it_again_takes_the_calendars_word_for_the_title(client, admin_at_vc, edition):
+    """A calendar shared as free/busy says every meeting is called Busy. Fixing
+    the sharing has to reach the lines already drafted, or the email still
+    says Busy (golda 2026-08-10)."""
+    refresh = reverse("comms:refresh_calendar", kwargs={"org_slug": "vc", "pk": edition.pk})
+    row = _calendar_rows(edition, WORKERS)[0]
+    services.save_section(
+        edition, WORKERS, "cal", [{"id": row["id"], "title": row["title"], "note": "bring coffee"}]
+    )
+    edition.save()
+
+    renamed = now_ics_text().replace("SUMMARY:Standup", "SUMMARY:Morning standup")
+    cache.clear()
+    with patch("urllib.request.urlopen", return_value=_Feed(renamed)):
+        client.post(refresh, {"t": WORKERS}, follow=True)
+
+    edition.refresh_from_db()
+    titles = [i["title"] for i in edition.items if i.get("sec") == "cal"]
+    assert "Morning standup" in titles
+    assert "Standup" not in titles
+    # What a person wrote about the meeting is theirs, and stays.
+    assert edition.item(row["id"])["note"] == "bring coffee"
+
+
+def test_the_email_says_which_timezone_a_time_is_in(edition):
+    """It goes to people in Phoenix, Lagos and Berlin at once."""
+    times = [i["time"] for i in edition.items if i.get("sec") == "cal" and i["time"]]
+    assert times
+    assert all(t.endswith("MST") for t in times), times
+
+
 def test_a_week_built_without_a_calendar_takes_one_when_it_arrives(calendar_org, now_ics):
     """The vc week of 2026-08-10 was built while the calendar 404'd, so its
     meetings only ever showed as leftovers under the email."""

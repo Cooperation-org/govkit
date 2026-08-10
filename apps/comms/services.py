@@ -120,6 +120,35 @@ def _fill_empty_calendar(edition: Edition) -> None:
     edition.save(update_fields=["items", "tz_name", "updated_at"])
 
 
+def reread_calendar(edition: Edition) -> None:
+    """Take the calendar's word for the meetings that are already in the email.
+
+    The calendar owns when a meeting is and what it is called; comms owns the
+    sentence a human wrote about it and whether it is in this audience's email
+    (module docstring in calendar.py). So a re-read updates day, time and title
+    on every line it can match by uid, and touches nothing else — the note, the
+    cuts and the person's own lines all stand.
+
+    A meeting that has left the calendar keeps its line. Dropping someone's row
+    out from under them is worse than a stale one they can cut.
+    """
+    calendar_feed.forget(govkit.calendar_url(edition.org_slug))
+    events, tz_name, _problem = read_calendar(
+        edition.org_slug, edition.window_start, edition.window_end
+    )
+    if not events:
+        return
+    if tz_name and tz_name != edition.tz_name:
+        edition.tz_name = tz_name
+    by_uid = {e.uid: e for e in events}
+    for item in edition.items:
+        event = by_uid.get(item.get("uid"))
+        if event is not None:
+            item.update(event_facts(edition, event))
+    _sort_calendar(edition)
+    edition.save(update_fields=["items", "tz_name", "updated_at"])
+
+
 def _carried_forward(org_slug: str, edition: Edition) -> list[dict]:
     """The standing sections, copied from last week so they are not retyped.
 
@@ -386,17 +415,30 @@ def blank_item(edition: Edition, sec_key: str) -> dict:
     }
 
 
+def event_facts(edition: Edition, event) -> dict:
+    """What the CALENDAR says about a meeting: when it is, and what it is called.
+
+    The email carries the zone with every time. This list goes to people in
+    Phoenix, Lagos and Berlin at once, and "8:00am" on its own is a meeting
+    somebody misses.
+    """
+    local = event.starts.astimezone(zone(edition))
+    return {
+        "starts": event.starts.isoformat(),
+        "day": local.strftime("%a %-d"),
+        "time": "" if event.all_day else (
+            local.strftime("%-I:%M%p").lower() + " " + local.strftime("%Z")
+        ).strip(),
+        "title": event.title,
+    }
+
+
 def item_from_event(edition: Edition, event) -> dict:
-    tz = zone(edition)
-    local = event.starts.astimezone(tz)
     item = blank_item(edition, CALENDAR_SECTION)
+    item.update(event_facts(edition, event))
     item.update(
         {
             "uid": event.uid,
-            "starts": event.starts.isoformat(),
-            "day": local.strftime("%a %-d"),
-            "time": "" if event.all_day else local.strftime("%-I:%M%p").lower(),
-            "title": event.title,
             "note": event.where,
             # A calendar row goes to the calendar. The event's own link when it
             # has one, the team's calendar when it does not.

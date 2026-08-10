@@ -51,7 +51,9 @@
 .mail-sheet h2 { font-size: 1.05rem; margin: 1.1rem 0 0.3rem; outline: none; }
 .mail-sheet ul { margin: 0 0 0.9rem; padding-left: 1.1rem; outline: none; }
 .mail-sheet li { margin: 0.25rem 0; }
-.mail-when { color: var(--gk-ink-2); }
+/* The gap lives here: the row is rendered inside {% spaceless %}, which eats
+   any space put between the time and the title in the template. */
+.mail-when { color: var(--gk-ink-2); margin-right: 0.45rem; }
 .mail-t { font-weight: 600; color: var(--gk-accent); }
 .mail-t.is-opt { font-weight: 400; color: var(--gk-ink-2); }
 .mail-opt { color: var(--gk-muted); font-size: 0.85em; }
