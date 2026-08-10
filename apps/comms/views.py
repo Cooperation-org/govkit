@@ -17,7 +17,7 @@ from urllib.parse import quote
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.http import Http404, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -388,6 +388,28 @@ def public_bulletin(request, token):
 
 
 public_bulletin.org_context_exempt = True
+
+
+def public_event(request, edition_id, item_id):
+    """One meeting as a .ics, for a reader to put in their own calendar.
+
+    Public, because the people reading the email have no account here and the
+    meeting is already on a public calendar. The item id is what addresses it:
+    the line has to exist in a week we published for this to answer at all.
+    """
+    edition = get_object_or_404(Edition, pk=edition_id)
+    item = edition.item(item_id)
+    if item is None or not item.get("starts"):
+        raise Http404("No such meeting.")
+    if not edition.sends.filter(published_at__isnull=False).exists():
+        raise Http404("That week is not out yet.")
+    body = services.ics_for(edition, item)
+    response = HttpResponse(body, content_type="text/calendar; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{item_id}.ics"'
+    return response
+
+
+public_event.org_context_exempt = True
 
 
 def unsubscribe(request, org_slug, audience):

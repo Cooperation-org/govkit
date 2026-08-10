@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 import secrets
 from datetime import date, datetime, timedelta
+from datetime import timezone as dt_timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.conf import settings
@@ -407,7 +408,7 @@ def email(edition: Edition, audience: str) -> list[dict]:
         if audience not in section.get("tpl", AUDIENCE_KEYS):
             continue
         rows = [
-            _row(item, section)
+            _row(item, section, edition)
             for item in edition.items
             if item.get("sec") == section["k"]
             and belongs(edition, item, audience)
@@ -427,10 +428,31 @@ def cut_items(edition: Edition, audience: str) -> list[dict]:
     ]
 
 
-def _row(item: dict, section: dict) -> dict:
+def event_url(edition: Edition, item: dict) -> str:
+    """The .ics for one meeting, so a reader can put it in their own calendar.
+
+    Ours rather than Google's. Google's per-event link only resolves for
+    somebody who already has that calendar — everyone else lands on their own
+    grid — and half a cohort is not on Google anyway (golda 2026-08-10).
+    """
+    from django.urls import reverse
+
+    public = (settings.PUBLIC_BASE_URL or "").rstrip("/")
+    if not (public and item.get("id") and item.get("starts")):
+        return ""
+    return public + reverse(
+        "comms_public:event", kwargs={"edition_id": edition.pk, "item_id": item["id"]}
+    )
+
+
+def _row(item: dict, section: dict, edition: Edition | None = None) -> dict:
     is_calendar = bool(section.get("cal"))
+    href = item.get("href") or ""
+    if is_calendar and edition is not None and not href:
+        href = event_url(edition, item)
     return {
         **item,
+        "href": href,
         "is_calendar": is_calendar,
         "optional": is_calendar and not item.get("rec"),
     }
@@ -589,6 +611,8 @@ def event_facts(edition: Edition, event) -> dict:
     local = event.starts.astimezone(zone(edition))
     return {
         "starts": event.starts.isoformat(),
+        "ends": event.ends.isoformat() if event.ends else "",
+        "all_day": event.all_day,
         "day": f"{local:%a %b} {_ordinal(local.day)}",
         "time": (
             ""
@@ -596,9 +620,11 @@ def event_facts(edition: Edition, event) -> dict:
             else (local.strftime("%-I:%M%p").lower() + " " + local.strftime("%Z")).strip()
         ),
         "title": event.title,
-        # What a person clicks a meeting for is the way in: its Meet or Zoom
-        # link. Only a meeting that has none falls back to the calendar.
-        "href": event.url or govkit.calendar_url(edition.org_slug),
+        "where": event.where,
+        # The way into the meeting, kept apart from the line's own link. The
+        # line goes to the event so a reader can put it in their calendar; the
+        # way in is a second, smaller link beside it (golda 2026-08-10).
+        "join": event.url,
     }
 
 
@@ -797,6 +823,59 @@ def mark_sent(send: Send, recipients: int = 0) -> None:
     send.save(update_fields=["sent_at", "recipients", "updated_at"])
 
 
+def ics_for(edition: Edition, item: dict) -> str:
+    """One meeting as a calendar file, for a reader to keep.
+
+    Built from what the line already carries, so it needs no network at the
+    moment somebody clicks. The way into the meeting travels inside it, which
+    is the point: the entry in their own calendar is the thing they will be
+    looking at when it starts.
+    """
+    from datetime import datetime
+
+    def stamp(value: str) -> str:
+        moment = datetime.fromisoformat(value).astimezone(dt_timezone.utc)
+        return moment.strftime("%Y%m%dT%H%M%SZ")
+
+    starts = item.get("starts") or ""
+    ends = item.get("ends") or ""
+    join = (item.get("join") or "").strip()
+    where = (item.get("where") or "").strip() or join
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//GovKit//comms//EN",
+        "METHOD:PUBLISH",
+        "BEGIN:VEVENT",
+        f"UID:{_ics_text(item.get('id') or '')}@{_ics_text(edition.org_slug)}",
+        f"DTSTAMP:{stamp(starts)}",
+        f"DTSTART:{stamp(starts)}",
+    ]
+    if ends:
+        lines.append(f"DTEND:{stamp(ends)}")
+    lines.append(f"SUMMARY:{_ics_text(item.get('title') or '')}")
+    if where:
+        lines.append(f"LOCATION:{_ics_text(where)}")
+    if join:
+        lines.append(f"URL:{_ics_text(join)}")
+        lines.append(f"DESCRIPTION:{_ics_text('Join: ' + join)}")
+    elif item.get("note"):
+        lines.append(f"DESCRIPTION:{_ics_text(item['note'])}")
+    lines += ["END:VEVENT", "END:VCALENDAR", ""]
+    return "\r\n".join(lines)
+
+
+def _ics_text(value: str) -> str:
+    """Escape one value the way RFC 5545 wants it."""
+    return (
+        str(value)
+        .replace("\\", "\\\\")
+        .replace(";", "\\;")
+        .replace(",", "\\,")
+        .replace("\n", "\\n")
+    )
+
+
 def stop_url(org_slug: str, audience: str) -> str:
     """Where a reader goes to be taken off this list.
 
@@ -851,6 +930,8 @@ def html_body(edition: Edition, audience: str, subject: str) -> str:
                 title = f'<a href="{escape(row["href"])}" style="{_LINK}">{title}</a>'
             line = f'<span style="{_WHEN}">{escape(when)}</span> ' if when else ""
             line += title
+            if row.get("join"):
+                line += f' <a href="{escape(row["join"])}" style="{_QUIET}">Join</a>'
             if row.get("optional"):
                 line += f' <span style="{_QUIET}">optional</span>'
             if row.get("note"):
@@ -905,7 +986,9 @@ def plain_text(edition: Edition, audience: str, subject: str) -> str:
             if row.get("note"):
                 lines.append(f"    {row['note']}")
             if row.get("href"):
-                lines.append(f"    {row['href']}")
+                lines.append(f"    Add to your calendar: {row['href']}")
+            if row.get("join"):
+                lines.append(f"    Join: {row['join']}")
         lines.append("")
     stop = stop_url(edition.org_slug, audience)
     if stop:

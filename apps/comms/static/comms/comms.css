@@ -58,6 +58,8 @@
 .mail-t.is-opt { font-weight: 400; color: var(--gk-ink-2); }
 /* The gap is here for the same reason as .mail-when: spaceless eats it. */
 .mail-opt { color: var(--gk-muted); font-size: 0.85em; margin-left: 0.35rem; }
+/* The line goes to the event so it can be kept; this is the way in on the day. */
+.mail-join { margin-left: 0.4rem; font-size: 0.85em; }
 .mail-note { display: block; color: var(--gk-ink-2); font-size: 0.9em; }
 .mail-sheet [contenteditable]:focus { outline: none; }
 .mail-sheet [contenteditable]:hover { background: var(--gk-bg); }

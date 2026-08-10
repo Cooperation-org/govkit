@@ -8,6 +8,7 @@
         <li data-id="{{ row.id }}">{% spaceless %}
           {% if row.day %}<span class="mail-when" contenteditable="false" data-row="{{ row.id }}">{{ row.day }}{% if row.time %}, {{ row.time }}{% endif %}</span> {% endif %}
           <a class="mail-t{% if row.optional %} is-opt{% endif %}" href="{{ row.href|default:'#' }}"{% if row.href %} title="{{ row.href }}"{% endif %}>{{ row.title }}</a>
+          {% if row.join %}<a class="mail-join" href="{{ row.join }}">Join</a>{% endif %}
           {% if row.flag %} <span class="mail-opt">{{ row.flag }}</span>{% endif %}
           {% if row.optional %} <span class="mail-opt">optional</span>{% endif %}
           {% if row.note %}<span class="mail-note">{{ row.note }}</span>{% endif %}

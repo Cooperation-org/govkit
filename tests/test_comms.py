@@ -180,9 +180,11 @@ def test_reading_it_again_takes_the_calendars_word_for_the_title(client, admin_a
     assert edition.item(row["id"])["note"] == "bring coffee"
 
 
-def test_a_meeting_line_goes_to_the_meeting(calendar_org):
-    """Google leaves URL empty and puts the Meet link in X-GOOGLE-CONFERENCE,
-    so every line used to fall back to the calendar as a whole."""
+def test_a_line_goes_to_the_event_and_the_way_in_sits_beside_it(calendar_org, settings):
+    """The line is the event so a reader can keep it; Join is the way in on the
+    day. Google's own per-event link only resolves for somebody who already has
+    that calendar, and half a cohort is not on Google (golda 2026-08-10)."""
+    settings.PUBLIC_BASE_URL = "https://dash.example"
     monday = services.week_window()[0]
     ics = ics_for(monday).replace(
         "SUMMARY:Week 2 kickoff",
@@ -190,11 +192,49 @@ def test_a_meeting_line_goes_to_the_meeting(calendar_org):
     )
     with patch("urllib.request.urlopen", return_value=_Feed(ics)):
         made = services.open_edition("vc")
-    kickoff = next(i for i in made.items if i["title"] == "Week 2 kickoff")
-    assert kickoff["href"] == "https://meet.google.com/abc-defg-hij"
-    # A meeting with no way in still points somewhere useful.
-    standup = next(i for i in made.items if i["title"] == "Standup")
-    assert standup["href"] == calendar_org.calendar_url
+
+    kickoff = next(r for r in _calendar_rows(made, WORKERS) if r["title"] == "Week 2 kickoff")
+    assert kickoff["join"] == "https://meet.google.com/abc-defg-hij"
+    assert kickoff["href"].startswith("https://dash.example/week/event/")
+    assert kickoff["href"].endswith(".ics")
+    # A meeting with no way in is still a meeting you can put in your calendar.
+    standup = next(r for r in _calendar_rows(made, WORKERS) if r["title"] == "Standup")
+    assert standup["join"] == ""
+    assert standup["href"].endswith(".ics")
+
+
+def test_the_calendar_file_carries_the_way_in(calendar_org, settings):
+    """The entry in their own calendar is what they will be looking at when it
+    starts, so the Meet link travels inside it."""
+    settings.PUBLIC_BASE_URL = "https://dash.example"
+    monday = services.week_window()[0]
+    ics = ics_for(monday).replace(
+        "SUMMARY:Week 2 kickoff",
+        "SUMMARY:Week 2 kickoff\nX-GOOGLE-CONFERENCE:https://meet.google.com/abc-defg-hij",
+    )
+    with patch("urllib.request.urlopen", return_value=_Feed(ics)):
+        made = services.open_edition("vc")
+    item = next(i for i in made.items if i["title"] == "Week 2 kickoff")
+
+    text = services.ics_for(made, item)
+    assert "BEGIN:VEVENT" in text
+    assert "SUMMARY:Week 2 kickoff" in text
+    assert "https://meet.google.com/abc-defg-hij" in text
+    assert text.endswith("END:VCALENDAR\r\n")
+
+
+def test_the_calendar_file_is_not_served_before_the_week_is_out(client, calendar_org, now_ics):
+    with patch("urllib.request.urlopen", return_value=_Feed(now_ics)):
+        made = services.open_edition("vc")
+    item = next(i for i in made.items if i.get("sec") == "cal")
+    url = reverse("comms_public:event", kwargs={"edition_id": made.pk, "item_id": item["id"]})
+
+    assert client.get(url).status_code == 404
+
+    services.publish(services.send_for(made, WORKERS))
+    response = client.get(url)
+    assert response.status_code == 200
+    assert response["Content-Type"].startswith("text/calendar")
 
 
 def test_reading_it_again_keeps_a_title_a_person_rewrote(client, admin_at_vc, edition):
