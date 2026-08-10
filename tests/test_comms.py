@@ -9,6 +9,7 @@ is written once and cutting it from one audience must leave the others alone —
 that is the whole reason items carry `off` instead of being copied per email.
 """
 
+import base64
 import json
 import pathlib
 import re
@@ -19,8 +20,8 @@ import pytest
 from django.core.cache import cache
 from django.urls import reverse
 
-from apps.comms import services
-from apps.comms.models import AUDIENCE_KEYS, Edition, Send
+from apps.comms import calendar, services
+from apps.comms.models import AUDIENCE_KEYS, WORKERS, Edition, Send
 from apps.orgs.models import MembershipRole
 
 COMMS = pathlib.Path(__file__).resolve().parent.parent / "apps" / "comms"
@@ -118,6 +119,33 @@ def test_a_repeating_meeting_becomes_one_line_per_day(calendar_org):
     assert tz_name == "America/Phoenix"
     assert sum(1 for e in events if e.title == "Standup") == 5
     assert any(e.title == "Week 2 kickoff" for e in events)
+
+
+def test_the_link_google_hands_a_person_finds_the_feed():
+    """"Get shareable link" gives a `cid=` link, and cid is the address base64'd.
+
+    Passing the base64 through to the ICS endpoint is a 404, which is what the
+    team saw after adding a calendar that was fine.
+    """
+    address = "abc123@group.calendar.google.com"
+    cid = base64.b64encode(address.encode()).decode()
+    assert calendar.ics_url_for(f"https://calendar.google.com/calendar/u/0?cid={cid}") == (
+        "https://calendar.google.com/calendar/ical/"
+        "abc123%40group.calendar.google.com/public/basic.ics"
+    )
+
+
+def test_reading_it_again_goes_back_to_the_calendar(client, admin_at_vc, edition, now_ics):
+    """A meeting added a minute ago should not wait out the cache."""
+    index = reverse("comms:index", kwargs={"org_slug": "vc"})
+    refresh = reverse("comms:refresh_calendar", kwargs={"org_slug": "vc", "pk": edition.pk})
+    with patch("urllib.request.urlopen", return_value=_Feed(now_ics)) as fetch:
+        client.get(index, {"t": WORKERS})
+        held = fetch.call_count
+        client.get(index, {"t": WORKERS})
+        assert fetch.call_count == held  # held for a few minutes
+        client.post(refresh, {"t": WORKERS}, follow=True)
+        assert fetch.call_count > held
 
 
 def test_an_unreachable_calendar_is_a_sentence_not_a_crash(calendar_org):

@@ -68,6 +68,14 @@
 .v2-back .gk-btn:hover { color: var(--gk-ink); }
 .v2-back form { display: contents; }
 
+/* where the meetings come from: go look at it, re-read it, or change it */
+.v2-cal {
+  display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;
+  margin: 0 0 0.6rem; font-size: 0.85rem; color: var(--gk-muted);
+}
+.v2-cal .gk-btn { font-size: 0.8rem; padding: 0.12rem 0.5rem; color: var(--gk-muted); }
+.v2-cal .gk-btn:hover { color: var(--gk-ink); }
+
 /* Supporters: the one list that is built up rather than looked up */
 .v2-list {
   display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;

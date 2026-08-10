@@ -17,6 +17,8 @@ calls; tests mock `urllib.request.urlopen`.
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import logging
 import urllib.parse
 import urllib.request
@@ -49,6 +51,26 @@ class Event:
     detail: str
 
 
+def _calendar_id(query: dict[str, list[str]]) -> str:
+    """The calendar's own address out of a Google link's query string.
+
+    `src=` carries the address as written. `cid=` carries the same address
+    base64'd — that is the one "Get shareable link" hands a person, and feeding
+    the base64 to the ICS endpoint is a 404, so it has to be decoded.
+    """
+    src = (query.get("src") or [""])[0]
+    if src:
+        return src
+    cid = (query.get("cid") or [""])[0]
+    if not cid:
+        return ""
+    try:
+        decoded = base64.urlsafe_b64decode(cid + "=" * (-len(cid) % 4)).decode("utf-8")
+    except Exception:
+        return cid
+    return decoded if "@" in decoded else cid
+
+
 def ics_url_for(share_url: str) -> str:
     """The ICS feed behind whatever link a person pasted in the calendar box.
 
@@ -63,12 +85,11 @@ def ics_url_for(share_url: str) -> str:
         url = "https://" + url[len("webcal://") :]
     parsed = urllib.parse.urlparse(url)
     if parsed.netloc.endswith("calendar.google.com") and not parsed.path.endswith(".ics"):
-        query = urllib.parse.parse_qs(parsed.query)
-        src = (query.get("src") or query.get("cid") or [""])[0]
-        if src:
+        calendar_id = _calendar_id(urllib.parse.parse_qs(parsed.query))
+        if calendar_id:
             return (
                 "https://calendar.google.com/calendar/ical/"
-                f"{urllib.parse.quote(src, safe='')}/public/basic.ics"
+                f"{urllib.parse.quote(calendar_id, safe='')}/public/basic.ics"
             )
     return url
 
@@ -106,8 +127,24 @@ def read(share_url: str, start: date, end: date) -> tuple[list[Event], str, str]
     return events, tz_name, ""
 
 
+def _cache_key(url: str) -> str:
+    """A name for the cached copy that every worker agrees on.
+
+    `hash()` on a string is salted per process, so each gunicorn worker would
+    keep its own copy and none of them would see a refresh.
+    """
+    return CACHE_PREFIX + hashlib.sha256(url.encode("utf-8")).hexdigest()
+
+
+def forget(share_url: str) -> None:
+    """Drop the cached copy, so the next read goes back to the calendar."""
+    url = ics_url_for(share_url)
+    if url:
+        cache.delete(_cache_key(url))
+
+
 def _fetch(url: str) -> tuple[str, str]:
-    key = CACHE_PREFIX + str(abs(hash(url)))
+    key = _cache_key(url)
     cached = cache.get(key)
     if cached is not None:
         return cached

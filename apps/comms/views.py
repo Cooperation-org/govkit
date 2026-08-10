@@ -23,6 +23,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_POST
 
+from . import calendar
 from . import rewrite as editor
 from . import services
 from .models import AUDIENCE_KEYS, SUPPORTERS, Edition, Send
@@ -175,6 +176,19 @@ def put_back(request, org_slug, pk, item_id):
 def add_from_calendar(request, org_slug, pk):
     edition = get_object_or_404(Edition, pk=pk, org_slug=org_slug)
     services.add_event(edition, request.POST.get("uid", ""))
+    return redirect(_back(org_slug, _audience(request)))
+
+
+@_admin_only
+@require_POST
+def refresh_calendar(request, org_slug, pk):
+    """Read the calendar again now, for a meeting added a minute ago.
+
+    Comms holds a calendar for a few minutes so a page load is not a fetch.
+    Someone who just added an event should not have to wait that out.
+    """
+    get_object_or_404(Edition, pk=pk, org_slug=org_slug)
+    calendar.forget(govkit.calendar_url(org_slug))
     return redirect(_back(org_slug, _audience(request)))
 
 

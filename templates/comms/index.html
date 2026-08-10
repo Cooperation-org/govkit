@@ -68,11 +68,22 @@
   </div>
 {% endif %}
 
-{% if problem and not is_list %}
-  <p class="gk-error">{{ problem }} <a href="{{ calendar_settings_url }}">Calendar link</a></p>
-{% elif not calendar_url and not is_list %}
-  <p class="gk-note">No calendar on this team yet, so nothing comes in on its own.
-    <a href="{{ calendar_settings_url }}">Add the calendar link</a></p>
+{% if not is_list %}
+  {% if problem %}
+    <p class="gk-error">{{ problem }} <a href="{{ calendar_settings_url }}">Fix the calendar link</a></p>
+  {% elif not calendar_url %}
+    <p class="gk-note">No calendar on this team yet, so nothing comes in on its own.
+      <a href="{{ calendar_settings_url }}">Add the calendar link</a></p>
+  {% else %}
+    <div class="v2-cal">
+      <a href="{{ calendar_url }}" target="_blank" rel="noopener">The calendar ↗</a>
+      <form method="post" action="{% url 'comms:refresh_calendar' org_slug=org_slug pk=edition.pk %}">
+        {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
+        <button class="gk-btn">Read it again</button>
+      </form>
+      <a href="{{ calendar_settings_url }}">Edit the link</a>
+    </div>
+  {% endif %}
 {% endif %}
 
 <p class="mail-subject">
