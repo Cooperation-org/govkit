@@ -80,6 +80,8 @@
       <form method="post" action="{% url 'comms:refresh_calendar' org_slug=org_slug pk=edition.pk %}">
         {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
         <button class="gk-btn">Read it again</button>
+        <label class="v2-cal-ow"><input type="checkbox" name="overwrite" value="1">
+          over my edits</label>
       </form>
       <a href="{{ calendar_settings_url }}">Edit the link</a>
     </div>

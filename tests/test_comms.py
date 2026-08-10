@@ -211,6 +211,21 @@ def test_reading_it_again_keeps_a_title_a_person_rewrote(client, admin_at_vc, ed
     assert edition.item(mine["id"])["title"] == "Kickoff — bring your one-pager"
 
 
+def test_ticking_over_my_edits_takes_the_calendars_word_back(client, admin_at_vc, edition):
+    """For when the edit is the thing that is now wrong (golda 2026-08-10)."""
+    refresh = reverse("comms:refresh_calendar", kwargs={"org_slug": "vc", "pk": edition.pk})
+    mine = next(i for i in edition.items if i["title"] == "Week 2 kickoff")
+    mine["title"] = "something I typed that is wrong now"
+    edition.save()
+
+    cache.clear()
+    with patch("urllib.request.urlopen", return_value=_Feed(now_ics_text())):
+        client.post(refresh, {"t": WORKERS, "overwrite": "1"}, follow=True)
+
+    edition.refresh_from_db()
+    assert edition.item(mine["id"])["title"] == "Week 2 kickoff"
+
+
 def test_the_email_says_which_timezone_a_time_is_in(edition):
     """It goes to people in Phoenix, Lagos and Berlin at once."""
     times = [i["time"] for i in edition.items if i.get("sec") == "cal" and i["time"]]

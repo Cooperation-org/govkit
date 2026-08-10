@@ -183,10 +183,11 @@ def refresh_calendar(request, org_slug, pk):
     """Read the calendar again now, for a meeting added or renamed a minute ago.
 
     The lines already in the email take the calendar's word for when a meeting
-    is and what it is called; anything a person wrote about it stands.
+    is and what it is called; anything a person wrote about it stands, unless
+    they tick the box to say the calendar wins.
     """
     edition = get_object_or_404(Edition, pk=pk, org_slug=org_slug)
-    services.reread_calendar(edition)
+    services.reread_calendar(edition, overwrite=request.POST.get("overwrite") == "1")
     return redirect(_back(org_slug, _audience(request)))
 
 

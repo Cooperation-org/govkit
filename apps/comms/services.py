@@ -129,7 +129,7 @@ def _catch_up(edition: Edition, end: date) -> None:
     edition.save(update_fields=["items", "window_end", "tz_name", "updated_at"])
 
 
-def reread_calendar(edition: Edition) -> None:
+def reread_calendar(edition: Edition, overwrite: bool = False) -> None:
     """Take the calendar's word for the meetings that are already in the email.
 
     The calendar owns when a meeting is and what it is called; comms owns the
@@ -137,7 +137,9 @@ def reread_calendar(edition: Edition) -> None:
     (module docstring in calendar.py). So a re-read updates day, time and title
     on the lines it can match by uid, and touches nothing else — the note, the
     cuts and the person's own lines all stand. A field somebody has edited is
-    theirs from then on and the calendar stops speaking for it.
+    theirs from then on and the calendar stops speaking for it, unless
+    `overwrite` says to take the calendar's word back — for when the edit is
+    the thing that is now wrong.
 
     A meeting that has left the calendar keeps its line. Dropping someone's row
     out from under them is worse than a stale one they can cut.
@@ -154,7 +156,12 @@ def reread_calendar(edition: Edition) -> None:
     for item in edition.items:
         event = by_uid.get(item.get("uid"))
         if event is not None:
-            take_calendars_word(item, event_facts(edition, event))
+            facts = event_facts(edition, event)
+            if overwrite:
+                item.update(facts)
+                item["cal"] = facts
+            else:
+                take_calendars_word(item, facts)
     _sort_calendar(edition)
     edition.save(update_fields=["items", "tz_name", "updated_at"])
 
