@@ -55,12 +55,13 @@ Business logic goes in `services.py`, not in a view and not in a serializer.
 
 ## How your work lands
 
-**Open a pull request.** Don't push to `main`. The shared-VM rule about
-committing straight to main is for the people who own the repo; anyone else
-works on a branch and opens a PR, so someone sees it before it deploys. Small
-PRs, often, beat one big one.
+**Commit straight to `main` and push, as soon as a change is coherent**
+(golda 2026-08-10). Small commits, often. Pull before you start and before you
+push, and resolve any conflict on the spot — many sessions work these repos in
+parallel and fast integration is the safety mechanism, not branches. No
+long-lived branches, and never a `git stash` or a worktree.
 
-Pushing to `main` deploys. That is another reason to open a PR instead.
+Pushing to `main` deploys, so a commit is a release: get the tests green first.
 
 ## Ask, don't guess
 
