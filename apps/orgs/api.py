@@ -259,6 +259,9 @@ def _invite_payload(invite: Invite, request) -> dict:
         "venture_url": invite.venture_url,
         "role": invite.role,
         "audience": invite.audience,
+        # Where accepting takes them (org / pool / byov). The doorway words the
+        # join page differently for a founder bringing their own venture.
+        "kind": invite.kind,
         "drafted_statement": invite.drafted_statement,
         "drafted_social_post": invite.drafted_social_post,
         "status": invite.status,
