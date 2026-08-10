@@ -62,7 +62,7 @@ def index(request, org_slug):
     crm_tags, crm_problem = crm.tags(org_slug) if audience == SUPPORTERS else ([], "")
 
     page_url = ""
-    if send.public_token:
+    if send.public_token and send.is_published:
         page_url = request.build_absolute_uri(
             reverse("comms_public:bulletin", kwargs={"token": send.public_token})
         )
@@ -285,6 +285,30 @@ def send_now(request, org_slug, pk):
 
 @_admin_only
 @require_POST
+def publish(request, org_slug, pk):
+    """Put this week on its page, without saying it has been sent.
+
+    An email copied out and pasted into Gmail still needs a page to link to,
+    and a link to paste into chat.
+    """
+    edition = get_object_or_404(Edition, pk=pk, org_slug=org_slug)
+    audience = _audience(request)
+    services.publish(services.send_for(edition, audience))
+    return redirect(_back(org_slug, audience))
+
+
+@_admin_only
+@require_POST
+def unpublish(request, org_slug, pk):
+    """Take the page down. Putting it back is the same address."""
+    edition = get_object_or_404(Edition, pk=pk, org_slug=org_slug)
+    audience = _audience(request)
+    services.unpublish(services.send_for(edition, audience))
+    return redirect(_back(org_slug, audience))
+
+
+@_admin_only
+@require_POST
 def reopen(request, org_slug, pk):
     """Change your mind: back to being written, page and date cleared."""
     edition = get_object_or_404(Edition, pk=pk, org_slug=org_slug)
@@ -294,11 +318,11 @@ def reopen(request, org_slug, pk):
 
 
 def public_bulletin(request, token):
-    """The page the sent email points at. Not sent means not there."""
+    """The week's page. Not published means not there."""
     send = get_object_or_404(
         Send.objects.select_related("edition"),
         public_token=token,
-        sent_at__isnull=False,
+        published_at__isnull=False,
     )
     edition = send.edition
     return render(

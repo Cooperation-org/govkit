@@ -41,9 +41,9 @@
   // text is gone is not sent back at all, which is what cuts it.
   // The line reads as one sentence, so the title is everything on it that is
   // not one of the parts with a home of its own: the day and time, the note
-  // underneath, the arrow, the flags. Reading only the link's own text lost
+  // underneath, the flags. Reading only the link's own text lost
   // whatever was typed after it (golda 2026-08-10).
-  var NOT_TITLE = ".mail-when, .mail-note, .mail-go, .mail-opt";
+  var NOT_TITLE = ".mail-when, .mail-note, .mail-opt";
 
   function titleOf(li) {
     var copy = li.cloneNode(true);
@@ -80,11 +80,16 @@
     });
   });
 
-  // A click inside the sheet is a click into the text: following a link would
-  // take the caret away mid-edit. The arrow beside a line is the way to go
-  // there, so it is the one anchor that keeps its click.
+  // The words are the link (golda 2026-08-10). A browser puts the caret in a
+  // link inside contenteditable instead of following it, so following it is
+  // ours to do. Dragging out a selection is not a click, and neither is a
+  // click held down, so neither one navigates.
   mail.addEventListener("click", function (e) {
     var a = e.target.closest("a");
-    if (a && !a.classList.contains("mail-go")) e.preventDefault();
+    if (!a || !a.href || a.getAttribute("href") === "#") return;
+    e.preventDefault();
+    var picked = window.getSelection();
+    if (picked && !picked.isCollapsed) return;
+    window.open(a.href, "_blank", "noopener");
   });
 })();

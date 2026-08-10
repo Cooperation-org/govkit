@@ -667,17 +667,39 @@ def schedule(send: Send, when: datetime) -> None:
 
 
 def unschedule(send: Send) -> None:
+    """Back to being written. The page stays up if it was up — taking it down
+    is its own button, and a link already shared should not die quietly."""
     send.scheduled_for = None
     send.sent_at = None
     send.save(update_fields=["scheduled_for", "sent_at", "updated_at"])
 
 
-def mark_sent(send: Send, recipients: int = 0) -> None:
-    """A human pressed send. Sending also puts the week on its page."""
+def publish(send: Send) -> str:
+    """Put this week on its page and hand back the address.
+
+    Its own act, because the email is often copied out and sent by hand: the
+    page still has to exist, and its link still has to be pasteable into chat.
+    """
     send.mint_token()
+    send.published_at = send.published_at or timezone.now()
+    send.save(update_fields=["public_token", "published_at", "updated_at"])
+    return send.public_token
+
+
+def unpublish(send: Send) -> None:
+    """Take the page down. The token is kept, so putting it back is the same
+    address rather than a second one loose in the world."""
+    send.published_at = None
+    send.save(update_fields=["published_at", "updated_at"])
+
+
+def mark_sent(send: Send, recipients: int = 0) -> None:
+    """A human pressed send. Sending also puts the week on its page, because
+    that is where the email points."""
+    publish(send)
     send.sent_at = timezone.now()
     send.recipients = recipients or send.recipients
-    send.save(update_fields=["public_token", "sent_at", "recipients", "updated_at"])
+    send.save(update_fields=["sent_at", "recipients", "updated_at"])
 
 
 def html_body(edition: Edition, audience: str, subject: str) -> str:

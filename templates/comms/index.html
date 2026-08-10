@@ -11,7 +11,6 @@
   <span class="v2-send">
     {% if send.sent_at %}
       <span class="v2-done">Sent {{ send.sent_at|date:"M j" }}{% if send.recipients %} to {{ send.recipients }}{% endif %}</span>
-      {% if page_url %}<a href="{{ page_url }}" target="_blank" rel="noopener">{{ page_url|cut:"https://" }} ↗</a>{% endif %}
       <form method="post" action="{% url 'comms:reopen' org_slug=org_slug pk=edition.pk %}">
         {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
         <button class="gk-btn">Change</button>
@@ -116,6 +115,19 @@
     <form method="post" action="{% url 'comms:undo' org_slug=org_slug pk=edition.pk %}">
       {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
       <button class="gk-btn v2-undo">Put it back the way it was</button>
+    </form>
+  {% endif %}
+  {% if send.is_published %}
+    <a class="v2-page" href="{{ page_url }}" target="_blank" rel="noopener">{{ page_url|cut:"https://" }} ↗</a>
+    <button type="button" class="gk-copy gk-btn" data-link="{{ page_url }}">Copy the link</button>
+    <form method="post" action="{% url 'comms:unpublish' org_slug=org_slug pk=edition.pk %}">
+      {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
+      <button class="gk-btn">Take the page down</button>
+    </form>
+  {% else %}
+    <form method="post" action="{% url 'comms:publish' org_slug=org_slug pk=edition.pk %}">
+      {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
+      <button class="gk-btn">Publish to site</button>
     </form>
   {% endif %}
   <button type="button" class="gk-copy gk-btn" data-link="{{ plain_text }}"

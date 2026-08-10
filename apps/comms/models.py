@@ -115,10 +115,15 @@ class Send(models.Model):
     subject = models.CharField(max_length=200, blank=True)
     scheduled_for = models.DateTimeField(null=True, blank=True)
     sent_at = models.DateTimeField(null=True, blank=True)
+    # Putting the week on its page is its own act. Sending does it too, because
+    # the email links there — but an email copied out and sent by hand still
+    # needs a page to point at, and a link to paste in chat (golda 2026-08-10).
+    published_at = models.DateTimeField(null=True, blank=True)
     # Who it actually went to, recorded at send time. Never re-derived.
     recipients = models.PositiveIntegerField(default=0)
 
-    # Minted when it is sent; kept afterwards so a shared link keeps working.
+    # Minted the first time it is published; kept afterwards so a link that has
+    # been shared keeps working.
     public_token = models.CharField(max_length=32, blank=True, db_index=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -139,6 +144,10 @@ class Send(models.Model):
     @property
     def is_sent(self) -> bool:
         return self.sent_at is not None
+
+    @property
+    def is_published(self) -> bool:
+        return self.published_at is not None
 
     def mint_token(self) -> str:
         if not self.public_token:

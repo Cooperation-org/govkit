@@ -18,4 +18,6 @@ urlpatterns = [
     path("<int:pk>/schedule/", views.schedule, name="schedule"),
     path("<int:pk>/send/", views.send_now, name="send_now"),
     path("<int:pk>/reopen/", views.reopen, name="reopen"),
+    path("<int:pk>/publish/", views.publish, name="publish"),
+    path("<int:pk>/unpublish/", views.unpublish, name="unpublish"),
 ]

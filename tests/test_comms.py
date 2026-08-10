@@ -195,10 +195,18 @@ def test_reading_it_again_keeps_a_title_a_person_rewrote(client, admin_at_vc, ed
     refresh = reverse("comms:refresh_calendar", kwargs={"org_slug": "vc", "pk": edition.pk})
     mine = next(i for i in edition.items if i["title"] == "Week 2 kickoff")
     services.save_section(
-        edition, WORKERS, "cal",
-        [{"id": i["id"], "title": "Kickoff — bring your one-pager" if i["id"] == mine["id"]
-          else i["title"], "note": i.get("note", "")}
-         for i in edition.items if i.get("sec") == "cal"],
+        edition,
+        WORKERS,
+        "cal",
+        [
+            {
+                "id": i["id"],
+                "title": "Kickoff — bring your one-pager" if i["id"] == mine["id"] else i["title"],
+                "note": i.get("note", ""),
+            }
+            for i in edition.items
+            if i.get("sec") == "cal"
+        ],
     )
     edition.save()
 
@@ -227,7 +235,9 @@ def test_ticking_over_my_edits_takes_the_calendars_word_back(client, admin_at_vc
 
 
 def _rows(edition, audience, key):
-    return next((s for s in services.email(edition, audience) if s["k"] == key), {"rows": []})["rows"]
+    return next((s for s in services.email(edition, audience) if s["k"] == key), {"rows": []})[
+        "rows"
+    ]
 
 
 def test_the_workers_goals_are_the_workers_own(calendar_org, settings, now_ics):
@@ -253,9 +263,7 @@ def test_a_venture_that_joined_this_week_is_an_opportunity(calendar_org, org_fac
     newcomer.display_name = "Brand New"
     newcomer.save(update_fields=["display_name"])
     old_hand = org_factory(slug="been-here-ages")
-    Org.objects.filter(pk=old_hand.pk).update(
-        created_at=timezone.now() - timedelta(days=60)
-    )
+    Org.objects.filter(pk=old_hand.pk).update(created_at=timezone.now() - timedelta(days=60))
 
     with patch("urllib.request.urlopen", return_value=_Feed(now_ics)):
         made = services.open_edition("vc")
@@ -277,6 +285,52 @@ def test_a_goal_someone_deleted_does_not_come_back(calendar_org, settings, now_i
     with patch("urllib.request.urlopen", return_value=_Feed(now_ics)):
         again = services.open_edition("vc")
     assert _rows(again, WORKERS, "goals") == []
+
+
+def test_publishing_is_not_sending(client, admin_at_vc, edition):
+    """The email gets copied out and pasted into Gmail, so the page it links to
+    has to exist without anything claiming it was sent (golda 2026-08-10)."""
+    send = services.send_for(edition, WORKERS)
+    publish = reverse("comms:publish", kwargs={"org_slug": "vc", "pk": edition.pk})
+    client.post(publish, {"t": WORKERS}, follow=True)
+
+    send.refresh_from_db()
+    assert send.is_published and not send.is_sent
+    assert (
+        client.get(
+            reverse("comms_public:bulletin", kwargs={"token": send.public_token})
+        ).status_code
+        == 200
+    )
+
+
+def test_taking_the_page_down_keeps_the_address(client, admin_at_vc, edition):
+    """Putting it back is the same link, not a second one loose in the world."""
+    send = services.send_for(edition, WORKERS)
+    client.post(
+        reverse("comms:publish", kwargs={"org_slug": "vc", "pk": edition.pk}),
+        {"t": WORKERS},
+        follow=True,
+    )
+    send.refresh_from_db()
+    token = send.public_token
+    page = reverse("comms_public:bulletin", kwargs={"token": token})
+
+    client.post(
+        reverse("comms:unpublish", kwargs={"org_slug": "vc", "pk": edition.pk}),
+        {"t": WORKERS},
+        follow=True,
+    )
+    assert client.get(page).status_code == 404
+
+    client.post(
+        reverse("comms:publish", kwargs={"org_slug": "vc", "pk": edition.pk}),
+        {"t": WORKERS},
+        follow=True,
+    )
+    send.refresh_from_db()
+    assert send.public_token == token
+    assert client.get(page).status_code == 200
 
 
 def test_the_email_says_which_timezone_a_time_is_in(edition):
@@ -326,22 +380,36 @@ def test_the_addresses_come_off_the_invites(calendar_org, user_factory):
 
     signed_in = user_factory(email="mentor-who-signed-in@example.com")
     Invite.objects.create(
-        org=calendar_org, audience="mentor", kind="org", role="member",
-        email="what-the-inviter-typed@example.com", accepted_by=signed_in,
+        org=calendar_org,
+        audience="mentor",
+        kind="org",
+        role="member",
+        email="what-the-inviter-typed@example.com",
+        accepted_by=signed_in,
         expires_at=timezone.now() + timedelta(days=30),
     )
     Invite.objects.create(
-        org=calendar_org, audience="mentor", kind="org", role="member",
+        org=calendar_org,
+        audience="mentor",
+        kind="org",
+        role="member",
         email="not-clicked-yet@example.com",
         expires_at=timezone.now() + timedelta(days=30),
     )
     Invite.objects.create(
-        org=calendar_org, audience="mentor", kind="org", role="member",
-        email="changed-our-mind@example.com", status=InviteStatus.REVOKED,
+        org=calendar_org,
+        audience="mentor",
+        kind="org",
+        role="member",
+        email="changed-our-mind@example.com",
+        status=InviteStatus.REVOKED,
         expires_at=timezone.now() + timedelta(days=30),
     )
     Invite.objects.create(
-        org=calendar_org, audience="founder", kind="pool", role="member",
+        org=calendar_org,
+        audience="founder",
+        kind="pool",
+        role="member",
         email="in-the-pool@example.com",
         expires_at=timezone.now() + timedelta(days=30),
     )
@@ -360,13 +428,20 @@ def test_one_unsubscribe_holds_for_a_list_govkit_hands_over(calendar_org):
     from apps.orgs.models import Invite
 
     Invite.objects.create(
-        org=calendar_org, audience="mentor", kind="org", role="member",
+        org=calendar_org,
+        audience="mentor",
+        kind="org",
+        role="member",
         email="no-thanks@example.com",
         expires_at=timezone.now() + timedelta(days=30),
     )
     Subscriber.objects.create(
-        org_slug="vc", audience=SUPPORTERS, source="crm", external_id="1",
-        email="no-thanks@example.com", unsubscribed_at=timezone.now(),
+        org_slug="vc",
+        audience=SUPPORTERS,
+        source="crm",
+        external_id="1",
+        email="no-thanks@example.com",
+        unsubscribed_at=timezone.now(),
     )
     assert services.recipient_emails("vc", MENTORS) == []
 

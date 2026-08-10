@@ -55,10 +55,6 @@
    any space put between the time and the title in the template. */
 .mail-when { color: var(--gk-ink-2); margin-right: 0.45rem; }
 .mail-t { font-weight: 600; color: var(--gk-accent); }
-/* Where a line goes. The title itself stays editable, so the arrow is the way
-   to actually follow it, and hovering either one names the destination. */
-.mail-go { margin-left: 0.3rem; font-size: 0.8em; text-decoration: none; color: var(--gk-muted); }
-.mail-go:hover { color: var(--gk-accent); }
 .mail-t.is-opt { font-weight: 400; color: var(--gk-ink-2); }
 .mail-opt { color: var(--gk-muted); font-size: 0.85em; }
 .mail-note { display: block; color: var(--gk-ink-2); font-size: 0.9em; }
@@ -75,6 +71,7 @@
 
 .v2-back { display: flex; gap: 0.5rem; flex-wrap: wrap; padding: 0.6rem 0 0; align-items: center; }
 .v2-back form { display: contents; }
+.v2-page { font-size: 0.85rem; color: var(--gk-muted); }
 
 /* where the meetings come from: go look at it, re-read it, or change it */
 .v2-cal {
