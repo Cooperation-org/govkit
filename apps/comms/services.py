@@ -96,6 +96,7 @@ def open_edition(org_slug: str, today: date | None = None) -> Edition:
     edition.items += _carried_forward(org_slug, edition)
     _seed_section(edition, GOALS_SECTION, _goal_lines(edition))
     _seed_section(edition, OPPORTUNITIES_SECTION, _opportunity_lines(edition))
+    _seed_section(edition, VENTURES_SECTION, _venture_news_lines(edition))
     try:
         with transaction.atomic():
             edition.save()
@@ -117,6 +118,7 @@ def _catch_up(edition: Edition, end: date) -> None:
     """
     seeded = _seed_section(edition, GOALS_SECTION, _goal_lines(edition))
     seeded |= _seed_section(edition, OPPORTUNITIES_SECTION, _opportunity_lines(edition))
+    seeded |= _seed_section(edition, VENTURES_SECTION, _venture_news_lines(edition))
     widened = end > edition.window_end
     empty = not any(i.get("sec") == CALENDAR_SECTION for i in edition.items)
     if not (widened or empty):
@@ -140,6 +142,7 @@ def _catch_up(edition: Edition, end: date) -> None:
 
 GOALS_SECTION = "goals"
 OPPORTUNITIES_SECTION = "opp"
+VENTURES_SECTION = "vent"
 
 
 def sent_audiences(edition: Edition) -> set:
@@ -208,6 +211,26 @@ def _people_line(people: list[dict], plural: str, url: str) -> list[dict]:
         return []
     names = ", ".join(person["name"] for person in people)
     return [{"title": f"{names} joined as {plural}", "href": url, "flag": "new", "tpl": [VENTURES]}]
+
+
+def _venture_news_lines(edition: Edition) -> list[dict]:
+    """What the mentors are told about the teams.
+
+    The teams that arrived are the part nobody has to type. What a team has
+    actually DONE this week is not derivable from anything we hold, so the
+    section is seeded with the arrivals and the highlights are written in.
+    """
+    since = edition.window_start - timedelta(days=7)
+    return [
+        {
+            "title": v["name"],
+            "href": v["url"],
+            "note": v["note"],
+            "flag": "new",
+            "tpl": [MENTORS],
+        }
+        for v in govkit.new_ventures(edition.org_slug, since)
+    ]
 
 
 def _opportunity_lines(edition: Edition) -> list[dict]:

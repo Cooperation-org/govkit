@@ -7,6 +7,7 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.text import Truncator
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import ProfileLink
@@ -105,6 +106,11 @@ def idea_interest(request, slug):
     return redirect("commons:ideas")
 
 
+# How much of somebody's own words fit on a card before the page stops being
+# scannable. Their page carries all of it.
+WORDS_ON_A_CARD = 240
+
+
 @login_required
 def pool_view(request):
     """People screened into the applicant pool: accepted pool invites, rendered
@@ -157,5 +163,10 @@ def pool_view(request):
         # has not. Reading only the profile left the people who wrote their
         # words on the way in looking like they had written nothing.
         invite.face = invite.accepted_by.avatar_url or card.get("image") or ""
-        invite.words = invite.accepted_by.bio or card.get("statement") or ""
+        # Cut short here, whole on their own page. A page of cards is scanned,
+        # and one person's essay pushes everybody else off the screen (golda
+        # 2026-08-10).
+        invite.words = Truncator(invite.accepted_by.bio or card.get("statement") or "").chars(
+            WORDS_ON_A_CARD
+        )
     return render(request, "commons/pool.html", {"invites": invites})

@@ -411,6 +411,20 @@ def test_what_has_gone_out_is_a_record_not_a_draft(client, admin_at_vc, edition,
     assert b'contenteditable="true"' not in page.content
 
 
+def test_the_mentors_hear_which_teams_arrived(calendar_org, org_factory, now_ics):
+    """The arrivals are the part nobody has to type. What a team DID this week
+    is not derivable from anything we hold, so that is written in."""
+    newcomer = org_factory(slug="brand-new")
+    newcomer.display_name = "Brand New"
+    newcomer.save(update_fields=["display_name"])
+
+    with patch("urllib.request.urlopen", return_value=_Feed(now_ics)):
+        made = services.open_edition("vc")
+
+    assert "Brand New" in [r["title"] for r in _rows(made, MENTORS, "vent")]
+    assert _rows(made, WORKERS, "vent") == []
+
+
 def test_the_email_says_which_timezone_a_time_is_in(edition):
     """It goes to people in Phoenix, Lagos and Berlin at once."""
     times = [i["time"] for i in edition.items if i.get("sec") == "cal" and i["time"]]
