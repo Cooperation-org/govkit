@@ -448,22 +448,16 @@ def event_facts(edition: Edition, event) -> dict:
             local.strftime("%-I:%M%p").lower() + " " + local.strftime("%Z")
         ).strip(),
         "title": event.title,
+        # What a person clicks a meeting for is the way in: its Meet or Zoom
+        # link. Only a meeting that has none falls back to the calendar.
+        "href": event.url or govkit.calendar_url(edition.org_slug),
     }
 
 
 def item_from_event(edition: Edition, event) -> dict:
     item = blank_item(edition, CALENDAR_SECTION)
     item.update(event_facts(edition, event))
-    item.update(
-        {
-            "uid": event.uid,
-            "note": event.where,
-            # A calendar row goes to the calendar. The event's own link when it
-            # has one, the team's calendar when it does not.
-            "href": event.url or govkit.calendar_url(edition.org_slug),
-            "rec": True,
-        }
-    )
+    item.update({"uid": event.uid, "note": event.where, "rec": True})
     return item
 
 

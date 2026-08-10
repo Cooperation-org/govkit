@@ -172,6 +172,23 @@ def test_reading_it_again_takes_the_calendars_word_for_the_title(client, admin_a
     assert edition.item(row["id"])["note"] == "bring coffee"
 
 
+def test_a_meeting_line_goes_to_the_meeting(calendar_org):
+    """Google leaves URL empty and puts the Meet link in X-GOOGLE-CONFERENCE,
+    so every line used to fall back to the calendar as a whole."""
+    monday = services.week_window()[0]
+    ics = ics_for(monday).replace(
+        "SUMMARY:Week 2 kickoff",
+        "SUMMARY:Week 2 kickoff\nX-GOOGLE-CONFERENCE:https://meet.google.com/abc-defg-hij",
+    )
+    with patch("urllib.request.urlopen", return_value=_Feed(ics)):
+        made = services.open_edition("vc")
+    kickoff = next(i for i in made.items if i["title"] == "Week 2 kickoff")
+    assert kickoff["href"] == "https://meet.google.com/abc-defg-hij"
+    # A meeting with no way in still points somewhere useful.
+    standup = next(i for i in made.items if i["title"] == "Standup")
+    assert standup["href"] == calendar_org.calendar_url
+
+
 def test_the_email_says_which_timezone_a_time_is_in(edition):
     """It goes to people in Phoenix, Lagos and Berlin at once."""
     times = [i["time"] for i in edition.items if i.get("sec") == "cal" and i["time"]]
