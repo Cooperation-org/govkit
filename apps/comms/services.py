@@ -135,8 +135,9 @@ def reread_calendar(edition: Edition) -> None:
     The calendar owns when a meeting is and what it is called; comms owns the
     sentence a human wrote about it and whether it is in this audience's email
     (module docstring in calendar.py). So a re-read updates day, time and title
-    on every line it can match by uid, and touches nothing else — the note, the
-    cuts and the person's own lines all stand.
+    on the lines it can match by uid, and touches nothing else — the note, the
+    cuts and the person's own lines all stand. A field somebody has edited is
+    theirs from then on and the calendar stops speaking for it.
 
     A meeting that has left the calendar keeps its line. Dropping someone's row
     out from under them is worse than a stale one they can cut.
@@ -153,7 +154,7 @@ def reread_calendar(edition: Edition) -> None:
     for item in edition.items:
         event = by_uid.get(item.get("uid"))
         if event is not None:
-            item.update(event_facts(edition, event))
+            take_calendars_word(item, event_facts(edition, event))
     _sort_calendar(edition)
     edition.save(update_fields=["items", "tz_name", "updated_at"])
 
@@ -456,9 +457,30 @@ def event_facts(edition: Edition, event) -> dict:
 
 def item_from_event(edition: Edition, event) -> dict:
     item = blank_item(edition, CALENDAR_SECTION)
-    item.update(event_facts(edition, event))
-    item.update({"uid": event.uid, "note": event.where, "rec": True})
+    facts = event_facts(edition, event)
+    item.update(facts)
+    # What the calendar last said, kept beside what the line now says. A
+    # re-read compares the two and only replaces a field nobody has touched.
+    item.update({"uid": event.uid, "note": event.where, "rec": True, "cal": facts})
     return item
+
+
+def take_calendars_word(item: dict, facts: dict) -> None:
+    """Update the calendar's fields on one line, keeping anything edited.
+
+    A line whose title still reads exactly what the calendar last said is the
+    calendar's to change. One a person rewrote is theirs, and a button called
+    Read it again must not be the thing that loses it.
+
+    A line drafted before we started recording this has no `cal` to compare
+    against, so it is left alone. It can be cut and put back to get the new
+    wording, which is a choice rather than a surprise.
+    """
+    was = item.get("cal") or {}
+    for field, value in facts.items():
+        if was.get(field) == item.get(field):
+            item[field] = value
+    item["cal"] = facts
 
 
 def zone(edition: Edition):

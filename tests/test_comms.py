@@ -189,6 +189,28 @@ def test_a_meeting_line_goes_to_the_meeting(calendar_org):
     assert standup["href"] == calendar_org.calendar_url
 
 
+def test_reading_it_again_keeps_a_title_a_person_rewrote(client, admin_at_vc, edition):
+    """A button called Read it again must not be the thing that loses an edit
+    (golda 2026-08-10, having just edited the workers list)."""
+    refresh = reverse("comms:refresh_calendar", kwargs={"org_slug": "vc", "pk": edition.pk})
+    mine = next(i for i in edition.items if i["title"] == "Week 2 kickoff")
+    services.save_section(
+        edition, WORKERS, "cal",
+        [{"id": i["id"], "title": "Kickoff — bring your one-pager" if i["id"] == mine["id"]
+          else i["title"], "note": i.get("note", "")}
+         for i in edition.items if i.get("sec") == "cal"],
+    )
+    edition.save()
+
+    moved = now_ics_text().replace("SUMMARY:Week 2 kickoff", "SUMMARY:Kickoff (renamed in Google)")
+    cache.clear()
+    with patch("urllib.request.urlopen", return_value=_Feed(moved)):
+        client.post(refresh, {"t": WORKERS}, follow=True)
+
+    edition.refresh_from_db()
+    assert edition.item(mine["id"])["title"] == "Kickoff — bring your one-pager"
+
+
 def test_the_email_says_which_timezone_a_time_is_in(edition):
     """It goes to people in Phoenix, Lagos and Berlin at once."""
     times = [i["time"] for i in edition.items if i.get("sec") == "cal" and i["time"]]
