@@ -3,6 +3,7 @@ Commons views: orgs / ideas / pool — reachable by anyone invited or signed up
 (login-gated; no org membership required, no anonymous access).
 """
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
@@ -115,7 +116,7 @@ def pool_view(request):
     link through to them. The wall being down costs the skills and the link,
     never the page.
     """
-    invites = (
+    rows = (
         Invite.objects.filter(
             kind=InviteKind.POOL, status=InviteStatus.ACCEPTED, accepted_by__isnull=False
         )
@@ -129,9 +130,26 @@ def pool_view(request):
         )
         .order_by("-expires_at")
     )
+    # One person, one card. Somebody invited twice holds two accepted invites
+    # and was listed twice; the one carrying their card is the one to show.
+    invites = {}
+    for row in rows:
+        held = invites.get(row.accepted_by_id)
+        if held is None or (row.committed_claim_id and not held.committed_claim_id):
+            invites[row.accepted_by_id] = row
+    invites = list(invites.values())
+
     cards = wall_cards_by_claim([i.committed_claim_id for i in invites])
+    person_base = (settings.COHORT_PERSON_URL or "").rstrip("/")
     for invite in invites:
         card = cards.get(invite.committed_claim_id) or {}
-        invite.wall_url = card.get("page_url", "")
+        # Their page is addressed by the card they made, so it is known here
+        # whether or not the wall answers. It used to come from the wall alone,
+        # and a person the wall did not return had no link at all.
+        invite.wall_url = card.get("page_url") or (
+            f"{person_base}/{invite.committed_claim_id}/"
+            if person_base and invite.committed_claim_id
+            else ""
+        )
         invite.skills = card.get("skills") or []
     return render(request, "commons/pool.html", {"invites": invites})
