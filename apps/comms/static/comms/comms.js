@@ -51,11 +51,23 @@
     return copy.textContent.replace(/\s+/g, " ").trim();
   }
 
+  // Deleting a line merges its <li> into the next one, and the merged <li>
+  // keeps the FIRST line's id while showing the SECOND line's words — so the
+  // line just deleted came back wearing its neighbour's title. The day and
+  // time carry the id of the line they belong to, so the surviving words are
+  // saved against the line they are actually from, and the deleted line is
+  // simply not sent back, which is what cuts it.
+  function idOf(li) {
+    var stamps = li.querySelectorAll(".mail-when[data-row]");
+    if (stamps.length) return stamps[stamps.length - 1].dataset.row;
+    return li.dataset.id || "";
+  }
+
   function saveSection(el) {
     var rows = [].map.call(el.querySelectorAll("li"), function (li) {
       var note = li.querySelector(".mail-note");
       return {
-        id: li.dataset.id || "",
+        id: idOf(li),
         title: titleOf(li),
         note: note ? note.textContent.trim() : "",
       };
