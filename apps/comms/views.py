@@ -84,6 +84,9 @@ def index(request, org_slug):
             "calendar_settings_url": govkit.calendar_settings_url(org_slug),
             "default_send_at": services.default_send_at(edition),
             "page_url": page_url,
+            # What went out is the record of what went out: it is read from
+            # here on, never typed into (golda 2026-08-10).
+            "editable": not send.is_sent,
             "plain_text": services.plain_text(edition, audience, send.subject),
             "html_text": services.html_body(edition, audience, send.subject),
             "recipient_emails": ", ".join(services.recipient_emails(org_slug, audience)),

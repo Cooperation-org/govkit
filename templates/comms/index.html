@@ -89,13 +89,17 @@
 
 <p class="mail-subject">
   <span class="mail-lbl">Subject</span>
-  <span contenteditable="true" data-f="subject">{{ send.subject }}</span>
+  <span {% if editable %}contenteditable="true"{% endif %} data-f="subject">{{ send.subject }}</span>
 </p>
 
-<div class="mail" id="mail"
+{% if not editable %}
+  <p class="gk-note">This one has gone out, so it reads as it was sent. Press
+    Change above to open it again.</p>
+{% endif %}
+<div class="mail" id="{% if editable %}mail{% endif %}"
      data-save="{% url 'comms:save' org_slug=org_slug pk=edition.pk %}"
      data-t="{{ audience }}" data-csrf="{{ csrf_token }}">
-  {% include "comms/_sheet.html" with editable=True %}
+  {% include "comms/_sheet.html" %}
 </div>
 
 {% if cut %}

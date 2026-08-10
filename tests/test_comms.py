@@ -391,6 +391,22 @@ def test_new_people_are_named_until_there_are_too_many(calendar_org, settings, n
     assert "https://front.example/wall/" in hrefs
 
 
+def test_what_has_gone_out_is_a_record_not_a_draft(client, admin_at_vc, edition, settings):
+    """Sent means sent: nothing new appears in it and nothing can be typed into
+    it, until a person presses Change (golda 2026-08-10)."""
+    settings.PUBLIC_BASE_URL = "https://dash.example"
+    services.mark_sent(services.send_for(edition, WORKERS))
+    services.save_section(edition, WORKERS, "goals", [])
+    edition.save()
+
+    with patch("urllib.request.urlopen", side_effect=OSError("nope")):
+        again = services.open_edition("vc")
+    assert _rows(again, WORKERS, "goals") == []
+
+    page = client.get(reverse("comms:index", kwargs={"org_slug": "vc"}), {"t": WORKERS})
+    assert b'contenteditable="true"' not in page.content
+
+
 def test_the_email_says_which_timezone_a_time_is_in(edition):
     """It goes to people in Phoenix, Lagos and Berlin at once."""
     times = [i["time"] for i in edition.items if i.get("sec") == "cal" and i["time"]]

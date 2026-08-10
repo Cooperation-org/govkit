@@ -142,21 +142,43 @@ GOALS_SECTION = "goals"
 OPPORTUNITIES_SECTION = "opp"
 
 
-def _seed_section(edition: Edition, key: str, lines: list[dict]) -> bool:
-    """Put lines into a section that has none. Returns whether anything landed.
+def sent_audiences(edition: Edition) -> set:
+    """The audiences whose email has already gone. Theirs is now a record."""
+    if edition.pk is None:
+        # Still being built, so nothing has been sent from it yet.
+        return set()
+    return set(edition.sends.filter(sent_at__isnull=False).values_list("audience", flat=True))
 
-    Same rule as the calendar: a section with nothing in it was never filled,
-    so filling it overwrites nobody. Once there is a line there — even one that
-    has been cut, which stays in `items` carrying `off` — this leaves it alone,
-    so a line somebody deleted does not come back next time the page loads.
+
+def _seed_section(edition: Edition, key: str, lines: list[dict]) -> bool:
+    """Put lines into a section that has none FOR THE AUDIENCE THEY ARE FOR.
+
+    Same rule as the calendar, but read per audience, because a section holds
+    a different set of lines for each one: the goals section can be full for
+    the workers and empty for the ventures, and the ventures still need theirs
+    (golda 2026-08-10). Once an audience has a line here — even one that has
+    been cut, which stays in `items` carrying `off` — this leaves it alone, so
+    a line somebody deleted does not come back next time the page loads.
     """
-    if not lines or any(i.get("sec") == key for i in edition.items):
-        return False
+    # Read once, before anything is added: otherwise the first line seeded for
+    # an audience is itself the reason the second one is skipped. An audience
+    # whose email has gone counts as done: what was sent is the record of what
+    # was sent, and nothing may appear in it afterwards (golda 2026-08-10).
+    already = sent_audiences(edition) | {
+        audience
+        for i in edition.items
+        if i.get("sec") == key
+        for audience in (i.get("tpl") or AUDIENCE_KEYS)
+    }
+    landed = False
     for line in lines:
+        if already.intersection(line.get("tpl") or AUDIENCE_KEYS):
+            continue
         item = blank_item(edition, key)
         item.update(line)
         edition.items.append(item)
-    return True
+        landed = True
+    return landed
 
 
 def _goal_lines(edition: Edition) -> list[dict]:
