@@ -321,9 +321,7 @@ def add_event(edition: Edition, uid: str) -> None:
 
 def missing_events(edition: Edition) -> tuple[list, str]:
     """(what is on the calendar and in no email, problem)."""
-    events, _tz, problem = read_calendar(
-        edition.org_slug, edition.window_start, edition.window_end
-    )
+    events, _tz, problem = read_calendar(edition.org_slug, edition.window_start, edition.window_end)
     taken = {i.get("uid") for i in edition.items if i.get("uid")}
     return [e for e in events if e.uid not in taken], problem
 
@@ -423,9 +421,7 @@ def import_from_crm(org_slug: str, audience: str, tag_id: int, tag_name: str):
     }
     # One person, one row: the CRM can hold the same address twice, and a list
     # that mails it twice looks broken to the person receiving it.
-    seen_emails = set(
-        subscribers(org_slug, audience).values_list("email", flat=True)
-    )
+    seen_emails = set(subscribers(org_slug, audience).values_list("email", flat=True))
     added, refreshed, new_rows = 0, 0, []
 
     for person in found:
@@ -490,9 +486,7 @@ def mark_sent(send: Send, recipients: int = 0) -> None:
     send.mint_token()
     send.sent_at = timezone.now()
     send.recipients = recipients or send.recipients
-    send.save(
-        update_fields=["public_token", "sent_at", "recipients", "updated_at"]
-    )
+    send.save(update_fields=["public_token", "sent_at", "recipients", "updated_at"])
 
 
 def plain_text(edition: Edition, audience: str, subject: str) -> str:

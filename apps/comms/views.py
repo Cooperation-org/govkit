@@ -210,9 +210,7 @@ def import_list(request, org_slug, pk):
         return redirect(_back(org_slug, audience))
 
     tag_name = request.POST.get("tag_name", "")
-    added, refreshed, problem = services.import_from_crm(
-        org_slug, audience, tag_id, tag_name
-    )
+    added, refreshed, problem = services.import_from_crm(org_slug, audience, tag_id, tag_name)
     if problem:
         messages.error(request, problem)
     else:
@@ -231,9 +229,7 @@ def ask(request, org_slug, pk):
     edition = get_object_or_404(Edition, pk=pk, org_slug=org_slug)
     audience = _audience(request)
     send = services.send_for(edition, audience)
-    _changed, problem = editor.apply(
-        edition, audience, send, request.POST.get("instruction", "")
-    )
+    _changed, problem = editor.apply(edition, audience, send, request.POST.get("instruction", ""))
     if problem:
         messages.error(request, problem)
     return redirect(_back(org_slug, audience))

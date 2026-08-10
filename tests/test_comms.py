@@ -49,6 +49,7 @@ def test_comms_owns_its_tables():
 
 # --- the calendar ------------------------------------------------------------
 
+
 def ics_for(monday: date) -> str:
     """A cohort calendar for one week: a daily standup and a Monday kickoff.
 
@@ -112,9 +113,7 @@ def calendar_org(org_factory):
 def test_a_repeating_meeting_becomes_one_line_per_day(calendar_org):
     """A weekly standup is five lines in the week, not one — that is the point."""
     with patch("urllib.request.urlopen", return_value=_Feed(ICS)):
-        events, tz_name, problem = services.read_calendar(
-            "vc", date(2026, 8, 31), date(2026, 9, 6)
-        )
+        events, tz_name, problem = services.read_calendar("vc", date(2026, 8, 31), date(2026, 9, 6))
     assert problem == ""
     assert tz_name == "America/Phoenix"
     assert sum(1 for e in events if e.title == "Standup") == 5
@@ -122,7 +121,7 @@ def test_a_repeating_meeting_becomes_one_line_per_day(calendar_org):
 
 
 def test_the_link_google_hands_a_person_finds_the_feed():
-    """"Get shareable link" gives a `cid=` link, and cid is the address base64'd.
+    """ "Get shareable link" gives a `cid=` link, and cid is the address base64'd.
 
     Passing the base64 through to the ICS endpoint is a 404, which is what the
     team saw after adding a calendar that was fine.
@@ -234,7 +233,10 @@ def test_a_cut_line_comes_back_when_the_chip_is_pressed(edition):
     rows = _calendar_rows(edition, "w")
     dropped = rows[0]["id"]
     services.save_section(
-        edition, "w", "cal", [{"id": r["id"], "title": r["title"], "note": r["note"]} for r in rows[1:]]
+        edition,
+        "w",
+        "cal",
+        [{"id": r["id"], "title": r["title"], "note": r["note"]} for r in rows[1:]],
     )
 
     services.restore_item(edition, "w", dropped)
@@ -269,7 +271,9 @@ def test_the_browser_saves_a_section_through_the_view(client, admin_at_vc, editi
         {
             "t": "m",
             "what": "cal",
-            "rows": json.dumps([{"id": r["id"], "title": r["title"], "note": ""} for r in rows[1:]]),
+            "rows": json.dumps(
+                [{"id": r["id"], "title": r["title"], "note": ""} for r in rows[1:]]
+            ),
         },
     )
     assert response.status_code == 200
@@ -400,7 +404,9 @@ def test_the_standing_footer_carries_forward_to_next_week(calendar_org, now_ics)
     with patch("urllib.request.urlopen", return_value=_Feed(now_ics)):
         later = services.open_edition("vc", today=first.window_start + timedelta(days=7))
 
-    titles = [r["title"] for s in services.email(later, "s") if s["k"] == "support" for r in s["rows"]]
+    titles = [
+        r["title"] for s in services.email(later, "s") if s["k"] == "support" for r in s["rows"]
+    ]
     assert "Sponsor the cohort" in titles
     assert later.pk != first.pk
 

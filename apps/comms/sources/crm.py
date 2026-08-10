@@ -52,8 +52,7 @@ FIELDS = ["id", "name", "email", "is_blacklisted"]
 
 def available() -> bool:
     return bool(
-        getattr(settings, "COMMS_CRM_URL_PATTERN", "")
-        and getattr(settings, "COMMS_CRM_KEY", "")
+        getattr(settings, "COMMS_CRM_URL_PATTERN", "") and getattr(settings, "COMMS_CRM_KEY", "")
     )
 
 
@@ -90,7 +89,12 @@ def tags(org_slug: str) -> tuple[list[dict], str]:
     try:
         uid, models, db, key = _connect(org_slug)
         rows = models.execute_kw(
-            db, uid, key, "res.partner.category", "search_read", [[]],
+            db,
+            uid,
+            key,
+            "res.partner.category",
+            "search_read",
+            [[]],
             {"fields": ["id", "name"], "order": "name"},
         )
         out = []
@@ -117,7 +121,12 @@ def people(org_slug: str, tag_id: int) -> tuple[list[dict], str]:
         out, offset = [], 0
         while True:
             rows = models.execute_kw(
-                db, uid, key, "res.partner", "search_read", [_domain(tag_id)],
+                db,
+                uid,
+                key,
+                "res.partner",
+                "search_read",
+                [_domain(tag_id)],
                 {"fields": FIELDS, "limit": PAGE, "offset": offset, "order": "id"},
             )
             if not rows:
