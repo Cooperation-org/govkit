@@ -39,15 +39,24 @@
 
   // A line the person wrote has no id; the server gives it one. A line whose
   // text is gone is not sent back at all, which is what cuts it.
+  // The line reads as one sentence, so the title is everything on it that is
+  // not one of the parts with a home of its own: the day and time, the note
+  // underneath, the arrow, the flags. Reading only the link's own text lost
+  // whatever was typed after it (golda 2026-08-10).
+  var NOT_TITLE = ".mail-when, .mail-note, .mail-go, .mail-opt";
+
+  function titleOf(li) {
+    var copy = li.cloneNode(true);
+    [].forEach.call(copy.querySelectorAll(NOT_TITLE), function (part) { part.remove(); });
+    return copy.textContent.replace(/\s+/g, " ").trim();
+  }
+
   function saveSection(el) {
     var rows = [].map.call(el.querySelectorAll("li"), function (li) {
-      var link = li.querySelector("a");
       var note = li.querySelector(".mail-note");
-      var title = (link ? link.textContent : li.textContent).trim();
-      if (!link && note) title = title.replace(note.textContent.trim(), "").trim();
       return {
         id: li.dataset.id || "",
-        title: title,
+        title: titleOf(li),
         note: note ? note.textContent.trim() : "",
       };
     });
