@@ -3,14 +3,17 @@ The attention feed — everything on a dash's right-hand rail that wants a human
 
 One generic item shape so new kinds slot in without touching the embed contract:
 
-    {kind, id, title, detail, email, since, done, url, org_slug}
+    {kind, id, title, detail, email, since, done, url, org_slug, respond_url}
 
   kind      "venture_interest" today; "pool_pending" on the accelerator's rail;
             future kinds (drops to approve, votes to cast, ...) reuse the shape.
   done      answered/handled — the client renders it dimmed, at the bottom.
   url       a link out when the action lives elsewhere (e.g. the doorway's
-            approval queue); venture_interest instead carries org_slug + id so
-            the client can POST the mark-answered endpoint.
+            approval queue).
+  respond_url  the mark-answered endpoint for this row, relative to the GovKit
+            root. Present means the client draws the button; that is the whole
+            contract, so a new kind gets one by filling the field, not by
+            teaching the embed its name.
 
 Facts stay in their homes: interest rows here in commons, pending walk-ups in
 the workersvc doorway's ledger (read over its loopback S2S API, never copied).
@@ -23,7 +26,7 @@ import urllib.request
 from django.conf import settings
 from django.core.cache import cache
 
-from .models import VentureInterest
+from .models import SponsorPledge, VentureInterest
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +47,7 @@ def _interest_item(i, with_org_name):
         "done": i.responded_at is not None,
         "url": "",
         "org_slug": i.org.slug,
+        "respond_url": f"/api/v1/commons/orgs/{i.org.slug}/interest/{i.id}/respond/",
     }
 
 
@@ -57,6 +61,31 @@ def all_open_interest_items():
     """Every unanswered hand-raise across ventures — the accelerator's read."""
     rows = VentureInterest.objects.filter(responded_at__isnull=True).select_related("org", "user")
     return [_interest_item(i, with_org_name=True) for i in rows]
+
+
+def sponsor_pledge_items(org):
+    """Sponsorship offered to this org, unanswered first (model ordering).
+
+    Answered ones stay on the rail (dimmed) rather than disappearing: there is
+    no other place in the product yet where the team can see who offered, and a
+    pledge that vanishes on first reply is a pledge nobody follows up.
+    """
+    rows = SponsorPledge.objects.filter(org=org).select_related("org")
+    return [
+        {
+            "kind": "sponsor_pledge",
+            "id": p.id,
+            "title": f"{p.who} offered to sponsor — {p.summary}",
+            "detail": " ".join(x for x in (p.offer, p.note) if x),
+            "email": p.email,
+            "since": p.created_at.isoformat(),
+            "done": p.responded_at is not None,
+            "url": "",
+            "org_slug": p.org.slug,
+            "respond_url": f"/api/v1/commons/sponsor-pledges/{p.id}/respond/",
+        }
+        for p in rows
+    ]
 
 
 def invite_accepted_items():

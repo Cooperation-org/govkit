@@ -780,8 +780,8 @@
   // --- <govkit-activity> ---------------------------------------------------
   // The attention rail: one typed list of everything on this org's plate
   // (commons/orgs/<org>/attention/). Kinds render by shape, not by name, so
-  // new kinds work unseen: `done` dims a row; `org_slug` + venture_interest
-  // gets the mark-answered POST; a `url` gets a link out.
+  // new kinds work unseen: `done` dims a row; `respond_url` gets the
+  // mark-answered POST; a `url` gets a link out.
 
   function fmtDay(iso) {
     var d = new Date(iso);
@@ -818,12 +818,11 @@
         link.appendChild(la);
         row.appendChild(link);
       }
-      if (r.kind === 'venture_interest' && !r.done && r.org_slug) {
+      if (r.respond_url && !r.done) {
         var btn = el('button', null, 'Mark answered');
         btn.addEventListener('click', function () {
           btn.disabled = true;
-          fetch(c.up + '/api/v1/commons/orgs/' + encodeURIComponent(r.org_slug) +
-                '/interest/' + r.id + '/respond/', {
+          fetch(c.up + r.respond_url, {
             method: 'POST',
             credentials: 'include',
             headers: { 'X-Govkit-Embed': '1' },

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Idea, IdeaInterest, VentureInterest
+from .models import Idea, IdeaInterest, SponsorPledge, VentureInterest
 
 
 class IdeaInterestInline(admin.TabularInline):
@@ -24,4 +24,13 @@ class VentureInterestAdmin(admin.ModelAdmin):
     list_display = ("user", "org", "created_at", "responded_at", "responded_by")
     list_filter = ("org",)
     search_fields = ("user__email", "org__slug", "org__display_name", "note")
+    readonly_fields = ("created_at",)
+
+
+@admin.register(SponsorPledge)
+class SponsorPledgeAdmin(admin.ModelAdmin):
+    list_display = ("name", "org_name", "email", "kind", "tier", "amount", "org", "created_at",
+                    "responded_at")
+    list_filter = ("kind", "tier", "org", "list_publicly")
+    search_fields = ("name", "email", "org_name", "offer", "note")
     readonly_fields = ("created_at",)

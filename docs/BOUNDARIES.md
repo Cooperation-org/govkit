@@ -15,6 +15,7 @@
 | Per-org task-source config and the valuation mirror (`apps/tasksources`) | Trust claims, attestations → **LinkedTrust** |
 | The genesis checklist as *events* — what a team did, appended (`apps/orgs/genesis.py`) | The curriculum text itself → code (`genesis.py` MODULES) + the reading page in **workers.vc** |
 | Exports (`apps/exports`) | Chrome, landing, the dash page → **workers.vc** |
+| Interest and sponsorship offered from outside (`apps/commons`: `VentureInterest`, `SponsorPledge`) | The pages that collect them → **workers.vc** (`/sponsor/`, the venture join pages) |
 
 ## The two rules that keep this untangled
 
