@@ -719,11 +719,26 @@ def import_from_crm(org_slug: str, audience: str, tag_id: int, tag_name: str):
     return added, refreshed, ""
 
 
-def unsubscribe(org_slug: str, email: str) -> int:
-    """One unsubscribe covers every list here, because it is keyed by address."""
-    return Subscriber.objects.filter(
-        org_slug=org_slug, email=email.strip().lower(), unsubscribed_at__isnull=True
-    ).update(unsubscribed_at=timezone.now())
+def unsubscribe(org_slug: str, email: str, audience: str = SUPPORTERS) -> None:
+    """One unsubscribe covers every list here, because it is keyed by address.
+
+    A row is written when there is none. The cohort lists are GovKit's and have
+    no rows at all, so without one there would be nowhere to remember that
+    somebody on those lists said no.
+    """
+    email = email.strip().lower()
+    if not email:
+        return
+    Subscriber.objects.filter(org_slug=org_slug, email=email, unsubscribed_at__isnull=True).update(
+        unsubscribed_at=timezone.now()
+    )
+    Subscriber.objects.get_or_create(
+        org_slug=org_slug,
+        audience=audience,
+        source=Subscriber.TYPED,
+        external_id=email,
+        defaults={"email": email, "unsubscribed_at": timezone.now()},
+    )
 
 
 # --- sending -----------------------------------------------------------------
@@ -777,6 +792,22 @@ def mark_sent(send: Send, recipients: int = 0) -> None:
     send.save(update_fields=["sent_at", "recipients", "updated_at"])
 
 
+def stop_url(org_slug: str, audience: str) -> str:
+    """Where a reader goes to be taken off this list.
+
+    The same link in every copy: one email is written and pasted to everybody,
+    so it cannot name the person. The page asks for the address instead.
+    """
+    from django.urls import reverse
+
+    public = (settings.PUBLIC_BASE_URL or "").rstrip("/")
+    if not public:
+        return ""
+    return public + reverse(
+        "comms_public:unsubscribe", kwargs={"org_slug": org_slug, "audience": audience}
+    )
+
+
 def html_body(edition: Edition, audience: str, subject: str) -> str:
     """The email as HTML a person can paste straight into Gmail.
 
@@ -803,6 +834,12 @@ def html_body(edition: Edition, audience: str, subject: str) -> str:
                 line += f'<br><span style="{_NOTE}">{escape(row["note"])}</span>'
             out.append(f'<li style="{_LI}">{line}</li>')
         out.append("</ul>")
+    stop = stop_url(edition.org_slug, audience)
+    if stop:
+        out.append(
+            f'<p style="{_STOP}">'
+            f'<a href="{escape(stop)}" style="{_STOP}">Stop getting these</a></p>'
+        )
     out.append("</div>")
     return "".join(out)
 
@@ -817,6 +854,7 @@ _WHEN = "color:#555"
 _LINK = "font-weight:600;color:#0b6b63;text-decoration:none"
 _QUIET = "color:#777;font-size:13px"
 _NOTE = "color:#555;font-size:13px"
+_STOP = "color:#888;font-size:12px;margin:20px 0 0"
 
 
 def plain_text(edition: Edition, audience: str, subject: str) -> str:
@@ -836,4 +874,7 @@ def plain_text(edition: Edition, audience: str, subject: str) -> str:
             if row.get("href"):
                 lines.append(f"    {row['href']}")
         lines.append("")
+    stop = stop_url(edition.org_slug, audience)
+    if stop:
+        lines.append(f"Stop getting these: {stop}")
     return "\n".join(lines).strip() + "\n"

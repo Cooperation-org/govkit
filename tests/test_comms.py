@@ -771,8 +771,9 @@ def test_unsubscribing_is_by_address_so_it_covers_every_list(calendar_org):
         services.import_from_crm("vc", "s", 13, "Funder")
         services.import_from_crm("vc", "w", 13, "Funder")
 
-    assert services.unsubscribe("vc", "A@Example.com ") == 2
+    services.unsubscribe("vc", "A@Example.com ")
     assert services.audience_size("vc", "s") == 0
+    assert services.recipient_emails("vc", "w") == []
 
 
 def test_an_unreachable_crm_is_a_sentence_not_a_crash(calendar_org):
@@ -813,3 +814,40 @@ def test_each_org_imports_from_its_own_crm(settings):
 
     assert crm.where("vc") == ("https://crm-vc.workers.vc", "crm-vc")
     assert crm.where("kelp-route") == ("https://crm-kelp-route.workers.vc", "crm-kelp-route")
+
+
+def test_somebody_on_a_govkit_list_can_still_say_no(client, calendar_org):
+    """The cohort lists are GovKit's and have no rows here, so without writing
+    one there is nowhere to remember that somebody said no."""
+    from apps.orgs.models import Invite
+
+    Invite.objects.create(
+        org=calendar_org,
+        audience="mentor",
+        kind="org",
+        role="member",
+        email="enough@example.com",
+        expires_at=timezone.now() + timedelta(days=30),
+    )
+    assert services.recipient_emails("vc", MENTORS) == ["enough@example.com"]
+
+    stop = reverse("comms_public:unsubscribe", kwargs={"org_slug": "vc", "audience": MENTORS})
+    assert client.post(stop, {"email": "Enough@Example.com"}).status_code == 200
+    assert services.recipient_emails("vc", MENTORS) == []
+
+
+def test_the_stop_page_never_says_whether_we_had_you(client, calendar_org):
+    """Otherwise the link is an address checker for anybody who finds it."""
+    stop = reverse("comms_public:unsubscribe", kwargs={"org_slug": "vc", "audience": MENTORS})
+    body = client.post(stop, {"email": "never-heard-of-them@example.com"}).content
+    assert b"Done." in body
+
+
+def test_every_copy_carries_a_way_out(edition, settings):
+    """Small, at the bottom, in both what is copied and what is pasted."""
+    settings.PUBLIC_BASE_URL = "https://dash.example"
+    send = services.send_for(edition, MENTORS)
+    stop = "https://dash.example/week/stop/vc/m/"
+
+    assert stop in services.html_body(edition, MENTORS, send.subject)
+    assert stop in services.plain_text(edition, MENTORS, send.subject)

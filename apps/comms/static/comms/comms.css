@@ -121,6 +121,9 @@
   background: var(--gk-surface); color: var(--gk-ink);
 }
 .v2-done { color: var(--gk-ok); font-size: 0.9rem; }
+/* Send now is drawn but dead until SMTP is wired: hiding it would leave no
+   sign that delivery is coming, and enabling it would be a lie. */
+.v2-send .gk-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
 
 /* the email as it lands */
 .v2-read { max-width: 40rem; }

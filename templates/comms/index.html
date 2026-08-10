@@ -28,9 +28,11 @@
         <input id="out" type="datetime-local" name="when"
                value="{{ default_send_at|date:'Y-m-d\TH:i' }}" aria-label="When it goes out">
       </form>
+      <button class="gk-btn" disabled
+              title="Delivery is not wired up yet. Copy the email, send it yourself, then press Sent.">Send now</button>
       <form method="post" action="{% url 'comms:send_now' org_slug=org_slug pk=edition.pk %}">
         {% csrf_token %}<input type="hidden" name="t" value="{{ audience }}">
-        <button class="gk-btn">Send now</button>
+        <button class="gk-btn">Sent</button>
       </form>
     {% endif %}
   </span>

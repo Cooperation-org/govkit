@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Stop these emails — {{ org_name }}{% endblock %}
+{% block content %}
+  <h1>Stop these emails</h1>
+  {% if done %}
+    <p>Done. You will not get another one.</p>
+    <p class="gk-note">If you change your mind, tell anyone on the team and they
+      will put you back.</p>
+  {% else %}
+    <p>Give us the address you get them at and we will stop.</p>
+    <form method="post" class="gk-stop">
+      {% csrf_token %}
+      <input type="email" name="email" required autofocus aria-label="Your email address"
+             placeholder="you@example.com">
+      <button class="gk-btn-primary">Stop</button>
+    </form>
+  {% endif %}
+{% endblock %}

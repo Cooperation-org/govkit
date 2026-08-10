@@ -267,21 +267,19 @@ def schedule(request, org_slug, pk):
 @_admin_only
 @require_POST
 def send_now(request, org_slug, pk):
-    """A human presses this. It also puts the week on its page.
+    """A human sent it themselves and is saying so. It also puts it on its page.
 
-    Delivery is not wired yet: this records that it went and publishes the page,
-    which is what the link in the email points at. Wiring SMTP is a separate
-    step and does not change anything above it.
+    Nothing here delivers mail. The button says "Sent" rather than "Send now"
+    because that is what pressing it means: the person copied the email out,
+    sent it from their own client, and is recording that it went (golda
+    2026-08-10). Send now sits beside it greyed out until SMTP is wired, so the
+    screen never claims to do something it does not do.
     """
     edition = get_object_or_404(Edition, pk=pk, org_slug=org_slug)
     audience = _audience(request)
     send = services.send_for(edition, audience)
     services.mark_sent(send, govkit.audience_size(org_slug, audience) or 0)
-    messages.info(
-        request,
-        "Marked as sent and the page is up. Delivery is not wired yet — "
-        "copy the text and send it from your mail client.",
-    )
+    messages.info(request, "Recorded as sent, and the page is up.")
     return redirect(_back(org_slug, audience))
 
 
@@ -340,3 +338,37 @@ def public_bulletin(request, token):
 
 
 public_bulletin.org_context_exempt = True
+
+
+def unsubscribe(request, org_slug, audience):
+    """Stop sending to one address. No login, and no token in the link.
+
+    The email is copied out and pasted to everybody at once, so every copy
+    carries the same link and it cannot name the person. It asks for the
+    address instead, which is the only thing it needs and the only thing the
+    person has to hand.
+
+    Nothing here says whether we had that address: an unsubscribe page that
+    answers "we have never heard of you" is an address checker for anybody who
+    finds the link. It records the wish either way, which is also the correct
+    behaviour — somebody who has not been added yet has still said no.
+    """
+    if audience not in AUDIENCE_KEYS:
+        raise Http404("No such list.")
+    done = False
+    if request.method == "POST":
+        email = (request.POST.get("email") or "").strip().lower()[:254]
+        if email:
+            services.unsubscribe(org_slug, email, audience)
+            done = True
+    return render(
+        request,
+        "comms/unsubscribe.html",
+        {
+            "org_name": govkit.display_name(org_slug),
+            "done": done,
+        },
+    )
+
+
+unsubscribe.org_context_exempt = True
