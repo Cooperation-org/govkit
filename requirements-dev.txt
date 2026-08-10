@@ -2,4 +2,7 @@
 black>=24.0
 flake8>=7.0
 pytest>=8.0
-pytest-django>=4.8
+# 4.13 supports Django 5.2+ only and does not say so in its metadata, so pip
+# installs it against our Django 5.1 pin and every test errors on
+# `_pre_setup_ran_eagerly`. Lift this when requirements.txt moves to 5.2.
+pytest-django>=4.8,<4.13
