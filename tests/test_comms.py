@@ -364,6 +364,7 @@ def test_new_people_are_named_until_there_are_too_many(calendar_org, settings, n
 
     settings.COHORT_WALL_URL = "https://front.example/wall/"
     settings.PUBLIC_BASE_URL = "https://dash.example"
+    settings.COHORT_PERSON_URL = "https://front.example/p/"
 
     def joined(name, audience, kind):
         Invite.objects.create(
@@ -373,6 +374,7 @@ def test_new_people_are_named_until_there_are_too_many(calendar_org, settings, n
             role="member",
             name=name,
             email=f"{name.lower()}@example.com",
+            committed_claim_id=abs(hash(name)) % 9000 + 1000,
             accepted_at=timezone.now(),
             expires_at=timezone.now() + timedelta(days=30),
         )
@@ -385,13 +387,12 @@ def test_new_people_are_named_until_there_are_too_many(calendar_org, settings, n
     with patch("urllib.request.urlopen", return_value=_Feed(now_ics)):
         made = services.open_edition("vc")
 
-    titles = [r["title"] for r in _rows(made, VENTURES, "opp")]
-    assert "Ada, Grace joined as mentors" in titles
-    assert "9 new workers joined" in titles
-    rows = {r["title"]: r["href"] for r in _rows(made, VENTURES, "opp")}
-    # Each list points at the page that holds those people.
-    assert rows["Ada, Grace joined as mentors"] == "https://dash.example/mentors/"
-    assert rows["9 new workers joined"] == "https://front.example/wall/"
+    rows = {r["title"]: r for r in _rows(made, VENTURES, "opp")}
+    # One line each, so every name is its own link to that person's page.
+    assert rows["Ada"]["note"] == "joined as a mentor"
+    assert rows["Grace"]["href"].startswith("https://front.example/p/")
+    # Past a handful it is a count, pointing at the page that holds them.
+    assert rows["9 new workers joined"]["href"] == "https://front.example/wall/"
 
 
 def test_what_has_gone_out_is_a_record_not_a_draft(client, admin_at_vc, edition, settings):

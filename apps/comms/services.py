@@ -202,15 +202,33 @@ def _goal_lines(edition: Edition) -> list[dict]:
 NAMES_BEFORE_A_COUNT = 6
 
 
-def _people_line(names: list[str], plural: str, url: str) -> dict | None:
-    """New arrivals as one line: the names, or how many and where they are."""
-    if not names:
-        return None
-    if len(names) <= NAMES_BEFORE_A_COUNT:
-        title = f"{', '.join(names)} joined as {plural}"
-    else:
-        title = f"{len(names)} new {plural} joined"
-    return {"title": title, "href": url, "flag": "new", "tpl": [VENTURES]}
+def _people_lines(people: list[dict], plural: str, url: str) -> list[dict]:
+    """New arrivals, one line each so every name is its own link.
+
+    Past a handful the names stop being people and become a wall of text, so
+    they become how many there are and where to go and read them.
+    """
+    if not people:
+        return []
+    if len(people) > NAMES_BEFORE_A_COUNT:
+        return [
+            {
+                "title": f"{len(people)} new {plural} joined",
+                "href": url,
+                "flag": "new",
+                "tpl": [VENTURES],
+            }
+        ]
+    return [
+        {
+            "title": person["name"],
+            "href": person["url"] or url,
+            "note": f"joined as a {plural[:-1]}",
+            "flag": "new",
+            "tpl": [VENTURES],
+        }
+        for person in people
+    ]
 
 
 def _opportunity_lines(edition: Edition) -> list[dict]:
@@ -239,9 +257,7 @@ def _opportunity_lines(edition: Edition) -> list[dict]:
     wall = getattr(settings, "COHORT_WALL_URL", "") or ""
     where = ((MENTORS, "mentors", govkit.mentors_url()), (WORKERS, "workers", wall))
     for audience, plural, url in where:
-        line = _people_line(govkit.new_people(org_slug, since, audience), plural, url)
-        if line is not None:
-            lines.append(line)
+        lines += _people_lines(govkit.new_people(org_slug, since, audience), plural, url)
     return lines
 
 

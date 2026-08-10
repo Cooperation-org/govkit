@@ -137,23 +137,33 @@ def new_ventures(org_slug: str, since):
 
 
 def new_people(org_slug: str, since, audience: str):
-    """Who came in through one door since `since`, by name.
+    """Who came in through one door since `since`: their name and their page.
 
-    An accepted invite is the join: it carries the name and the date they took
-    it. The wall is public and this is not — a name on a list of who is new is
-    for the cohort's own email.
+    An accepted invite is the join — it carries the name, the date they took
+    it, and the wall claim they made on the way in, which is what their public
+    page is addressed by. One person invited twice is one person.
     """
+    from django.conf import settings
+
     from apps.orgs.models import Invite
 
     where = _AUDIENCE_INVITES.get(audience)
     if where is None:
         return []
+    base = (settings.COHORT_PERSON_URL or "").rstrip("/")
     rows = (
         Invite.objects.filter(org__slug=org_slug, accepted_at__date__gte=since, **where)
         .order_by("accepted_at")
-        .values_list("name", flat=True)
+        .values_list("name", "committed_claim_id")
     )
-    return [name.strip() for name in rows if name and name.strip()]
+    people, seen = [], set()
+    for name, claim_id in rows:
+        name = (name or "").strip()
+        if not name or name.casefold() in seen:
+            continue
+        seen.add(name.casefold())
+        people.append({"name": name, "url": f"{base}/{claim_id}/" if base and claim_id else ""})
+    return people
 
 
 def mentors_url() -> str:

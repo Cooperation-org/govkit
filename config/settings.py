@@ -39,6 +39,7 @@ env = environ.Env(
     COHORT_FRONT_DOOR=(str, ""),
     COHORT_IDEAS_URL=(str, ""),
     COHORT_WALL_URL=(str, ""),
+    COHORT_PERSON_URL=(str, ""),
     COHORT_RECRUIT_URL=(str, "https://wellfound.com/"),
     COHORT_POOL_LANDING=(str, ""),
     VENTURE_PAGE_BASE_URL=(str, ""),
@@ -136,6 +137,8 @@ VENTURE_PAGE_BASE_URL = env("VENTURE_PAGE_BASE_URL").rstrip("/")
 # unset. Empty means the email simply carries no line pointing there.
 COHORT_IDEAS_URL = env("COHORT_IDEAS_URL")
 COHORT_WALL_URL = env("COHORT_WALL_URL")
+# Where one person's public page lives, with their claim id on the end.
+COHORT_PERSON_URL = env("COHORT_PERSON_URL")
 # Where a team goes to post for people outside the cohort. Not ours, so it is a
 # setting rather than a fact of the code: the cohort can point somewhere else
 # without a deploy.
@@ -403,6 +406,8 @@ if COHORT_FRONT_DOOR:
         COHORT_IDEAS_URL = f"{_site}/ideas/"
     if not COHORT_WALL_URL:
         COHORT_WALL_URL = f"{_site}/wall/"
+    if not COHORT_PERSON_URL:
+        COHORT_PERSON_URL = f"{_site}/p/"
 
 # Where a POOL-invite accept lands (the person joined no org, so neither org
 # dashboard nor COHORT_FRONT_DOOR applies). A plain https URL, no template. Unset
