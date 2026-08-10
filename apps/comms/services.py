@@ -838,7 +838,7 @@ def html_body(edition: Edition, audience: str, subject: str) -> str:
     if stop:
         out.append(
             f'<p style="{_STOP}">'
-            f'<a href="{escape(stop)}" style="{_STOP}">Stop getting these</a></p>'
+            f'<a href="{escape(stop)}" style="{_STOP}">Unsubscribe</a></p>'
         )
     out.append("</div>")
     return "".join(out)
@@ -876,5 +876,5 @@ def plain_text(edition: Edition, audience: str, subject: str) -> str:
         lines.append("")
     stop = stop_url(edition.org_slug, audience)
     if stop:
-        lines.append(f"Stop getting these: {stop}")
+        lines.append(f"Unsubscribe: {stop}")
     return "\n".join(lines).strip() + "\n"
