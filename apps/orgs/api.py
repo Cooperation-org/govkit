@@ -27,6 +27,7 @@ the magic-link contract on the coordination board):
   POST /api/v1/orgs/{org_slug}/invites/mint/    doorway mints an invite for an existing card
   GET  /api/v1/orgs/{org_slug}/invite-links/{code}/  what a shared link opens, and if it is open
   GET  /api/v1/orgs/ventures/public/                      every venture's public card
+  GET  /api/v1/orgs/people/{claim_id}/contact/            how a venture reaches one person
   GET  /api/v1/orgs/{org_slug}/members/by-discord/{id}/   who a Discord user is here
   GET  /api/v1/orgs/{org_slug}/profile/                   one team's public profile
   PATCH /api/v1/orgs/{org_slug}/profile/write/            set tagline/pitch/site/calendar...
@@ -49,7 +50,7 @@ import logging
 
 from django.conf import settings
 from django.db.models import Count
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.urls import path, reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
@@ -918,6 +919,41 @@ class OrgDirectoryView(APIView):
         return Response({"orgs": list(orgs)})
 
 
+class PersonContactView(APIView):
+    """How a venture reaches one person on the wall.
+
+    A team that wants to work with somebody has to be able to write to them,
+    and the wall deliberately carries no address. So this hands one over —
+    only to a person who runs a venture here, and only for somebody who joined
+    through an invite, which is the record that holds the address.
+
+    It cannot live on the public page it is used from: that page has no session
+    and an address rendered into it would be readable by anybody who looked at
+    the source. It is fetched on the press instead, and refused here.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, claim_id):
+        runs_a_venture = Membership.objects.filter(
+            user=request.user, role=MembershipRole.ADMIN
+        ).exists()
+        if not (runs_a_venture or request.user.is_superuser):
+            raise PermissionDenied("Reaching people is for the teams in the run.")
+        invite = (
+            Invite.objects.filter(committed_claim_id=claim_id)
+            .exclude(status=InviteStatus.REVOKED)
+            .order_by("-accepted_at", "-created_at")
+            .first()
+        )
+        if invite is None:
+            raise Http404("Nobody here made that card.")
+        email = (invite.accepted_by.email if invite.accepted_by_id else "") or invite.email
+        if not email:
+            raise Http404("We have no address for them.")
+        return Response({"name": invite.name, "email": email})
+
+
 @require_GET
 def member_by_discord(request, org_slug, discord_user_id):
     """S2S: who is this Discord user, as far as this org is concerned.
@@ -970,6 +1006,11 @@ urlpatterns = router.urls + [
         name="org-checklist-toggle",
     ),
     path("ventures/public/", ventures_directory, name="s2s_ventures_directory"),
+    path(
+        "people/<int:claim_id>/contact/",
+        PersonContactView.as_view(),
+        name="person-contact",
+    ),
     path(
         "<slug:org_slug>/members/by-discord/<str:discord_user_id>/",
         member_by_discord,
