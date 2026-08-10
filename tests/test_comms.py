@@ -226,6 +226,59 @@ def test_ticking_over_my_edits_takes_the_calendars_word_back(client, admin_at_vc
     assert edition.item(mine["id"])["title"] == "Week 2 kickoff"
 
 
+def _rows(edition, audience, key):
+    return next((s for s in services.email(edition, audience) if s["k"] == key), {"rows": []})["rows"]
+
+
+def test_the_workers_goals_are_the_workers_own(calendar_org, settings, now_ics):
+    """A goal for a worker is not a goal for a mentor (golda 2026-08-10)."""
+    settings.PUBLIC_BASE_URL = "https://dash.example"
+    settings.VENTURE_PAGE_BASE_URL = "https://front.example/ventures"
+    settings.COHORT_IDEAS_URL = "https://front.example/ideas/"
+    with patch("urllib.request.urlopen", return_value=_Feed(now_ics)):
+        made = services.open_edition("vc")
+
+    titles = [r["title"] for r in _rows(made, WORKERS, "goals")]
+    assert "Update your profile" in titles
+    assert _rows(made, MENTORS, "goals") == []
+    hrefs = [r["href"] for r in _rows(made, WORKERS, "goals")]
+    assert "https://front.example/ventures/" in hrefs
+    assert "https://front.example/ideas/" in hrefs
+
+
+def test_a_venture_that_joined_this_week_is_an_opportunity(calendar_org, org_factory, now_ics):
+    from apps.orgs.models import Org
+
+    newcomer = org_factory(slug="brand-new")
+    newcomer.display_name = "Brand New"
+    newcomer.save(update_fields=["display_name"])
+    old_hand = org_factory(slug="been-here-ages")
+    Org.objects.filter(pk=old_hand.pk).update(
+        created_at=timezone.now() - timedelta(days=60)
+    )
+
+    with patch("urllib.request.urlopen", return_value=_Feed(now_ics)):
+        made = services.open_edition("vc")
+
+    names = [r["title"] for r in _rows(made, WORKERS, "opp")]
+    assert "Brand New" in names
+    assert "been-here-ages" not in names
+    assert "Workers VC" not in names
+
+
+def test_a_goal_someone_deleted_does_not_come_back(calendar_org, settings, now_ics):
+    settings.PUBLIC_BASE_URL = "https://dash.example"
+    with patch("urllib.request.urlopen", return_value=_Feed(now_ics)):
+        made = services.open_edition("vc")
+    assert _rows(made, WORKERS, "goals")
+
+    services.save_section(made, WORKERS, "goals", [])
+    made.save()
+    with patch("urllib.request.urlopen", return_value=_Feed(now_ics)):
+        again = services.open_edition("vc")
+    assert _rows(again, WORKERS, "goals") == []
+
+
 def test_the_email_says_which_timezone_a_time_is_in(edition):
     """It goes to people in Phoenix, Lagos and Berlin at once."""
     times = [i["time"] for i in edition.items if i.get("sec") == "cal" and i["time"]]

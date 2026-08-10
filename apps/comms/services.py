@@ -27,6 +27,7 @@ from django.utils import timezone
 from . import calendar as calendar_feed
 from .models import (
     AUDIENCE_KEYS,
+    WORKERS,
     DEFAULT_SECTIONS,
     SUPPORTERS,
     Edition,
@@ -91,6 +92,8 @@ def open_edition(org_slug: str, today: date | None = None) -> Edition:
     )
     edition.items = [item_from_event(edition, e) for e in events]
     edition.items += _carried_forward(org_slug, edition)
+    _seed_section(edition, GOALS_SECTION, _goal_lines(edition))
+    _seed_section(edition, OPPORTUNITIES_SECTION, _opportunity_lines(edition))
     try:
         with transaction.atomic():
             edition.save()
@@ -110,9 +113,13 @@ def _catch_up(edition: Edition, end: date) -> None:
     A cut line keeps its uid in `items`, so nothing here puts back what someone
     took out, and a meeting already in the email is left exactly as it is.
     """
+    seeded = _seed_section(edition, GOALS_SECTION, _goal_lines(edition))
+    seeded |= _seed_section(edition, OPPORTUNITIES_SECTION, _opportunity_lines(edition))
     widened = end > edition.window_end
     empty = not any(i.get("sec") == CALENDAR_SECTION for i in edition.items)
     if not (widened or empty):
+        if seeded:
+            edition.save(update_fields=["items", "updated_at"])
         return
     if widened:
         edition.window_end = end
@@ -122,11 +129,64 @@ def _catch_up(edition: Edition, end: date) -> None:
         edition.tz_name = tz_name
     known = {i.get("uid") for i in edition.items if i.get("uid")}
     fresh = [item_from_event(edition, e) for e in events if e.uid not in known]
-    if not (fresh or widened):
+    if not (fresh or widened or seeded):
         return
     edition.items += fresh
     _sort_calendar(edition)
     edition.save(update_fields=["items", "window_end", "tz_name", "updated_at"])
+
+
+GOALS_SECTION = "goals"
+OPPORTUNITIES_SECTION = "opp"
+
+
+def _seed_section(edition: Edition, key: str, lines: list[dict]) -> bool:
+    """Put lines into a section that has none. Returns whether anything landed.
+
+    Same rule as the calendar: a section with nothing in it was never filled,
+    so filling it overwrites nobody. Once there is a line there — even one that
+    has been cut, which stays in `items` carrying `off` — this leaves it alone,
+    so a line somebody deleted does not come back next time the page loads.
+    """
+    if not lines or any(i.get("sec") == key for i in edition.items):
+        return False
+    for line in lines:
+        item = blank_item(edition, key)
+        item.update(line)
+        edition.items.append(item)
+    return True
+
+
+def _goal_lines(edition: Edition) -> list[dict]:
+    """This week's goals. Each audience gets its own, so each line says whose.
+
+    A goal for a worker is not a goal for a mentor (golda 2026-08-10), and a
+    line carries the audiences it goes to, so they live side by side rather
+    than needing a section each.
+    """
+    return [
+        {"title": title, "href": url, "tpl": [WORKERS]}
+        for title, url in govkit.worker_goals()
+    ]
+
+
+def _opportunity_lines(edition: Edition) -> list[dict]:
+    """The ventures that turned up in the week before this email is about.
+
+    New teams are the opportunity a worker in the pool is reading for, so they
+    are the section rather than something to be typed in by hand each week.
+    """
+    since = edition.window_start - timedelta(days=7)
+    return [
+        {
+            "title": v["name"],
+            "href": v["url"],
+            "note": v["note"],
+            "flag": "new",
+            "tpl": [WORKERS],
+        }
+        for v in govkit.new_ventures(edition.org_slug, since)
+    ]
 
 
 def reread_calendar(edition: Edition, overwrite: bool = False) -> None:

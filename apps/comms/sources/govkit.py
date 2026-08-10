@@ -111,6 +111,52 @@ def audience_emails(org_slug: str, audience: str) -> list[str]:
     )
 
 
+def new_ventures(org_slug: str, since):
+    """Teams that turned up since `since`, with their public page.
+
+    A venture is an org of its own; the accelerator is the one everybody else
+    joined, so it is never news to itself. Ordered oldest first, so a week with
+    three of them reads in the order they arrived.
+    """
+    from django.conf import settings
+
+    base = (settings.VENTURE_PAGE_BASE_URL or "").rstrip("/")
+    rows = (
+        Org.objects.filter(created_at__date__gte=since)
+        .exclude(slug=org_slug)
+        .order_by("created_at")
+    )
+    return [
+        {
+            "name": row.display_name or row.slug,
+            "url": f"{base}/{row.slug}/" if base else "",
+            "note": (row.tagline or "").strip(),
+        }
+        for row in rows
+    ]
+
+
+def worker_goals():
+    """Where a worker is being sent this week, as (title, url) pairs.
+
+    The addresses are the deployment's own, never written into a string here:
+    the profile is GovKit's, the ventures and ideas boards are the cohort
+    site's. A destination that is not configured is left out rather than
+    linking nowhere.
+    """
+    from django.conf import settings
+    from django.urls import reverse
+
+    public = (settings.PUBLIC_BASE_URL or "").rstrip("/")
+    ventures = (settings.VENTURE_PAGE_BASE_URL or "").rstrip("/")
+    goals = [
+        ("Update your profile", f"{public}{reverse('accounts:profile')}" if public else ""),
+        ("Look for a venture that resonates with you", f"{ventures}/" if ventures else ""),
+        ("Or an idea to pick up and run with", settings.COHORT_IDEAS_URL or ""),
+    ]
+    return [(title, url) for title, url in goals if url]
+
+
 def viewer_is_admin(request) -> bool:
     """Comms is admin-only. Superusers pass so the team can inspect any org."""
     user = getattr(request, "user", None)

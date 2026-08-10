@@ -37,6 +37,7 @@ env = environ.Env(
     COHORT_NAV_SRC=(str, ""),
     COHORT_VIDEO_SRC=(str, ""),
     COHORT_FRONT_DOOR=(str, ""),
+    COHORT_IDEAS_URL=(str, ""),
     COHORT_POOL_LANDING=(str, ""),
     VENTURE_PAGE_BASE_URL=(str, ""),
     PUBLIC_BASE_URL=(str, ""),
@@ -127,6 +128,10 @@ if not COHORT_VIDEO_SRC and COHORT_NAV_SRC:
 # deployment it is derived from COHORT_FRONT_DOOR below, so the team always has
 # a link to share without a second env var having to be set.
 VENTURE_PAGE_BASE_URL = env("VENTURE_PAGE_BASE_URL").rstrip("/")
+
+# The cohort's ideas board. Derived from COHORT_FRONT_DOOR when unset, like the
+# ventures base above. Empty means the workers' email carries no ideas line.
+COHORT_IDEAS_URL = env("COHORT_IDEAS_URL")
 
 # Browser-facing base for URLs handed to OTHER SERVERS to relay (S2S invite
 # payloads): loopback callers must never leak http://127.0.0.1 links to real
@@ -378,6 +383,15 @@ if COHORT_FRONT_DOOR:
 
         _front_door = urlsplit(COHORT_FRONT_DOOR.format(org_slug="probe"))
         VENTURE_PAGE_BASE_URL = f"{_front_door.scheme}://{_front_door.netloc}/ventures"
+
+    # The ideas board on the same site (doorway /ideas/), for the line in the
+    # workers' email telling them where to go looking. Same reasoning as the
+    # ventures base: one site, so one variable is enough to reach both.
+    if not COHORT_IDEAS_URL:
+        from urllib.parse import urlsplit
+
+        _door = urlsplit(COHORT_FRONT_DOOR.format(org_slug="probe"))
+        COHORT_IDEAS_URL = f"{_door.scheme}://{_door.netloc}/ideas/"
 
 # Where a POOL-invite accept lands (the person joined no org, so neither org
 # dashboard nor COHORT_FRONT_DOOR applies). A plain https URL, no template. Unset
