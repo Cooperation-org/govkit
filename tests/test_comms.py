@@ -147,6 +147,39 @@ def test_reading_it_again_goes_back_to_the_calendar(client, admin_at_vc, edition
         assert fetch.call_count > held
 
 
+def test_a_week_built_without_a_calendar_takes_one_when_it_arrives(calendar_org, now_ics):
+    """The vc week of 2026-08-10 was built while the calendar 404'd, so its
+    meetings only ever showed as leftovers under the email."""
+    with patch("urllib.request.urlopen", side_effect=OSError("nope")):
+        edition = services.open_edition("vc")
+    assert edition.items == []
+
+    cache.clear()
+    with patch("urllib.request.urlopen", return_value=_Feed(now_ics)):
+        edition = services.open_edition("vc")
+    assert [i["title"] for i in edition.items if i["sec"] == "cal"]
+    assert edition.tz_name == "America/Phoenix"
+
+
+def test_a_calendar_someone_emptied_on_purpose_stays_empty(edition):
+    """Cutting every line is an edit. It leaves the items in place carrying
+    `off`, so refilling must not mistake it for a week that never read one."""
+    rows = _calendar_rows(edition, WORKERS)
+    assert rows
+    services.save_section(edition, WORKERS, "cal", [])
+    edition.save()
+    assert _calendar_rows(edition, WORKERS) == []
+
+    cache.clear()
+    with patch("urllib.request.urlopen", return_value=_Feed(now_ics_text())):
+        again = services.open_edition("vc")
+    assert _calendar_rows(again, WORKERS) == []
+
+
+def now_ics_text():
+    return ics_for(services.week_window()[0])
+
+
 def test_an_unreachable_calendar_is_a_sentence_not_a_crash(calendar_org):
     with patch("urllib.request.urlopen", side_effect=OSError("nope")):
         events, _tz, problem = services.read_calendar("vc", date(2026, 8, 31), date(2026, 9, 6))

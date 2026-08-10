@@ -70,6 +70,7 @@ def open_edition(org_slug: str, today: date | None = None) -> Edition:
     start, end = week_window(today)
     existing = Edition.objects.filter(org_slug=org_slug, window_start=start).first()
     if existing is not None:
+        _fill_empty_calendar(existing)
         return existing
 
     events, tz_name, _problem = read_calendar(org_slug, start, end)
@@ -91,6 +92,32 @@ def open_edition(org_slug: str, today: date | None = None) -> Edition:
         # Two tabs opened the same week at once; the first one wins.
         edition = Edition.objects.get(org_slug=org_slug, window_start=start)
     return edition
+
+
+def _fill_empty_calendar(edition: Edition) -> None:
+    """Put the week's meetings into an email that never got any.
+
+    The week is built once and then left alone, so nobody's edit is overwritten
+    by a later read. An edition holding not one calendar line was built while
+    the calendar was unreachable: there is nothing to overwrite, and the
+    meetings belong in the draft rather than in the row of leftovers under it.
+
+    A line that was cut still sits in `items` carrying `off`, so this cannot
+    mistake a deliberately emptied calendar for one that never arrived.
+    """
+    if any(i.get("sec") == CALENDAR_SECTION for i in edition.items):
+        return
+    events, tz_name, _problem = read_calendar(
+        edition.org_slug, edition.window_start, edition.window_end
+    )
+    if not events:
+        return
+    if tz_name and not edition.tz_name:
+        # Set before the items are built: their day and time read in this zone.
+        edition.tz_name = tz_name
+    edition.items = [item_from_event(edition, e) for e in events] + edition.items
+    _sort_calendar(edition)
+    edition.save(update_fields=["items", "tz_name", "updated_at"])
 
 
 def _carried_forward(org_slug: str, edition: Edition) -> list[dict]:
