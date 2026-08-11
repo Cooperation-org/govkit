@@ -200,3 +200,59 @@ class TestAHandRaisedAtATeamReachesThatTeam:
 
         assert "Golda Velez is waiting at the door for Northline Studio (founder)" in titles
         assert "Someone Else is waiting at the door (mentor)" in titles
+
+
+def test_add_to_team_really_adds_them(
+    client, org_factory, user_factory, membership_factory, settings
+):
+    """The yes on a hand-raise is a membership, not a dimmed row.
+
+    Golda 2026-08-11: "Does 'mark answered' actually let him in, or just
+    silence the row? It must let him in."
+    """
+    from apps.commons.models import VentureInterest
+    from apps.orgs.models import Membership
+
+    settings.ACCELERATOR_ORG_SLUG = ACCEL
+    settings.DOORWAY_API_URL = ""
+    org = org_factory(slug="teamx", display_name="Team X")
+    admin = _member(client, org, user_factory, membership_factory, role=MembershipRole.ADMIN)
+    wants_in = user_factory(email="mohammed@example.com")
+    interest = VentureInterest.objects.create(org=org, user=wants_in, note="I build things")
+
+    row = next(i for i in _rail(client, org) if i["kind"] == "venture_interest")
+    assert row["accept_url"], "an admin must be offered the button that lets them in"
+
+    resp = client.post(row["accept_url"], HTTP_X_GOVKIT_EMBED="1")
+
+    assert resp.status_code == 200
+    assert Membership.objects.filter(org=org, user=wants_in).exists()
+    interest.refresh_from_db()
+    assert interest.responded_at is not None
+    assert interest.responded_by == admin
+
+
+def test_only_an_admin_is_offered_the_way_in(
+    client, org_factory, user_factory, membership_factory, settings
+):
+    """Adding someone to a team is the admin's to do, so nobody else is shown
+    a button that would refuse them."""
+    from apps.commons.models import VentureInterest
+    from apps.orgs.models import Membership
+
+    settings.ACCELERATOR_ORG_SLUG = ACCEL
+    settings.DOORWAY_API_URL = ""
+    org = org_factory(slug="teamy", display_name="Team Y")
+    _member(client, org, user_factory, membership_factory)
+    wants_in = user_factory(email="knocking@example.com")
+    VentureInterest.objects.create(org=org, user=wants_in)
+
+    row = next(i for i in _rail(client, org) if i["kind"] == "venture_interest")
+
+    assert "accept_url" not in row
+    resp = client.post(
+        f"/api/v1/commons/orgs/{org.slug}/interest/{row['id']}/accept/",
+        HTTP_X_GOVKIT_EMBED="1",
+    )
+    assert resp.status_code == 403
+    assert not Membership.objects.filter(org=org, user=wants_in).exists()

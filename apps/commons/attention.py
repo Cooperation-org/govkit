@@ -14,6 +14,12 @@ One generic item shape so new kinds slot in without touching the embed contract:
             root. Present means the client draws the button; that is the whole
             contract, so a new kind gets one by filling the field, not by
             teaching the embed its name.
+  accept_url   the endpoint that grants what the row asks for — for a hand-raise,
+            the membership. Same contract as respond_url: present means the
+            client draws the button. Absent when there is nothing to grant, when
+            the viewer cannot grant it, or when it is already granted, so the
+            button is never shown to someone it would fail for.
+  accept_label  what that button says, in the words of what it does.
 
 Facts stay in their homes: interest rows here in commons, pending walk-ups in
 the workersvc doorway's ledger (read over its loopback S2S API, never copied).
@@ -34,10 +40,16 @@ _DOORWAY_TIMEOUT = 4
 _DOORWAY_CACHE_SECONDS = 30
 
 
-def _interest_item(i, with_org_name):
+def _already_in(i):
+    from apps.orgs.models import Membership
+
+    return Membership.objects.filter(org_id=i.org_id, user_id=i.user_id).exists()
+
+
+def _interest_item(i, with_org_name, can_admit=False):
     who = i.user.get_full_name() or i.user.email
     title = f"{who} wants to join {i.org.display_name}" if with_org_name else f"{who} wants to join"
-    return {
+    item = {
         "kind": "venture_interest",
         "id": i.id,
         "title": title,
@@ -49,18 +61,45 @@ def _interest_item(i, with_org_name):
         "org_slug": i.org.slug,
         "respond_url": f"/api/v1/commons/orgs/{i.org.slug}/interest/{i.id}/respond/",
     }
+    if can_admit and not _already_in(i):
+        item["accept_url"] = f"/api/v1/commons/orgs/{i.org.slug}/interest/{i.id}/accept/"
+        item["accept_label"] = "Add to team"
+    return item
 
 
-def org_interest_items(org):
-    """This venture's waiting list, unanswered first (model ordering)."""
+def _can_admit(user, org):
+    """Whether this viewer can put someone into this org."""
+    from apps.commons.api import _is_org_admin
+
+    return _is_org_admin(user, org)
+
+
+def org_interest_items(org, viewer=None):
+    """This venture's waiting list, unanswered first (model ordering).
+
+    `viewer` decides whether the rows carry the add-to-team action: it is the
+    admin's to do, and a button nobody can press does not belong on the page.
+    """
     rows = VentureInterest.objects.filter(org=org).select_related("org", "user")
-    return [_interest_item(i, with_org_name=False) for i in rows]
+    admit = _can_admit(viewer, org) if viewer is not None else False
+    return [_interest_item(i, with_org_name=False, can_admit=admit) for i in rows]
 
 
-def all_open_interest_items():
-    """Every unanswered hand-raise across ventures — the accelerator's read."""
+def all_open_interest_items(viewer=None):
+    """Every unanswered hand-raise across ventures — the accelerator's read.
+
+    Only ever built for an accelerator admin, who runs the cohort; the admit
+    check still runs per-org so it is the org's own rule that decides.
+    """
     rows = VentureInterest.objects.filter(responded_at__isnull=True).select_related("org", "user")
-    return [_interest_item(i, with_org_name=True) for i in rows]
+    return [
+        _interest_item(
+            i,
+            with_org_name=True,
+            can_admit=_can_admit(viewer, i.org) if viewer is not None else False,
+        )
+        for i in rows
+    ]
 
 
 def sponsor_pledge_items(org):

@@ -33,7 +33,12 @@ from apps.orgs.embed_auth import EmbedSessionAuthentication
 from apps.orgs.models import Membership, MembershipRole, Org
 from apps.orgs.s2s import authorized as s2s_authorized
 
-from .mail import confirm_sponsor_pledge, notify_sponsor_pledge, notify_venture_interest
+from .mail import (
+    confirm_sponsor_pledge,
+    notify_sponsor_pledge,
+    notify_venture_interest,
+    welcome_new_member,
+)
 from .models import SponsorPledge, VentureInterest
 
 
@@ -186,7 +191,7 @@ class OrgAttentionView(APIView):
     def get(self, request, org_slug):
         from . import attention
 
-        items = attention.org_interest_items(request.org)
+        items = attention.org_interest_items(request.org, viewer=request.user)
         # Someone who raised a hand on this team's public join page has no
         # account here yet, so they are a walk-up in the doorway's ledger, not
         # an interest row. They still came for THIS team, and this team is who
@@ -198,7 +203,7 @@ class OrgAttentionView(APIView):
             items = items + attention.invite_accepted_items()
             if _is_accelerator_admin(request.user):
                 items = (
-                    attention.all_open_interest_items()
+                    attention.all_open_interest_items(viewer=request.user)
                     + attention.doorway_items()
                     + attention.invite_accepted_items()
                 )
@@ -225,6 +230,39 @@ class InterestRespondView(APIView):
             return Response({"error": "not found"}, status=status.HTTP_404_NOT_FOUND)
         interest.mark_responded(request.user)
         return Response(_interest_payload(interest, include_person=True))
+
+
+class InterestAcceptView(APIView):
+    """Let them in: the hand-raise becomes a membership.
+
+    "Mark answered" only records that someone replied — it is for a no, or for
+    a conversation that happened elsewhere. This is the yes, and it does the
+    thing it says: the person becomes a member of the org, their next dash load
+    is their team's, and they are told by mail (when this install has SMTP).
+
+    Admin-only. Answering a row is any member's; adding a person to the team is
+    not. Idempotent — someone already in stays as they are, and the row is
+    marked answered either way so it leaves the rail.
+    """
+
+    authentication_classes = [EmbedSessionAuthentication]
+
+    def post(self, request, org_slug, pk):
+        if not _is_org_admin(request.user, request.org):
+            raise PermissionDenied("Only an admin of this team may add someone to it.")
+        interest = VentureInterest.objects.filter(org=request.org, pk=pk).first()
+        if interest is None:
+            return Response({"error": "not found"}, status=status.HTTP_404_NOT_FOUND)
+        membership, created = Membership.objects.get_or_create(
+            org=request.org, user=interest.user, defaults={"role": MembershipRole.MEMBER}
+        )
+        if interest.responded_at is None:
+            interest.mark_responded(request.user)
+        if created:
+            welcome_new_member(membership)
+        payload = _interest_payload(interest, include_person=True)
+        payload["joined"] = True
+        return Response(payload)
 
 
 class OpenInterestView(APIView):
@@ -367,5 +405,10 @@ urlpatterns = [
         "orgs/<slug:org_slug>/interest/<int:pk>/respond/",
         InterestRespondView.as_view(),
         name="commons-interest-respond",
+    ),
+    path(
+        "orgs/<slug:org_slug>/interest/<int:pk>/accept/",
+        InterestAcceptView.as_view(),
+        name="commons-interest-accept",
     ),
 ]

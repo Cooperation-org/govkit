@@ -175,6 +175,9 @@
       'govkit-activity .mail a { color: inherit; }',
       'govkit-activity button { font: inherit; font-size: 12.5px; cursor: pointer; border: 1px solid rgba(127,127,127,0.4); background: none; color: inherit; border-radius: 6px; padding: 3px 10px; }',
       'govkit-activity button:hover { background: rgba(127,127,127,0.12); }',
+      'govkit-activity .actions { display: flex; gap: 6px; flex-wrap: wrap; }',
+      'govkit-activity button.go { border-color: currentColor; font-weight: 600; }',
+      'govkit-activity .note.done { opacity: 0.8; }',
       'govkit-ventures .vcard { padding: 10px 0; border-bottom: 1px solid rgba(127,127,127,0.2); }',
       'govkit-ventures .vcard:last-child { border-bottom: none; }',
       'govkit-ventures .vhead { display: flex; align-items: baseline; gap: 8px; }',
@@ -818,23 +821,44 @@
         link.appendChild(la);
         row.appendChild(link);
       }
-      if (r.respond_url && !r.done) {
-        var btn = el('button', null, 'Mark answered');
-        btn.addEventListener('click', function () {
-          btn.disabled = true;
-          fetch(c.up + r.respond_url, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'X-Govkit-Embed': '1' },
-          })
-            .then(function (resp) { if (!resp.ok) throw new Error(resp.status); })
-            .then(function () {
-              row.className = 'row answered';
-              btn.remove();
+      // The two buttons are two different answers and say so. `accept_url`
+      // grants what the row asks for — for a hand-raise, membership, which is
+      // the yes. `respond_url` only records that someone replied: it is the no,
+      // or a conversation that happened elsewhere. A row that can be granted
+      // leads with the grant.
+      if ((r.accept_url || r.respond_url) && !r.done) {
+        var actions = el('div', 'actions');
+        var post = function (btn, url, after) {
+          btn.addEventListener('click', function () {
+            actions.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+            fetch(c.up + url, {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'X-Govkit-Embed': '1' },
             })
-            .catch(function () { btn.disabled = false; });
-        });
-        row.appendChild(btn);
+              .then(function (resp) { if (!resp.ok) throw new Error(resp.status); })
+              .then(function () {
+                row.className = 'row answered';
+                after();
+                actions.remove();
+              })
+              .catch(function () {
+                actions.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+              });
+          });
+          actions.appendChild(btn);
+        };
+        if (r.accept_url) {
+          post(el('button', 'go', r.accept_label || 'Let them in'), r.accept_url, function () {
+            // Say what happened, where it happened. The row asked to join and
+            // now they have; leaving only a dimmed row would not tell anyone.
+            row.appendChild(el('div', 'note done', 'In. They are a member now.'));
+          });
+        }
+        if (r.respond_url) {
+          post(el('button', null, 'Mark answered'), r.respond_url, function () {});
+        }
+        row.appendChild(actions);
       }
       host.appendChild(row);
     });

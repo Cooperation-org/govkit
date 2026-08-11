@@ -52,6 +52,39 @@ def notify_venture_interest(interest) -> None:
         logger.exception("venture-interest mail failed (org=%s)", interest.org.slug)
 
 
+def welcome_new_member(membership, note="") -> None:
+    """Tell the person they are in, and where their team's dash is.
+
+    Someone who raised a hand and was let in has no other way of finding out:
+    the row they created lives on the team's rail, not theirs. Without this the
+    join happens in a place they cannot see. No-op without SMTP.
+    """
+    if not mail_configured():
+        return
+    to = membership.user.email
+    if not to:
+        return
+    from apps.orgs.invites import cohort_front_door_url
+
+    org = membership.org
+    lines = [f"You are in — you are now a member of {org.display_name}."]
+    where = cohort_front_door_url(org)
+    if where:
+        lines.append(f"Your team's dash: {where}")
+    if note:
+        lines.append(note)
+    try:
+        send_mail(
+            subject=f"You are in — {org.display_name}",
+            message="\n\n".join(lines),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[to],
+            fail_silently=True,
+        )
+    except Exception:
+        logger.exception("welcome mail failed (org=%s)", org.slug)
+
+
 def notify_sponsor_pledge(pledge) -> None:
     """Tell the org's admins someone offered to sponsor. No-op without SMTP.
 
