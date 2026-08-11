@@ -3,9 +3,12 @@ Commons views: orgs / ideas / pool — reachable by anyone invited or signed up
 (login-gated; no org membership required, no anonymous access).
 """
 
+from io import BytesIO
+
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Prefetch, Q
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.text import Truncator
 from django.views.decorators.http import require_POST
@@ -169,4 +172,30 @@ def pool_view(request):
         invite.words = Truncator(invite.accepted_by.bio or card.get("statement") or "").chars(
             WORDS_ON_A_CARD
         )
+        # Their CV, when they gave one. A venture is here to decide whether to
+        # talk to somebody, and that is the document that answers it. The file
+        # itself stays on the doorway; this is only whether to offer the link.
+        invite.cv_filename = card.get("resume_filename") or ""
     return render(request, "commons/pool.html", {"invites": invites})
+
+
+@login_required
+def pool_cv_view(request, claim_id):
+    """One person's CV, handed to a signed-in member of the cohort.
+
+    A CV carries a home address, a phone number and a work history: the person
+    gave it to this cohort, not to the open internet. So it is served here,
+    where we know who is asking, and never from a public page. The file is the
+    doorway's — read through, not copied.
+    """
+    from apps.orgs.doorway import fetch_resume
+
+    data, content_type, filename = fetch_resume(claim_id)
+    if data is None:
+        raise Http404("No CV for that person.")
+    return FileResponse(
+        BytesIO(data),
+        content_type=content_type,
+        as_attachment=True,
+        filename=filename or f"cv-{claim_id}",
+    )

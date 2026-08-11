@@ -35,6 +35,37 @@
     <p><button type="submit" class="gk-btn-primary">Save profile</button></p>
   </form>
 
+  {% if cv_invite %}
+  <div class="gk-card gk-profile" id="your-cv">
+    <h2>Your CV</h2>
+    <p class="gk-muted">Teams in the cohort read it from their dashboard when they
+      are looking for someone. It is not on your public card, and it is not on the
+      wall. PDF, Word or plain text, up to 5 MB.</p>
+
+    {% if cv_filename %}
+      <p><a href="{% url 'commons:pool_cv' claim_id=cv_invite.committed_claim_id %}">{{ cv_filename }}</a></p>
+    {% endif %}
+
+    <form method="post" action="{% url 'accounts:profile_cv' %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <p class="gk-field">
+        <label>{% if cv_filename %}Replace it{% else %}Add your CV{% endif %}</label>
+        <input type="file" name="cv" required
+               accept=".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
+      </p>
+      <p><button type="submit" class="gk-btn-primary">Save my CV</button></p>
+    </form>
+
+    {% if cv_filename %}
+    <form method="post" action="{% url 'accounts:profile_cv' %}">
+      {% csrf_token %}
+      <input type="hidden" name="remove" value="1">
+      <p><button type="submit" class="gk-btn">Take my CV down</button></p>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+
   {% if card_invite %}
   <div class="gk-card gk-profile" id="your-card">
     <h2>Your card on the wall</h2>

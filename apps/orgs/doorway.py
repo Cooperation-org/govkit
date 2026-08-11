@@ -16,6 +16,7 @@ ANY failure returns [] so the form simply renders without the picker.
 
 import json
 import logging
+import urllib.error
 import urllib.request
 
 from django.conf import settings
@@ -215,3 +216,110 @@ def put_video_on_card(invite, video_url):
     invite.committed_claim_id = new_id
     invite.save(update_fields=["committed_claim_id"])
     return new_id, ""
+
+
+# --- The person's CV ------------------------------------------------------------------
+#
+# A CV is handed over on the way in, before this account exists, so the doorway
+# holds it against the wall claim. It is not copied here: a second copy is a
+# second answer to "which is their CV", and the older one wins by accident. We
+# read it and write it there, and this is the only place that knows how.
+
+
+def _resume_url(claim_id):
+    base = settings.DOORWAY_API_URL
+    token = settings.GOVKIT_S2S_TOKEN
+    if not (base and token and claim_id):
+        return None, None
+    return f"{base}/api/wall/resume/{claim_id}/", token
+
+
+def save_resume(claim_id, upload):
+    """(filename, problem) — put this file on the person's wall row.
+
+    The doorway is the one that says what a CV may be (size and format), so it
+    is asked rather than second-guessed, and whatever it says comes back as the
+    sentence the person reads.
+    """
+    url, token = _resume_url(claim_id)
+    if not url:
+        return "", (
+            "CVs are not wired up here: DOORWAY_API_URL or GOVKIT_S2S_TOKEN "
+            "is unset in this app's environment."
+        )
+    boundary = "----govkitcv"
+    name = (getattr(upload, "name", "") or "cv")[:200]
+    head = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="resume"; filename="{name}"\r\n'
+        f"Content-Type: {getattr(upload, 'content_type', '') or 'application/octet-stream'}\r\n\r\n"
+    ).encode("utf-8")
+    body = head + upload.read() + f"\r\n--{boundary}--\r\n".encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=_CARD_TIMEOUT) as resp:  # nosec B310
+            saved = json.loads(resp.read().decode("utf-8")).get("filename", name)
+        cache.delete(_CACHE_KEY)  # so the page they land back on says what is there now
+        return saved, ""
+    except urllib.error.HTTPError as e:
+        try:
+            said = json.loads(e.read().decode("utf-8")).get("error", "")
+        except Exception:
+            said = ""
+        logger.warning("cv upload refused for claim %s: %s", claim_id, said or e)
+        return "", said or "That CV could not be saved. Try again in a minute."
+    except Exception as e:
+        logger.warning("cv upload failed for claim %s: %s", claim_id, e, exc_info=True)
+        return "", "We could not save your CV just now. Try again in a minute."
+
+
+def delete_resume(claim_id):
+    """Take the person's CV down. (problem,) empty when it is gone."""
+    url, token = _resume_url(claim_id)
+    if not url:
+        return "CVs are not wired up here."
+    req = urllib.request.Request(
+        url, headers={"Authorization": f"Bearer {token}"}, method="DELETE"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:  # nosec B310
+            resp.read()
+        cache.delete(_CACHE_KEY)
+        return ""
+    except Exception as e:
+        logger.warning("cv delete failed for claim %s: %s", claim_id, e, exc_info=True)
+        return "We could not remove your CV just now. Try again in a minute."
+
+
+def fetch_resume(claim_id):
+    """(bytes, content_type, filename) for this person's CV, or (None, "", "").
+
+    The file is passed through rather than stored: whoever is reading it has
+    already been checked by the view that called this.
+    """
+    url, token = _resume_url(claim_id)
+    if not url:
+        return None, "", ""
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+    try:
+        with urllib.request.urlopen(req, timeout=_CARD_TIMEOUT) as resp:  # nosec B310
+            disposition = resp.headers.get("Content-Disposition", "")
+            filename = ""
+            if 'filename="' in disposition:
+                filename = disposition.split('filename="', 1)[1].split('"', 1)[0]
+            return (
+                resp.read(),
+                resp.headers.get("Content-Type", "application/octet-stream"),
+                filename,
+            )
+    except Exception as e:
+        logger.warning("cv fetch failed for claim %s: %s", claim_id, e, exc_info=True)
+        return None, "", ""

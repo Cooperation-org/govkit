@@ -112,17 +112,59 @@ def _card_context(user):
     A card is a signed claim on LinkedTrust, published through the doorway when
     they joined. It is not ours to hold — only the invite that carries its id
     is — so the section renders from that and links out.
+
+    Their CV rides the same invite: it was handed over at the door, and this is
+    where they come back to change it.
     """
     from apps.orgs import doorway
 
-    if not (settings.COHORT_VIDEO_SRC and settings.DOORWAY_API_URL):
-        return {"card_invite": None}
-    invite = doorway.card_invite_for(user)
+    invite = doorway.card_invite_for(user) if settings.DOORWAY_API_URL else None
+    card = doorway.wall_cards_by_claim([invite.committed_claim_id]) if invite else {}
     return {
-        "card_invite": invite,
+        "card_invite": invite if settings.COHORT_VIDEO_SRC else None,
+        "cv_invite": invite,
+        "cv_filename": (card.get(invite.committed_claim_id) or {}).get("resume_filename", "")
+        if invite
+        else "",
         "card_video_src": settings.COHORT_VIDEO_SRC,
         "linkedtrust_url": settings.LINKEDTRUST_URL.rstrip("/"),
     }
+
+
+@login_required
+@require_POST
+def profile_cv(request):
+    """Their CV: add one, replace it, or take it down. Theirs to change, any time.
+
+    It is not on the public card and never has been — a CV carries an address
+    and a phone number. It goes to the cohort: a team reads it from their
+    dashboard, which knows who is asking.
+    """
+    from apps.orgs import doorway
+
+    invite = doorway.card_invite_for(request.user)
+    if invite is None or not invite.committed_claim_id:
+        messages.error(request, "You don't have a card on the wall yet.")
+        return redirect("accounts:profile")
+
+    if request.POST.get("remove"):
+        problem = doorway.delete_resume(invite.committed_claim_id)
+        if problem:
+            messages.error(request, problem)
+        else:
+            messages.success(request, "Your CV is off your card.")
+        return redirect("accounts:profile")
+
+    upload = request.FILES.get("cv")
+    if not upload:
+        messages.error(request, "Choose a file, then save.")
+        return redirect("accounts:profile")
+    filename, problem = doorway.save_resume(invite.committed_claim_id, upload)
+    if problem:
+        messages.error(request, problem)
+    else:
+        messages.success(request, f"{filename} is on your card for teams to read.")
+    return redirect("accounts:profile")
 
 
 @login_required

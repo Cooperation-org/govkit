@@ -38,6 +38,12 @@
 
       {% if invite.words %}<p>{{ invite.words|linebreaksbr }}</p>{% endif %}
 
+      {% if invite.cv_filename %}
+      <p class="gk-their-links">
+        <a href="{% url 'commons:pool_cv' claim_id=invite.committed_claim_id %}">Their CV ({{ invite.cv_filename }})</a>
+      </p>
+      {% endif %}
+
       {% if invite.accepted_by.public_links %}
       <p class="gk-placeholder gk-their-links">
         {% for link in invite.accepted_by.public_links %}

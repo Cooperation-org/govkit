@@ -11,4 +11,5 @@ urlpatterns = [
     path("ideas/new/", views.idea_create, name="idea_create"),
     path("ideas/<slug:slug>/interest/", views.idea_interest, name="idea_interest"),
     path("pool/", views.pool_view, name="pool"),
+    path("pool/<int:claim_id>/cv/", views.pool_cv_view, name="pool_cv"),
 ]
