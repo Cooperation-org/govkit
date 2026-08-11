@@ -160,3 +160,71 @@ def test_an_empty_bio_falls_back_to_the_wall_rather_than_nothing(
     body = client.get(reverse("orgs:mentors")).content.decode()
 
     assert "I will help teams find their first customers." in body
+
+
+def test_a_mentor_can_change_the_booking_link_they_joined_with(
+    client, org_factory, user_factory, membership_factory, wall
+):
+    """Calendar tools change; a signed claim cannot. So the link a mentor sets
+    on their profile is the one teams get, and the old one is gone."""
+    from apps.orgs.models import Invite, InviteStatus
+
+    org = org_factory(slug="a")
+    mentor = user_factory(email="mentor@example.com")
+    mentor.calendar_url = "https://cal.example/moved-here"
+    mentor.save()
+    Invite.objects.create(
+        org=org, committed_claim_id=124728, accepted_by=mentor, status=InviteStatus.ACCEPTED
+    )
+    _as(client, user_factory, membership_factory, org, MembershipRole.ADMIN)
+
+    body = client.get(reverse("orgs:mentors")).content.decode()
+
+    assert "https://cal.example/moved-here" in body
+    assert "https://cal.example/mentor" not in body
+
+
+def test_a_mentor_who_set_nothing_keeps_the_link_from_the_wall(
+    client, org_factory, user_factory, membership_factory, wall
+):
+    """Signing in must never take away the calendar they already offered."""
+    from apps.orgs.models import Invite, InviteStatus
+
+    org = org_factory(slug="a")
+    mentor = user_factory(email="quiet@example.com")
+    Invite.objects.create(
+        org=org, committed_claim_id=124728, accepted_by=mentor, status=InviteStatus.ACCEPTED
+    )
+    _as(client, user_factory, membership_factory, org, MembershipRole.ADMIN)
+
+    body = client.get(reverse("orgs:mentors")).content.decode()
+
+    assert "https://cal.example/mentor" in body
+
+
+def test_the_profile_page_offers_the_booking_link(client, user_factory):
+    """A mentor has to be able to find it without asking anyone."""
+    mentor = user_factory(email="mentor@example.com")
+    mentor.calendar_url = "https://cal.example/mine"
+    mentor.save()
+    client.force_login(mentor)
+
+    body = client.get(reverse("accounts:profile")).content.decode()
+
+    assert "Booking link" in body
+    assert "https://cal.example/mine" in body
+
+
+def test_saving_a_pasted_link_without_a_scheme_still_works(client, user_factory):
+    """People paste 'calendly.com/ada'. Rejecting that is our problem, not theirs."""
+    mentor = user_factory(email="mentor@example.com")
+    client.force_login(mentor)
+
+    resp = client.post(
+        reverse("accounts:profile"),
+        {"display_name": "Ada", "avatar_url": "", "bio": "", "calendar_url": "calendly.com/ada"},
+    )
+
+    assert resp.status_code == 302
+    mentor.refresh_from_db()
+    assert mentor.calendar_url == "https://calendly.com/ada"

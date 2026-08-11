@@ -72,13 +72,22 @@ def mentors():
     A mentor who has since signed in also has a profile here, which they can
     edit and their wall claim they cannot: a claim is signed and immutable. So
     the profile wins wherever it has something — photo, the name they go by,
-    and their own words — and the wall fills in for everyone who has not
-    signed in yet.
+    their own words, and the booking link — and the wall fills in for everyone
+    who has not signed in yet.
+
+    The booking link is merged here rather than in the template because a dead
+    link and a fresh one look the same on a page; only one of them can be the
+    answer, and it is the one the mentor last set.
     """
     people, problem = _fetch_wall_people()
     people = [p for p in people if p.get("role") == "mentor"]
     accounts = _accounts_by_claim([p.get("claim_id") for p in people])
-    return [{**p, "profile": accounts.get(p.get("claim_id"))} for p in people], problem
+    out = []
+    for p in people:
+        profile = accounts.get(p.get("claim_id"))
+        booking = (profile or {}).get("calendar_url") or p.get("calendar_url") or ""
+        out.append({**p, "profile": profile, "calendar_url": booking})
+    return out, problem
 
 
 def wall_cards_by_claim(claim_ids):
@@ -116,6 +125,7 @@ def _accounts_by_claim(claim_ids):
             "display_name": r.accepted_by.get_full_name(),
             "avatar_url": r.accepted_by.avatar_url,
             "bio": r.accepted_by.bio,
+            "calendar_url": r.accepted_by.calendar_url,
         }
         for r in rows
     }

@@ -16,16 +16,28 @@ class ProfileForm(forms.ModelForm):
     A photo can be uploaded or linked. Most people have a photo on their phone,
     not a URL for one, so the upload is the first control; the URL field stays
     for anyone who does have a link (and for installs with no storage).
+
+    The booking link is here because a mentor gave one when they joined, on a
+    signed claim they cannot edit. Changing calendar tools is ordinary; being
+    stuck with a dead booking link is not.
     """
 
     photo = pictures.upload_field("Upload a photo")
+    # A pasted "calendly.com/ada" is what people actually have to hand.
+    calendar_url = forms.URLField(
+        max_length=1000,
+        required=False,
+        assume_scheme="https",
+        label="Booking link",
+        help_text="Where people book time with you. Teams see it on the Mentors page.",
+    )
 
     def clean_photo(self):
         return pictures.clean_upload(self.cleaned_data.get("photo"), url_label="photo URL")
 
     class Meta:
         model = User
-        fields = ["display_name", "avatar_url", "bio"]
+        fields = ["display_name", "avatar_url", "bio", "calendar_url"]
         labels = {
             "display_name": "Display name",
             "avatar_url": "Photo URL",

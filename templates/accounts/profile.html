@@ -26,6 +26,12 @@
       {% for e in form.bio.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
     </p>
 
+    <p class="gk-field">
+      {{ form.calendar_url.label_tag }} {{ form.calendar_url }}
+      <small>{{ form.calendar_url.help_text }}</small>
+      {% for e in form.calendar_url.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+    </p>
+
     <p><button type="submit" class="gk-btn-primary">Save profile</button></p>
   </form>
 

@@ -50,6 +50,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     display_name = models.CharField(max_length=255, blank=True)
     avatar_url = models.URLField(max_length=1000, blank=True)
     bio = models.TextField(blank=True, help_text="Public profile bio, in the person's own words.")
+    # Where someone books time with this person. A mentor gives one when they
+    # join, on their wall claim — and a claim is signed and immutable, so
+    # without a home here a mentor whose booking link changed could never fix
+    # it. This is that home: set, it wins over the one from the wall.
+    calendar_url = models.URLField(
+        max_length=1000,
+        blank=True,
+        help_text="Your booking link, if you take meetings (Calendly, Cal.com, Google).",
+    )
 
     # External identity (OAuth/OIDC). Explicit, never inferred.
     auth_provider = models.CharField(
