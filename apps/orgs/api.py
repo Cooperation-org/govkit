@@ -65,6 +65,7 @@ from rest_framework.views import APIView
 from apps.commons import storage
 
 from .embed_auth import EmbedSessionAuthentication
+from .forms import looks_like_url, normalize_url
 from .genesis import modules_for, serialize_modules, toggle_item
 from .models import (
     Invite,
@@ -813,6 +814,18 @@ def profile_rows(request, org_slug, kind):
     def text(key, limit=None):
         value = str(payload.get(key, "") or "").strip()
         return value[:limit] if limit else value
+
+    # A link field holds a link or nothing. Prose ("one of the meetings") is
+    # rejected here rather than stored and rendered as a dead href.
+    for key in ("url", "thumb_url", "image_url", "link_url", "source_url"):
+        if payload.get(key):
+            value = normalize_url(text(key))
+            if not looks_like_url(value):
+                return JsonResponse(
+                    {"error": f"{key} must be a web address, e.g. https://example.com/page"},
+                    status=400,
+                )
+            payload[key] = value
 
     if kind == "pictures":
         if not text("url"):

@@ -348,6 +348,44 @@ def test_an_agent_adds_a_quote(client, admin_org, s2s):
 
 
 @pytest.mark.django_db
+def test_where_they_said_it_has_to_be_a_link(client, admin_org, s2s):
+    """"one of the meetings" is an answer, not a URL. Storing it made the public
+    page show a "see the record" link to https://one%20of%20the%20meetings/."""
+    r = client.post(
+        api(admin_org.slug, "quotes"),
+        json.dumps({"words": "They shipped it.", "source_url": "one of the meetings"}),
+        content_type="application/json",
+        **BEARER,
+    )
+    assert r.status_code == 400
+    assert not OrgQuote.objects.exists()
+
+
+@pytest.mark.django_db
+def test_a_link_without_a_scheme_still_works(client, admin_org, s2s):
+    r = client.post(
+        api(admin_org.slug, "quotes"),
+        json.dumps({"words": "They shipped it.", "source_url": "example.com/notes"}),
+        content_type="application/json",
+        **BEARER,
+    )
+    assert r.status_code == 201
+    assert OrgQuote.objects.get(org=admin_org).source_url == "https://example.com/notes"
+
+
+def test_the_quote_form_says_so_too():
+    from apps.orgs.forms import OrgQuoteForm
+
+    form = OrgQuoteForm({"words": "They shipped it.", "source_url": "one of the meetings"})
+    assert not form.is_valid()
+    assert "source link" in str(form.errors["source_url"])
+
+    form = OrgQuoteForm({"words": "They shipped it.", "source_url": "example.com/notes"})
+    assert form.is_valid()
+    assert form.cleaned_data["source_url"] == "https://example.com/notes"
+
+
+@pytest.mark.django_db
 def test_an_agent_adds_a_link_and_a_picture(client, admin_org, s2s):
     client.post(
         api(admin_org.slug, "links"),

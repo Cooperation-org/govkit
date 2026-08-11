@@ -312,11 +312,33 @@ class OrgRateForm(forms.Form):
     )
 
 
-def _norm_url(value: str) -> str:
-    """Best-effort scheme so a pasted 'github.com/x' still resolves. Blank stays blank."""
+def looks_like_url(value: str) -> bool:
+    """A link, not a sentence. 'github.com/x' yes, 'one of the meetings' no."""
     value = (value or "").strip()
-    if value and "://" not in value:
+    if not value or any(c.isspace() for c in value):
+        return False
+    host = value.split("://", 1)[-1].split("/", 1)[0].split("?", 1)[0]
+    return "." in host and not host.startswith(".") and not host.endswith(".")
+
+
+def normalize_url(value: str) -> str:
+    """Best-effort scheme so a pasted 'github.com/x' still resolves. Blank stays
+    blank, and prose is left as typed rather than turned into 'https://one of the
+    meetings' — clean_url() is what turns that into an error the person can see."""
+    value = (value or "").strip()
+    if value and "://" not in value and looks_like_url(value):
         value = "https://" + value
+    return value
+
+
+def _clean_url(value: str, label: str = "link") -> str:
+    """Normalise one URL field, refusing anything that is not a link. Blank is fine."""
+    value = normalize_url(value)
+    if value and not (value.startswith(("http://", "https://")) and looks_like_url(value)):
+        raise forms.ValidationError(
+            f"That {label} is not a web address. Paste a link like "
+            "https://example.com/page, or leave it empty."
+        )
     return value
 
 
@@ -391,19 +413,19 @@ class OrgSettingsForm(forms.Form):
     )
 
     def clean_website(self):
-        return _norm_url(self.cleaned_data.get("website", ""))
+        return _clean_url(self.cleaned_data.get("website", ""), "website")
 
     def clean_logo(self):
         return pictures.clean_upload(self.cleaned_data.get("logo"), url_label="logo URL")
 
     def clean_logo_url(self):
-        return _norm_url(self.cleaned_data.get("logo_url", ""))
+        return _clean_url(self.cleaned_data.get("logo_url", ""), "logo link")
 
     def clean_cover_image(self):
         return pictures.clean_upload(self.cleaned_data.get("cover_image"), url_label="picture URL")
 
     def clean_cover_image_url(self):
-        return _norm_url(self.cleaned_data.get("cover_image_url", ""))
+        return _clean_url(self.cleaned_data.get("cover_image_url", ""), "picture link")
 
     def looking_for_list(self) -> list:
         """One ask per line, `role: what they would do`. The detail is optional."""
@@ -419,13 +441,13 @@ class OrgSettingsForm(forms.Form):
         return out
 
     def clean_calendar_url(self):
-        return _norm_url(self.cleaned_data.get("calendar_url", ""))
+        return _clean_url(self.cleaned_data.get("calendar_url", ""), "calendar link")
 
     def clean_chat_url(self):
-        return _norm_url(self.cleaned_data.get("chat_url", ""))
+        return _clean_url(self.cleaned_data.get("chat_url", ""), "chat link")
 
     def clean_pie_url(self):
-        return _norm_url(self.cleaned_data.get("pie_url", ""))
+        return _clean_url(self.cleaned_data.get("pie_url", ""), "pie link")
 
     def socials_list(self) -> list:
         """Parse the socials textarea into [{'label', 'url'}]. Label optional."""
@@ -436,23 +458,25 @@ class OrgSettingsForm(forms.Form):
                 continue
             parts = line.split(None, 1)
             if len(parts) == 2 and "://" not in parts[0] and "." not in parts[0]:
-                label, url = parts[0], _norm_url(parts[1])
+                label, url = parts[0], normalize_url(parts[1])
             else:
-                url = _norm_url(line)
+                url = normalize_url(line)
                 label = re.sub(r"^www\.", "", url.split("://", 1)[-1].split("/", 1)[0])
-            if url:
+            if looks_like_url(url):
                 out.append({"label": label, "url": url})
         return out
 
     def repos_list(self) -> list:
         """Parse main + other repos into [{'url', 'is_main'}]; the main one first."""
         out = []
-        main = _norm_url(self.cleaned_data.get("main_repo", ""))
+        main = normalize_url(self.cleaned_data.get("main_repo", ""))
+        if not looks_like_url(main):
+            main = ""
         if main:
             out.append({"url": main, "is_main": True})
         for line in (self.cleaned_data.get("other_repos") or "").splitlines():
-            url = _norm_url(line)
-            if url and url != main:
+            url = normalize_url(line)
+            if looks_like_url(url) and url != main:
                 out.append({"url": url, "is_main": False})
         return out
 
@@ -578,7 +602,7 @@ class OrgPictureForm(forms.Form):
         return pictures.clean_upload(self.cleaned_data.get("picture"), url_label="picture URL")
 
     def clean_picture_url(self):
-        return _norm_url(self.cleaned_data.get("picture_url", ""))
+        return _clean_url(self.cleaned_data.get("picture_url", ""), "picture link")
 
     def clean(self):
         cleaned = super().clean()
@@ -596,13 +620,13 @@ class OrgLinkForm(forms.Form):
     image_url = forms.CharField(max_length=500, required=False, label="Or a link to one")
 
     def clean_url(self):
-        return _norm_url(self.cleaned_data.get("url", ""))
+        return _clean_url(self.cleaned_data.get("url", ""), "link")
 
     def clean_image(self):
         return pictures.clean_upload(self.cleaned_data.get("image"), url_label="picture URL")
 
     def clean_image_url(self):
-        return _norm_url(self.cleaned_data.get("image_url", ""))
+        return _clean_url(self.cleaned_data.get("image_url", ""), "picture link")
 
 
 class OrgPostForm(forms.Form):
@@ -621,7 +645,7 @@ class OrgPostForm(forms.Form):
         return pictures.clean_upload(self.cleaned_data.get("image"), url_label="picture URL")
 
     def clean_link_url(self):
-        return _norm_url(self.cleaned_data.get("link_url", ""))
+        return _clean_url(self.cleaned_data.get("link_url", ""), "link")
 
 
 class OrgQuoteForm(forms.Form):
@@ -634,4 +658,4 @@ class OrgQuoteForm(forms.Form):
     )
 
     def clean_source_url(self):
-        return _norm_url(self.cleaned_data.get("source_url", ""))
+        return _clean_url(self.cleaned_data.get("source_url", ""), "source link")
