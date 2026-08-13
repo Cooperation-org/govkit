@@ -10,6 +10,8 @@ One generic item shape so new kinds slot in without touching the embed contract:
   done      answered/handled — the client renders it dimmed, at the bottom.
   url       a link out when the action lives elsewhere (e.g. the doorway's
             approval queue).
+  url_label what that link says, when "review" is the wrong word for it (the
+            person's own rail links them to their new team's dash).
   respond_url  the mark-answered endpoint for this row, relative to the GovKit
             root. Present means the client draws the button; that is the whole
             contract, so a new kind gets one by filling the field, not by
@@ -266,3 +268,69 @@ def _for_venture(items, slug):
             title += f" ({item['role']})"
         out.append({**item, "title": title})
     return out
+
+
+def my_news_items(user):
+    """The other side of the rail: what the ventures did about THIS person.
+
+    A worker raises a hand and then hears nothing — the row they made lives on
+    the team's rail, not theirs, and the mail that would have told them is off
+    on this install (mail.py). This is where they find out, in the same item
+    shape every rail uses, so the embed renders it with no new contract.
+
+    Same facts, no new home: interest rows and memberships. Being let in is a
+    membership, so a venture that admitted someone is reported from the
+    membership and its interest row is dropped — one event, one line.
+
+    `url` carries a link the person can follow (their new team's dash);
+    `url_label` names it, since "review" is the venture's word, not theirs.
+    `done` means nothing has happened yet: a hand still waiting renders dimmed
+    under the answers, which is the news they came for.
+    """
+    from apps.orgs.invites import cohort_front_door_url
+    from apps.orgs.models import Membership
+
+    items = []
+    memberships = list(Membership.objects.filter(user=user).select_related("org"))
+    for m in memberships:
+        items.append(
+            {
+                "kind": "you_joined",
+                "id": m.id,
+                "title": f"You are in — {m.org.display_name}",
+                "detail": "",
+                "email": "",
+                "since": m.created_at.isoformat(),
+                "done": False,
+                "url": cohort_front_door_url(m.org) or "",
+                "url_label": "your team's dash",
+                "org_slug": m.org.slug,
+            }
+        )
+    joined = {m.org_id for m in memberships}
+    for i in VentureInterest.objects.filter(user=user).select_related("org"):
+        if i.org_id in joined:
+            continue
+        answered = i.responded_at is not None
+        items.append(
+            {
+                "kind": "interest_answered" if answered else "interest_waiting",
+                "id": i.id,
+                "title": (
+                    f"{i.org.display_name} answered you"
+                    if answered
+                    else f"Waiting on {i.org.display_name}"
+                ),
+                "detail": "" if answered else i.note,
+                "email": "",
+                "since": (i.responded_at if answered else i.created_at).isoformat(),
+                "done": not answered,
+                "url": "",
+                "url_label": "",
+                "org_slug": i.org.slug,
+            }
+        )
+    # Newest first, and anything still waiting after everything that happened.
+    items.sort(key=lambda x: x["since"], reverse=True)
+    items.sort(key=lambda x: x["done"])
+    return items

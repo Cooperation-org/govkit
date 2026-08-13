@@ -12,6 +12,8 @@
 //   <govkit-activity>   the org's attention rail           (commons/orgs/<org>/attention/)
 //   <govkit-ventures>   venture cards + raise-a-hand       (commons/ventures/; data-up only,
 //                       no data-org — it lists every venture for a person in the pool)
+//   <govkit-news>       what the ventures did about ME      (commons/news/mine/; data-up only,
+//                       no data-org — it is the signed-in person's own rail)
 //
 // Contract with the host page:
 //   - Every component takes data-up (GovKit origin, e.g. https://dash.workers.vc —
@@ -54,12 +56,13 @@
     s.id = 'govkit-embed-styles';
     s.textContent = [
       'govkit-pie, govkit-feed, govkit-checklist, govkit-tasks, govkit-money,',
-      'govkit-activity, govkit-ventures {',
+      'govkit-activity, govkit-ventures, govkit-news {',
       '  display: block; font-family: system-ui, -apple-system, sans-serif;',
       '  font-size: 14px; color: inherit; line-height: 1.4;',
       '}',
       'govkit-pie[hidden], govkit-feed[hidden], govkit-checklist[hidden], govkit-tasks[hidden],',
-      'govkit-money[hidden], govkit-activity[hidden], govkit-ventures[hidden] { display: none; }',
+      'govkit-money[hidden], govkit-activity[hidden], govkit-ventures[hidden],',
+      'govkit-news[hidden] { display: none; }',
       'govkit-pie .piewrap { display: grid; grid-template-columns: 200px 1fr; gap: 18px; align-items: center; }',
       '@media (max-width: 560px) { govkit-pie .piewrap { grid-template-columns: 1fr; justify-items: center; } }',
       'govkit-pie .pieleg { display: grid; gap: 2px; width: 100%; }',
@@ -164,15 +167,15 @@
       'govkit-money .totals { display: flex; gap: 16px; font-size: 13px; margin-bottom: 8px; flex-wrap: wrap; }',
       'govkit-money .totals .lbl { opacity: 0.65; margin-right: 4px; }',
       'govkit-money .kind { font-size: 12px; opacity: 0.65; white-space: nowrap; }',
-      'govkit-activity .row { padding: 8px 0; border-bottom: 1px solid rgba(127,127,127,0.2); }',
-      'govkit-activity .row:last-child { border-bottom: none; }',
-      'govkit-activity .row.answered { opacity: 0.55; }',
-      'govkit-activity .head { display: flex; align-items: baseline; gap: 8px; }',
-      'govkit-activity .who { font-weight: 600; font-size: 13.5px; }',
-      'govkit-activity .when { margin-left: auto; font-size: 12px; opacity: 0.65; white-space: nowrap; }',
-      'govkit-activity .note { font-size: 13px; margin: 3px 0 5px; }',
-      'govkit-activity .mail { font-size: 12.5px; }',
-      'govkit-activity .mail a { color: inherit; }',
+      'govkit-activity .row, govkit-news .row { padding: 8px 0; border-bottom: 1px solid rgba(127,127,127,0.2); }',
+      'govkit-activity .row:last-child, govkit-news .row:last-child { border-bottom: none; }',
+      'govkit-activity .row.answered, govkit-news .row.waiting { opacity: 0.55; }',
+      'govkit-activity .head, govkit-news .head { display: flex; align-items: baseline; gap: 8px; }',
+      'govkit-activity .who, govkit-news .who { font-weight: 600; font-size: 13.5px; }',
+      'govkit-activity .when, govkit-news .when { margin-left: auto; font-size: 12px; opacity: 0.65; white-space: nowrap; }',
+      'govkit-activity .note, govkit-news .note { font-size: 13px; margin: 3px 0 5px; }',
+      'govkit-activity .mail, govkit-news .out { font-size: 12.5px; }',
+      'govkit-activity .mail a, govkit-news .out a { color: inherit; }',
       'govkit-activity button { font: inherit; font-size: 12.5px; cursor: pointer; border: 1px solid rgba(127,127,127,0.4); background: none; color: inherit; border-radius: 6px; padding: 3px 10px; }',
       'govkit-activity button:hover { background: rgba(127,127,127,0.12); }',
       'govkit-activity .actions { display: flex; gap: 6px; flex-wrap: wrap; }',
@@ -958,6 +961,52 @@
       });
   }
 
+  // --- <govkit-news> -------------------------------------------------------
+  // The signed-in person's own rail: a venture answered them, or let them in.
+  // Read-only — nothing on it is theirs to action — and person-scoped, so like
+  // <govkit-ventures> it takes data-up alone and mounts itself.
+
+  function mountNews(host) {
+    ensureStyles();
+    var up = host.dataset.up && host.dataset.up.replace(/\/+$/, '');
+    if (!up) {
+      console.warn('[govkit] missing data-up on govkit-news');
+      return goDark(host);
+    }
+    jget(up + '/api/v1/commons/news/mine/')
+      .then(function (d) {
+        host.replaceChildren();
+        var rows = d.items || [];
+        var limit = parseInt(host.dataset.limit || '8', 10);
+        rows = rows.slice(0, limit > 0 ? limit : 8);
+        if (!rows.length) return goDark(host);
+        rows.forEach(function (r) {
+          // `done` on this rail means nothing has happened yet: a hand still
+          // waiting sits dimmed under the answers.
+          var row = el('div', r.done ? 'row waiting' : 'row');
+          var head = el('div', 'head');
+          head.appendChild(el('span', 'who', r.title || ''));
+          head.appendChild(el('span', 'when', fmtDay(r.since)));
+          row.appendChild(head);
+          if (r.detail) row.appendChild(el('div', 'note', r.detail));
+          var out = safeHref(r.url);
+          if (out) {
+            var wrap = el('div', 'out');
+            var a = el('a', null, r.url_label || 'open ↗');
+            a.href = out;
+            wrap.appendChild(a);
+            row.appendChild(wrap);
+          }
+          host.appendChild(row);
+        });
+        host.hidden = false;
+      })
+      .catch(function (err) {
+        console.warn('[govkit] govkit-news:', err.message || err);
+        goDark(host);
+      });
+  }
+
   // --- element registration ------------------------------------------------
 
   function define(tag, path, render) {
@@ -976,6 +1025,11 @@
   if (!customElements.get('govkit-ventures')) {
     customElements.define('govkit-ventures', class extends HTMLElement {
       connectedCallback() { mountVentures(this); }
+    });
+  }
+  if (!customElements.get('govkit-news')) {
+    customElements.define('govkit-news', class extends HTMLElement {
+      connectedCallback() { mountNews(this); }
     });
   }
 })();

@@ -162,6 +162,23 @@ class MyInterestView(APIView):
         return Response({"interests": [_interest_payload(i) for i in rows]})
 
 
+class MyNewsView(APIView):
+    """My own rail: what the ventures did about me.
+
+    The mirror of OrgAttentionView. A team answering a hand-raise, or adding
+    the person to the team, happens where the person cannot see it; this is
+    the read that puts it in front of them. Reads only — nothing here is the
+    worker's to action.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from . import attention
+
+        return Response({"items": attention.my_news_items(request.user)})
+
+
 class OrgInterestFeedView(APIView):
     """The venture's waiting list, unanswered first. Members only (middleware)."""
 
@@ -390,6 +407,7 @@ urlpatterns = [
         name="commons-venture-interest",
     ),
     path("interest/mine/", MyInterestView.as_view(), name="commons-my-interest"),
+    path("news/mine/", MyNewsView.as_view(), name="commons-my-news"),
     path("interest/open/", OpenInterestView.as_view(), name="commons-open-interest"),
     path(
         "orgs/<slug:org_slug>/interest/",
