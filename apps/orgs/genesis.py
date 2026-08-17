@@ -42,7 +42,7 @@ MODULES = [
             ("exist.profile", "Complete your company profile"),
             (
                 "exist.who-else",
-                "Resesarch the space: Who else is doing this?  Are there communities?  Consider asking them to partner",
+                "Research the space: Who else is doing this?  Are there communities?  Consider asking them to partner",
             ),
             ("exist.invite", "Invite your team members"),
             ("exist.calendar", "Make a team calendar and add it in Settings"),
@@ -60,7 +60,7 @@ MODULES = [
         "Who's it for",
         1,
         [
-            ("who.team-kickoff", "Hold your team kickoff meeting."
+            ("who.team-kickoff", "Hold your team kickoff meeting"),
             ("who.what-problem", "Write down what problem you are trying to solve, for who"),
             ("who.three-people", "Name three real people who have the problem"),
             ("who.talk-to-one", "Talk to one or more of them; write down what they said"),
@@ -128,20 +128,13 @@ MODULES = [
 # workers.vc/curriculum/. Reword freely: titles and briefs are free to change,
 # only the keys above are permanent.
 ITEM_BRIEFS = {
-    "exist.paragraph": "Two or three sentences: what it is, who it is for, why now. "
-    "You will rewrite it later. Write it anyway.",
-    "exist.one-sentence": "One sentence, no adjectives. If it takes two, you have "
-    "two products, or you do not know yet which one you have.",
-    "exist.prior-art": "Search the web, ask the people you know, read the ideas board. "
-    "Aim for five. Most teams skip this and pay for it later.",
+    "exist.profile": "Two or three sentences: what it is, who it is for, why now. "
+    "Plus one sentence, no adjectives, saying what you make. Your page in your own "
+    "words. The link is how people join you.",
     "exist.who-else": "Partner with them, join them, or invite them in as co-owners. "
     "Here a competitor can become a contributor, because every share comes from work.",
-    "exist.reach-out": "One message to one of them. You are not asking permission. "
-    "You are finding out what they already know.",
     "exist.invite": "Everyone who will put hours in. Their work starts earning from "
     "their first approved task, so there is nothing to negotiate up front.",
-    "exist.join-page": "Your page in your own words. The link is how people join you, "
-    "and it is what we point at when we make noise about you.",
     "exist.calendar": "Without a calendar your page cannot offer anyone a time to meet you.",
     "exist.chat": "Wherever your team already talks is fine. Tell us which one, so amebo "
     "can reach you there instead of somewhere you never look.",
@@ -157,12 +150,8 @@ ITEM_BRIEFS = {
     "is testable. A guess without one is not.",
     "money.first-yes": "One person paying a real price tells you more than a room of "
     "people saying they like it.",
-    "receipts.connect-tracker": "Your own board, your own key, in Settings. After this, "
-    "hours on tasks become slices without anyone deciding anything.",
-    "receipts.first-drop": "Review the week's work and approve it. Approved work drops "
-    "equity to the people who did it.",
-    "receipts.trace-a-slice": "Pick one slice and follow it back to the task it came "
-    "from. If you cannot, the record is not doing its job.",
+    "exist.tasks": "Your own board, your own key, in Settings. After this, hours on "
+    "tasks become slices without anyone deciding anything.",
 }
 
 MODULE_LABELS = {key: label for key, label, _week, _items in MODULES}
