@@ -82,7 +82,7 @@ MODULES = [
             ("build.update-goals-tasks", "Update your goals and tasks.  Approve completed work.  Has your archetype or core problem changed?"),
         ],
     ),
-      (
+    (
         "iterate",
         "Iterate",
         3,
@@ -152,6 +152,23 @@ ITEM_BRIEFS = {
     "people saying they like it.",
     "exist.tasks": "Your own board, your own key, in Settings. After this, hours on "
     "tasks become slices without anyone deciding anything.",
+}
+
+# item key -> [(label, where)] — the places a team has to go to actually do it.
+# Some items are answered by typing; some are done somewhere else and the note is
+# just the record. These are the "somewhere else" links, shown in the item's panel.
+#
+# `where` is either a path relative to this org (a leading "/" is filled in with
+# /o/<slug>) or a full URL. Curriculum content, so it lives here with the items;
+# a link for an item that no longer exists is dropped rather than raising, because
+# a stale link is not worth breaking every dashboard over.
+ITEM_LINKS = {
+    "exist.profile": [("Your team page", "/settings/")],
+    "exist.invite": [("Members", "/members/")],
+    "exist.calendar": [("Settings", "/settings/")],
+    "exist.chat": [("Settings", "/settings/")],
+    "exist.tasks": [("Your task board", "/tasks/")],
+    "money.one-page": [("Money", "/projects/")],
 }
 
 MODULE_LABELS = {key: label for key, label, _week, _items in MODULES}
@@ -242,7 +259,7 @@ def latest_events(org):
 class _Item:
     """One rendered checklist item. Derived per request; never stored."""
 
-    __slots__ = ("key", "title", "brief", "done", "done_at", "done_by", "retired")
+    __slots__ = ("key", "title", "brief", "links", "done", "done_at", "done_by", "retired")
 
     def __init__(self, key, title, event, retired=False):
         from .models import ChecklistAction
@@ -252,6 +269,8 @@ class _Item:
         self.title = title
         # How to actually do it. Retired items have none, which renders as nothing.
         self.brief = "" if retired else ITEM_BRIEFS.get(key, "")
+        # Where to go to do it, when the doing happens somewhere else.
+        self.links = [] if retired else list(ITEM_LINKS.get(key, ()))
         self.done = done
         self.done_at = event.at if done else None
         self.done_by = event.actor if done else None
@@ -290,8 +309,15 @@ def modules_for(org):
     return modules
 
 
-def serialize_modules(modules):
-    """modules_for() output as JSON, for the dash embed and the cohort overview."""
+def serialize_modules(modules, org=None):
+    """modules_for() output as JSON, for the dash embed and the cohort overview.
+
+    `org` resolves each item's links to real URLs (they are written relative to
+    the org in ITEM_LINKS) and says which items the team has already written
+    something for. Without it the links are omitted rather than emitted
+    half-built, so a caller that has no org in hand cannot ship a broken href.
+    """
+    written = _written_keys(org)
     return [
         {
             "key": entry["key"],
@@ -304,6 +330,8 @@ def serialize_modules(modules):
                     "key": item.key,
                     "title": item.title,
                     "brief": item.brief,
+                    "links": _item_links(item, org),
+                    "has_note": item.key in written,
                     "done": item.done,
                     "retired": item.retired,
                 }
@@ -312,6 +340,28 @@ def serialize_modules(modules):
         }
         for entry in modules
     ]
+
+
+def _written_keys(org):
+    """Item keys this org has a task for, i.e. has written something about."""
+    if org is None:
+        return frozenset()
+    from .models import ChecklistTask
+
+    return frozenset(
+        ChecklistTask.objects.filter(org=org).values_list("item_key", flat=True)
+    )
+
+
+def _item_links(item, org):
+    """[(label, where)] as [{label, url}], org-relative paths made absolute."""
+    if org is None:
+        return []
+    base = f"/o/{org.slug}"
+    out = []
+    for label, where in item.links:
+        out.append({"label": label, "url": where if "//" in where else base + where})
+    return out
 
 
 def _retired_items(orphans, module_key):

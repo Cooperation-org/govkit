@@ -205,7 +205,10 @@ class ChecklistView(APIView):
 
     def get(self, request, org_slug):
         return Response(
-            {"org_slug": request.org.slug, "modules": serialize_modules(modules_for(request.org))}
+            {
+                "org_slug": request.org.slug,
+                "modules": serialize_modules(modules_for(request.org), request.org),
+            }
         )
 
 

@@ -793,6 +793,49 @@ class ChecklistEvent(models.Model):
         return f"ChecklistEvent({self.org.slug}/{self.item_key}: {self.action})"
 
 
+class ChecklistTask(models.Model):
+    """
+    Which task on the team's own board holds the answer to one checklist item.
+
+    A pointer, nothing else. The team's words live on their tracker, where the
+    rest of their work already lives and where the pie reads from; this row only
+    remembers which story we opened for them, so clicking the item a second time
+    comes back to the same one instead of making another.
+
+    Created lazily, on the first save. Clicking an item and closing it leaves
+    nothing behind, so a team browsing the curriculum does not end up with a
+    board full of empty stories.
+
+    Deliberately NOT part of the curriculum: apps.orgs.genesis holds the list of
+    items and nothing about anyone's tasks. Reword an item and this keeps
+    pointing at the same story; delete an item and the story stays on the board
+    as ordinary work, with the words the team wrote still on it.
+    """
+
+    org = models.ForeignKey(Org, on_delete=models.CASCADE, related_name="checklist_tasks")
+    # Joins to apps.orgs.genesis.ITEM_INDEX, same key space as ChecklistEvent.
+    # No FK to the curriculum: it is code, and items come and go.
+    item_key = models.CharField(max_length=64)
+    # The tracker's own id for the story (Taiga user story id today).
+    external_id = models.CharField(max_length=64)
+    created_at = models.DateTimeField(default=timezone.now)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="checklist_tasks",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["org", "item_key"], name="uniq_checklist_task_per_item")
+        ]
+
+    def __str__(self):
+        return f"ChecklistTask({self.org.slug}/{self.item_key} -> {self.external_id})"
+
+
 class OpeningBalance(models.Model):
     """Imported pre-existing equity for a member (the historical-import target)."""
 

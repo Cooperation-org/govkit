@@ -13,6 +13,10 @@ Endpoints:
   GET  /api/v1/tasksources/orgs/<org_slug>/tasks/open/            live open work (proxied)
   GET  /api/v1/tasksources/orgs/<org_slug>/tasks/<external_id>/   one task, with its body
   POST /api/v1/tasksources/orgs/<org_slug>/tasks/<external_id>/   edit that task
+  GET  /api/v1/tasksources/orgs/<org_slug>/checklist/<item_key>/  the task holding this
+                                                                  checklist item's answer
+  POST /api/v1/tasksources/orgs/<org_slug>/checklist/<item_key>/  write it, creating the
+                                                                  task on first save
   POST /api/v1/tasksources/orgs/<org_slug>/sync/                  run a sync (steward/admin)
 
 Route order matters: ``tasks/missing_value/`` and ``tasks/open/`` are declared before
@@ -240,6 +244,125 @@ class TaskDetailView(APIView):
         return Response(self._payload(updated, source))
 
 
+class ChecklistItemTaskView(TaskDetailView):
+    """The task on the team's own board that holds one checklist item's answer.
+
+    Same editor, same board, one hop from the item. GET returns the task if the
+    team has already written something, 404 if not — opening an item and closing
+    it must not leave an empty story behind. POST creates the task on first save
+    and edits it every time after, so the words a team types on the dash land
+    where the rest of their work already is.
+
+    The link between item and task is a row (orgs.ChecklistTask), never anything
+    in the curriculum: rewording an item keeps the same story, and deleting one
+    leaves the story on the board as ordinary work.
+    """
+
+    def _link(self, request, item_key):
+        from apps.orgs.models import ChecklistTask
+
+        return ChecklistTask.objects.filter(org=request.org, item_key=item_key).first()
+
+    def _member_or_403(self, request):
+        if request.membership is None and not request.user.is_superuser:
+            raise PermissionDenied("Only members may work the checklist.")
+
+    def get(self, request, org_slug=None, item_key=None):
+        self._member_or_403(request)
+        link = self._link(request, item_key)
+        if link is None:
+            return Response({"detail": "Nothing written yet."}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            _adapter, source, detail = self._find(request, link.external_id)
+        except LookupError:
+            # Deleted on the board. Forget the pointer so the next save starts a
+            # fresh story rather than failing forever on a dead id.
+            link.delete()
+            return Response({"detail": "Nothing written yet."}, status=status.HTTP_404_NOT_FOUND)
+        except NotImplementedError:
+            return Response(
+                {"detail": "This tracker cannot open a single task."},
+                status=status.HTTP_501_NOT_IMPLEMENTED,
+            )
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            return Response(
+                {"detail": f"Task tracker unavailable: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response(self._payload(detail, source))
+
+    def post(self, request, org_slug=None, item_key=None):
+        from apps.orgs.genesis import ITEM_INDEX
+        from apps.orgs.models import ChecklistTask
+
+        self._member_or_403(request)
+        known = ITEM_INDEX.get(item_key)
+        if known is None:
+            return Response({"detail": "No such item."}, status=status.HTTP_404_NOT_FOUND)
+        description = request.data.get("description")
+        if description is None:
+            return Response({"detail": "Nothing to change."}, status=status.HTTP_400_BAD_REQUEST)
+
+        link = self._link(request, item_key)
+        try:
+            if link is not None:
+                return Response(self._save(request, link.external_id, str(description)))
+        except LookupError:
+            link.delete()  # gone from the board; fall through and start a new one
+        except NotImplementedError:
+            return Response(
+                {"detail": "This tracker is read-only."},
+                status=status.HTTP_501_NOT_IMPLEMENTED,
+            )
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            return Response(
+                {"detail": f"Task tracker unavailable: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        sources = self._sources(request)
+        if not sources:
+            return Response(
+                {"detail": "Connect your task board first, in Settings."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        source = sources[0]
+        try:
+            detail = get_adapter(source).create_task(
+                subject=known[1], description=str(description)
+            )
+        except NotImplementedError:
+            return Response(
+                {"detail": "This tracker is read-only."},
+                status=status.HTTP_501_NOT_IMPLEMENTED,
+            )
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            return Response(
+                {"detail": f"Task tracker unavailable: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        # Two members saving the same item at once both created a story; keep the
+        # first pointer and let the loser's story stand as an ordinary task.
+        ChecklistTask.objects.get_or_create(
+            org=request.org,
+            item_key=item_key,
+            defaults={
+                "external_id": str(detail.external_id),
+                "created_by": request.user if request.user.is_authenticated else None,
+            },
+        )
+        cache.delete(f"tasksources:open_tasks:{request.org.pk}")
+        return Response(self._payload(detail, source), status=status.HTTP_201_CREATED)
+
+    def _save(self, request, external_id, description):
+        adapter, source, detail = self._find(request, external_id)
+        updated = adapter.update_task(
+            external_id, subject=None, description=description, version=detail.version
+        )
+        cache.delete(f"tasksources:open_tasks:{request.org.pk}")
+        return self._payload(updated, source)
+
+
 class SyncView(APIView):
     """Trigger a sync of every task source for the org (steward/admin only)."""
 
@@ -289,6 +412,11 @@ urlpatterns = [
         "orgs/<slug:org_slug>/tasks/<str:external_id>/",
         TaskDetailView.as_view(),
         name="trackedtask-detail-live",
+    ),
+    path(
+        "orgs/<slug:org_slug>/checklist/<str:item_key>/",
+        ChecklistItemTaskView.as_view(),
+        name="checklist-item-task",
     ),
     path(
         "orgs/<slug:org_slug>/sync/",

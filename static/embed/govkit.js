@@ -126,6 +126,8 @@
       // STATUS IS A WORD, NOT A COLOR.
       '.gk-sheet-status { font-weight: 600; color: var(--ink, #26221c); }',
       '.gk-sheet-note { padding: 0 20px 16px; font-size: 13px; color: var(--ink, #26221c); }',
+      // What the item is asking for, above the box you answer it in.
+      '.gk-sheet-brief { margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.85; }',
       'govkit-tasks .rowopen {',
       '  background: none; border: none; padding: 0; font: inherit; color: inherit;',
       '  text-align: left; cursor: pointer; text-decoration: underline;',
@@ -158,6 +160,13 @@
       'govkit-checklist li .tick:hover { background: rgba(127,127,127,0.15); }',
       'govkit-checklist li.done { opacity: 0.6; }',
       'govkit-checklist li.done .item-title { text-decoration: line-through; }',
+      // The title opens the item. A button, because it does something; styled as
+      // the text it replaces so the list still reads as a list.
+      'govkit-checklist li .item-title { flex: 1 1 auto; text-align: left; background: none;',
+      '  border: none; color: inherit; font: inherit; padding: 0; cursor: pointer; border-radius: 4px; }',
+      'govkit-checklist li .item-title:hover { text-decoration: underline; }',
+      'govkit-checklist li .item-title:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }',
+      'govkit-checklist li .haswords { flex: none; font-size: 11px; opacity: 0.65; }',
       'govkit-checklist li.readmore { padding-top: 6px; }',
       'govkit-checklist li.readmore a { font-size: 12.5px; color: inherit; opacity: 0.75; text-decoration: none; }',
       'govkit-checklist li.readmore a:hover { opacity: 1; text-decoration: underline; }',
@@ -408,10 +417,11 @@
     try { sessionStorage.setItem('govkit-open:' + org, JSON.stringify(keys)); } catch (e) {}
   }
 
-  function renderChecklist(host, d) {
+  function renderChecklist(host, d, c) {
     var modules = d.modules || [];
     if (!modules.length) return false;
     var org = (cfg(host) || {}).org || '';
+    var tasksApp = host.dataset.tasksApp && host.dataset.tasksApp.replace(/\/+$/, '');
     var open = openModules(org);
     // Nothing opened yet: start on the first module with work left, so the panel
     // opens where the team actually is rather than always at the top.
@@ -453,7 +463,23 @@
           toggleChecklistItem(host, item.key, li, btn);
         });
         li.appendChild(btn);
-        li.appendChild(el('span', 'item-title', item.title));
+        // The title opens the item: what it asks, where to go, and a box for
+        // what you did. Retired items are somebody's record of a thing the
+        // curriculum no longer asks for, so they stay plain text.
+        if (c && !item.retired) {
+          var open = el('button', 'item-title', item.title);
+          open.type = 'button';
+          var mark = el('span', 'haswords', '✎');
+          mark.hidden = !item.has_note;
+          mark.title = 'You have written something here';
+          open.addEventListener('click', function () {
+            openChecklistSheet(c, item, tasksApp, function () { mark.hidden = false; });
+          });
+          li.appendChild(open);
+          li.appendChild(mark);
+        } else {
+          li.appendChild(el('span', 'item-title', item.title));
+        }
         ul.appendChild(li);
       });
 
@@ -632,7 +658,11 @@
     if (restore && restore.focus) restore.focus();
   }
 
-  function openTaskSheet(c, task, tasksApp) {
+  // The shell every sheet shares: backdrop, heading, body, footer note, Esc and
+  // click-outside to close. Callers fill `body` and use `say()` for trouble.
+  // ONE editor across the dash, so a task and a checklist item feel like the
+  // same thing, because they are.
+  function openSheet(label) {
     closeSheet();
     ensureStyles();
 
@@ -640,11 +670,11 @@
     var panel = el('div', 'gk-sheet');
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-modal', 'true');
-    panel.setAttribute('aria-label', task.subject || 'Task');
+    panel.setAttribute('aria-label', label || 'Task');
 
     var head = el('div', 'gk-sheet-head');
     // The row's own words paint immediately; the body arrives when it arrives.
-    var heading = el('h2', 'gk-sheet-title', task.subject || '');
+    var heading = el('h2', 'gk-sheet-title', label || '');
     head.appendChild(heading);
     var closeBtn = el('button', 'gk-sheet-close', '×');
     closeBtn.type = 'button';
@@ -671,13 +701,40 @@
     document.addEventListener('keydown', onKey, true);
     sheetOpen = { backdrop: backdrop, onKey: onKey, restore: document.activeElement };
 
+    return {
+      panel: panel,
+      body: body,
+      heading: heading,
+      say: function (message) {
+        note.textContent = message;
+        note.hidden = !message;
+      },
+      focusFirst: function () {
+        var first = panel.querySelector('input, textarea');
+        if (first) first.focus();
+      },
+    };
+  }
+
+  // The way out to the team's board, preferring the tasks app over the raw
+  // tracker (Golda 2026-07-19). Null when neither is known yet.
+  function boardHref(d, tasksApp) {
+    if (tasksApp && d.project_slug && d.ref != null) {
+      return safeHref(tasksApp + '/p/' + encodeURIComponent(d.project_slug) +
+        '/board?story=' + encodeURIComponent(d.ref));
+    }
+    return safeHref(d.external_url);
+  }
+
+  function openTaskSheet(c, task, tasksApp) {
+    var sheet = openSheet(task.subject || 'Task');
+    var heading = sheet.heading;
+    var body = sheet.body;
+
     var url = c.up + '/api/v1/tasksources/orgs/' + c.org + '/tasks/' +
       encodeURIComponent(task.external_id) + '/';
 
-    function say(message) {
-      note.textContent = message;
-      note.hidden = !message;
-    }
+    var say = sheet.say;
 
     function save(fields, input) {
       input.disabled = true;
@@ -711,12 +768,7 @@
       var meta = el('div', 'gk-sheet-meta');
       if (d.status) meta.appendChild(el('span', 'gk-sheet-status', d.status));
       if (d.assignee_label) meta.appendChild(el('span', null, d.assignee_label));
-      var href = null;
-      if (tasksApp && d.project_slug && d.ref != null) {
-        href = safeHref(tasksApp + '/p/' + encodeURIComponent(d.project_slug) +
-          '/board?story=' + encodeURIComponent(d.ref));
-      }
-      if (!href) href = safeHref(d.external_url);
+      var href = boardHref(d, tasksApp);
       if (href) {
         var a = el('a', null, 'Open on the board');
         a.setAttribute('href', href);
@@ -733,11 +785,112 @@
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(function (d) {
         render(d);
-        var first = panel.querySelector('input, textarea');
-        if (first) first.focus();
+        sheet.focusFirst();
       })
       .catch(function () {
         say('This task could not be opened. It may have been removed from the board.');
+      });
+  }
+
+  // --- the checklist item sheet --------------------------------------------
+  // Same sheet, opened from a curriculum item instead of a task row. What the
+  // team types is the answer to the item, and it is saved as a task on their own
+  // board, so the work and the record are one thing rather than two.
+  //
+  // Nothing is created until they save. Open an item, read it, close it, and the
+  // board is untouched. Come back next week and the words are still here.
+
+  function openChecklistSheet(c, item, tasksApp, onSaved) {
+    var sheet = openSheet(item.title || 'Item');
+    var say = sheet.say;
+    var body = sheet.body;
+    var url = c.up + '/api/v1/tasksources/orgs/' + c.org + '/checklist/' +
+      encodeURIComponent(item.key) + '/';
+
+    // What is on the board right now, or null while nothing has been written.
+    var current = null;
+
+    function save(text, input) {
+      input.disabled = true;
+      say('');
+      fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'X-Govkit-Embed': '1', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: text }),
+      })
+        .then(function (r) {
+          if (r.status === 409) {
+            // No board connected yet. The server says where to go; show that
+            // rather than a generic failure they cannot act on.
+            return r.json().then(function (d) { throw new Error(d.detail || '409'); });
+          }
+          if (!r.ok) throw new Error(r.status);
+          return r.json();
+        })
+        .then(function (d) {
+          current = d;
+          say('Saved to your board.');
+          renderFoot();
+          if (onSaved) onSaved();
+        })
+        .catch(function (e) {
+          // Keep what the person typed either way; never lose their words.
+          say(String(e.message).length > 3
+            ? e.message
+            : 'Not saved. Your text is still here — try again in a moment.');
+        })
+        .then(function () { input.disabled = false; });
+    }
+
+    var foot = el('div', 'gk-sheet-meta');
+
+    function renderFoot() {
+      foot.replaceChildren();
+      (item.links || []).forEach(function (link) {
+        var href = safeHref(link.url.indexOf('//') === -1 ? c.up + link.url : link.url);
+        if (!href) return;
+        var a = el('a', null, link.label);
+        a.setAttribute('href', href);
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener');
+        foot.appendChild(a);
+      });
+      var board = current && boardHref(current, tasksApp);
+      if (board) {
+        var b = el('a', null, 'Open on the board');
+        b.setAttribute('href', board);
+        b.setAttribute('target', '_blank');
+        b.setAttribute('rel', 'noopener');
+        foot.appendChild(b);
+      }
+      foot.hidden = !foot.childNodes.length;
+    }
+
+    function render(text) {
+      body.replaceChildren();
+      if (item.brief) body.appendChild(el('p', 'gk-sheet-brief', item.brief));
+      body.appendChild(fieldRow('What you did', text || '', true, save));
+      renderFoot();
+      body.appendChild(foot);
+      sheet.focusFirst();
+    }
+
+    // 404 here is the ordinary case, not an error: it means nobody has written
+    // anything for this item yet.
+    fetch(url, { credentials: 'include', headers: { 'X-Govkit-Embed': '1' } })
+      .then(function (r) {
+        if (r.status === 404) return null;
+        if (!r.ok) throw new Error(r.status);
+        return r.json();
+      })
+      .then(function (d) {
+        current = d;
+        render(d && d.description);
+      })
+      .catch(function () {
+        render('');
+        say('Your board could not be reached. Anything you write may not save.');
       });
   }
 
