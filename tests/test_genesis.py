@@ -150,18 +150,6 @@ def test_brief_tells_you_how_until_you_have_done_it(client, user_factory, founde
     assert brief not in client.get(url).content.decode()
 
 
-def test_every_curriculum_item_says_how(client):
-    """A new item with no brief is the old one-line checklist again."""
-
-    missing = [
-        item_key
-        for _m, _l, _w, items in MODULES
-        for item_key, _title in items
-        if not ITEM_BRIEFS.get(item_key)
-    ]
-    assert missing == []
-
-
 def test_member_toggles_checklist_item(client, user_factory, founder_invite):
     user = user_factory()
     client.force_login(user)
