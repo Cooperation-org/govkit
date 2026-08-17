@@ -175,6 +175,10 @@ class TaskDetailView(APIView):
             "project_slug": detail.project_slug,
             "version": detail.version,
             "is_closed": detail.is_closed,
+            "status_id": detail.status_id,
+            # Where this task can go next, in the board's own words. The sheet
+            # offers exactly these and invents nothing.
+            "statuses": detail.statuses,
             "source": source.pk,
         }
 
@@ -214,17 +218,28 @@ class TaskDetailView(APIView):
     def post(self, request, org_slug=None, external_id=None):
         subject = request.data.get("subject")
         description = request.data.get("description")
-        if subject is None and description is None:
+        status_id = request.data.get("status_id")
+        if subject is None and description is None and status_id is None:
             return Response({"detail": "Nothing to change."}, status=status.HTTP_400_BAD_REQUEST)
         if subject is not None and not str(subject).strip():
             return Response({"detail": "A task needs a title."}, status=status.HTTP_400_BAD_REQUEST)
         try:
             adapter, source, detail = self._find(request, external_id)
+            # A status has to be one the tracker itself offered for this task.
+            # Anything else is a caller guessing at another board's ids.
+            if status_id is not None and str(status_id) not in {
+                s["id"] for s in detail.statuses
+            }:
+                return Response(
+                    {"detail": "That is not a status this task can move to."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             updated = adapter.update_task(
                 external_id,
                 subject=None if subject is None else str(subject).strip(),
                 description=None if description is None else str(description),
                 version=detail.version,
+                status_id=None if status_id is None else str(status_id),
             )
         except LookupError:
             return Response({"detail": "No such task."}, status=status.HTTP_404_NOT_FOUND)

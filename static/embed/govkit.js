@@ -127,6 +127,15 @@
       '}',
       // STATUS IS A WORD, NOT A COLOR.
       '.gk-sheet-status { font-weight: 600; color: var(--ink, #26221c); }',
+      '.gk-moverow { display: flex; flex-wrap: wrap; gap: 6px; }',
+      '.gk-move {',
+      '  font: inherit; font-size: 13px; cursor: pointer; color: inherit;',
+      '  background: none; border: 1px solid var(--hairline, #e6e1d8);',
+      '  border-radius: 6px; padding: 5px 12px;',
+      '}',
+      '.gk-move:hover:not(:disabled) { border-color: currentColor; }',
+      '.gk-move.on { font-weight: 600; border-color: currentColor; cursor: default; }',
+      '.gk-move:disabled:not(.on) { opacity: 0.5; cursor: default; }',
       '.gk-sheet-note { padding: 0 20px 16px; font-size: 13px; color: var(--ink, #26221c); }',
       // What the item is asking for, above the box you answer it in.
       '.gk-sheet-brief { margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.85; }',
@@ -753,7 +762,13 @@
           // Keep what the person typed; tell them plainly it is not on the board.
           say('Not saved. Your text is still here — try again, or open it on the board.');
         })
-        .then(function () { input.disabled = false; });
+        .then(function () {
+          input.disabled = false;
+          var row = input.closest && input.closest('.gk-moverow');
+          if (row) row.querySelectorAll('button').forEach(function (x) {
+            if (!x.classList.contains('on')) x.disabled = false;
+          });
+        });
     }
 
     function render(d) {
@@ -767,8 +782,32 @@
         save({ description: v }, input);
       }));
 
+      // Where it can go next, in the board's own words. The board names the
+      // moves — review, done, archived, whatever this project calls them — so
+      // nothing here invents a workflow the team does not have.
+      if ((d.statuses || []).length) {
+        var moves = el('div', 'gk-moves');
+        moves.appendChild(el('span', 'gk-flabel', 'Status'));
+        var row = el('div', 'gk-moverow');
+        d.statuses.forEach(function (st) {
+          var b = el('button', 'gk-move' + (String(st.id) === String(d.status_id) ? ' on' : ''),
+                     st.name);
+          b.type = 'button';
+          if (String(st.id) === String(d.status_id)) {
+            b.disabled = true;
+          } else {
+            b.addEventListener('click', function () {
+              row.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
+              save({ status_id: st.id }, b);
+            });
+          }
+          row.appendChild(b);
+        });
+        moves.appendChild(row);
+        body.appendChild(moves);
+      }
+
       var meta = el('div', 'gk-sheet-meta');
-      if (d.status) meta.appendChild(el('span', 'gk-sheet-status', d.status));
       if (d.assignee_label) meta.appendChild(el('span', null, d.assignee_label));
       var href = boardHref(d, tasksApp);
       if (href) {

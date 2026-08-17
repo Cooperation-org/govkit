@@ -37,7 +37,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
-from typing import Iterable, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 # hours_field values that mean "use Taiga's native story points" rather than a custom
 # attribute. Anything else in hours_field is treated as a custom-attribute name.
@@ -121,6 +121,11 @@ class TaskDetailDTO:
     project_slug: Optional[str] = None
     version: Optional[int] = None
     is_closed: bool = False
+    status_id: Optional[str] = None
+    #: every status this task could be moved to, in the tracker's own order and
+    #: its own words: [{"id", "name", "is_closed", "is_archived"}]. The board
+    #: names the moves; nothing here invents "approve" or "archive".
+    statuses: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -184,11 +189,14 @@ class TaskSourceAdapter(abc.ABC):
         subject: Optional[str] = None,
         description: Optional[str] = None,
         version: Optional[int] = None,
+        status_id: Optional[str] = None,
     ) -> TaskDetailDTO:
         """Apply an edit to ONE task on the tracker and return it as it now stands.
 
-        Only the fields passed are sent. Optional capability: adapters that cannot
-        write raise NotImplementedError, so a read-only tracker degrades to a link out
+        Only the fields passed are sent. ``status_id`` moves it to one of the
+        statuses ``fetch_task`` reported — the board's own move, made in the
+        board's own vocabulary. Optional capability: adapters that cannot write
+        raise NotImplementedError, so a read-only tracker degrades to a link out
         rather than an editor that silently drops what a person typed.
         """
         raise NotImplementedError(f"{type(self).__name__} cannot write tasks")
@@ -487,7 +495,27 @@ class TaigaAdapter(TaskSourceAdapter):
             project_slug=project_extra.get("slug") or None,
             version=version if isinstance(version, int) else None,
             is_closed=bool(status_row.get("is_closed", False)),
+            status_id=str(story.get("status")) if story.get("status") is not None else None,
+            statuses=self._status_choices(project_id),
         )
+
+    def _status_choices(self, project_id) -> list:
+        """The statuses this project has, in its own order and its own words."""
+        if project_id is None:
+            return []
+        rows = sorted(
+            self._statuses(str(project_id)).values(),
+            key=lambda r: (r.get("order") if isinstance(r.get("order"), int) else 0),
+        )
+        return [
+            {
+                "id": str(r["id"]),
+                "name": r.get("name") or r.get("slug", ""),
+                "is_closed": bool(r.get("is_closed", False)),
+                "is_archived": bool(r.get("is_archived", False)),
+            }
+            for r in rows
+        ]
 
     def _story(self, external_id: str) -> dict:
         try:
@@ -510,12 +538,15 @@ class TaigaAdapter(TaskSourceAdapter):
         subject: Optional[str] = None,
         description: Optional[str] = None,
         version: Optional[int] = None,
+        status_id: Optional[str] = None,
     ) -> TaskDetailDTO:
         body: dict = {}
         if subject is not None:
             body["subject"] = subject
         if description is not None:
             body["description"] = description
+        if status_id is not None:
+            body["status"] = int(status_id)
         if not body:
             return self.fetch_task(external_id)
         # Taiga requires the version it last handed out. Read it now when the caller
