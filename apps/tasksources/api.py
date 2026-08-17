@@ -259,6 +259,84 @@ class TaskDetailView(APIView):
         return Response(self._payload(updated, source))
 
 
+class TaskOrderView(APIView):
+    """Save the order a person put the open-task list in.
+
+    Golda 2026-08-17: "must be able save explicit ordering, preferably on tasks
+    if there is a field". There is one — the tracker's own order field — so that
+    is where it goes. GovKit keeps no list of its own: the board and the dash
+    read the same fact, and a person who arranges the dash sees the same order
+    on the board.
+
+    Any member may arrange it. The board is the team's, and an order is not a
+    thing to gate.
+    """
+
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [EmbedSessionAuthentication]
+
+    def post(self, request, org_slug=None):
+        ids = request.data.get("ids")
+        if not isinstance(ids, list) or not ids:
+            return Response(
+                {"detail": "Send the task ids in the order they should be in."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        ids = [str(i) for i in ids]
+        if len(set(ids)) != len(ids):
+            return Response(
+                {"detail": "The same task cannot be in two places."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # Only tasks this org's own sources actually hold. Ordering is a write,
+        # and a write must not reach a board this org cannot see.
+        try:
+            mine = {t.external_id for t in _org_open_tasks(request.org)}
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            return Response(
+                {"detail": f"Task tracker unavailable: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        unknown = [i for i in ids if i not in mine]
+        if unknown:
+            return Response(
+                {"detail": "Those are not this team's open tasks."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        wrote = False
+        try:
+            for source in TaskSourceConfig.objects.for_org(request.org):
+                adapter = get_adapter(source)
+                try:
+                    adapter.set_order(ids)
+                    wrote = True
+                except NotImplementedError:
+                    continue
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            return Response(
+                {"detail": f"Task tracker unavailable: {exc}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        if not wrote:
+            return Response(
+                {"detail": "This tracker cannot be reordered."},
+                status=status.HTTP_501_NOT_IMPLEMENTED,
+            )
+        cache.delete(f"tasksources:open_tasks:{request.org.pk}")
+        return Response({"ids": ids})
+
+
+def _org_open_tasks(org):
+    """Every open task across this org's sources. Raises like the adapters do."""
+    tasks = []
+    for source in TaskSourceConfig.objects.for_org(org):
+        try:
+            tasks.extend(get_adapter(source).fetch_open_tasks())
+        except NotImplementedError:
+            continue
+    return tasks
+
+
 class ChecklistItemTaskView(TaskDetailView):
     """The task on the team's own board that holds one checklist item's answer.
 
@@ -417,6 +495,11 @@ urlpatterns = [
         "orgs/<slug:org_slug>/tasks/missing_value/",
         TrackedTaskViewSet.as_view({"get": "missing_value"}),
         name="trackedtask-missing-value",
+    ),
+    path(
+        "orgs/<slug:org_slug>/tasks/order/",
+        TaskOrderView.as_view(),
+        name="trackedtask-order",
     ),
     path(
         "orgs/<slug:org_slug>/tasks/open/",

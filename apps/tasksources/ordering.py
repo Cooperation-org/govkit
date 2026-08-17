@@ -8,8 +8,12 @@ on the board, which is why the card read as stale no matter what the team did.
 The rule, the same one amebo's work list uses so a person does not meet two
 different ideas of "important" in one week:
 
-  1. Anything with a deadline comes first, soonest first. A date is a fact, not
-     a judgement, and it needs no defending.
+  0. A task the team ARRANGED BY HAND comes first, in the order they put it in.
+     Golda 2026-08-17: "if is explicit respect it." Somebody dragging a row
+     knows something no rule here can work out, and a list that quietly
+     reshuffles itself afterwards is a list nobody will touch twice.
+  1. Then anything with a deadline, soonest first. A date is a fact, not a
+     judgement, and it needs no defending.
   2. Everything else is ordered by whether it needs a look: brand new (nobody
      has triaged it yet), then longest untouched, because a task nobody has
      touched in months is being ignored rather than handled.
@@ -24,6 +28,14 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Any, Optional, Sequence
+
+# An arranged task outranks every rule. Its position is the tracker's own order
+# field, written as 1, 2, 3... by whoever dragged it (adapters' set_order).
+# Taiga numbers a story it created with a microsecond stamp, ~1.8e15, so a
+# number under this ceiling can only have been put there by a person arranging
+# the list. Nothing else in the band is possible.
+EXPLICIT_CEILING = 1_000_000
+EXPLICIT_FLOOR = 10000.0
 
 # A dated task always outranks an undated one, the way a deadline outranks a
 # hunch. The bands never overlap.
@@ -51,9 +63,24 @@ def _days_since(stamp: Optional[str], today: date) -> Optional[int]:
     return None if d is None else max(0, (today - d).days)
 
 
+def placed_at(task: Any) -> Optional[int]:
+    """The position a person put this task in, or None if nobody has."""
+    order = getattr(task, "order", None)
+    if isinstance(order, int) and 0 < order < EXPLICIT_CEILING:
+        return order
+    return None
+
+
 def rank(task: Any, today: Optional[date] = None) -> float:
     """How high this task sits. Higher is more urgent."""
     today = today or date.today()
+
+    placed = placed_at(task)
+    if placed is not None:
+        # First arranged is highest, and every arranged task sits above every
+        # task no one has arranged — including anything overdue. That is what
+        # respecting an explicit order means.
+        return EXPLICIT_FLOOR + max(0.0, 10000.0 - placed)
 
     due = _day(getattr(task, "due_date", None))
     if due is not None:

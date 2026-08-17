@@ -96,6 +96,11 @@ class OpenTaskDTO:
     due_date: Optional[str] = None  # 'YYYY-MM-DD', or None when nobody set one
     created_date: Optional[str] = None  # ISO timestamp from the tracker
     modified_date: Optional[str] = None  # ISO timestamp from the tracker
+    #: The tracker's own ordering field. A team that has arranged this list by
+    #: hand has said something no rule can work out, so the number is carried
+    #: here and ``ordering`` honours it. See ``EXPLICIT_CEILING`` there for how
+    #: an arranged task is told from one the tracker numbered itself.
+    order: Optional[int] = None
 
 
 @dataclass
@@ -200,6 +205,16 @@ class TaskSourceAdapter(abc.ABC):
         rather than an editor that silently drops what a person typed.
         """
         raise NotImplementedError(f"{type(self).__name__} cannot write tasks")
+
+    def set_order(self, external_ids: Iterable[str]) -> None:
+        """Put these tasks in this order on the tracker, first to last.
+
+        The order is written to the TRACKER, on the task, so it is one fact in
+        one place: the board and the dash cannot disagree about it, and the
+        person who arranged it sees the same order everywhere. Optional
+        capability: adapters that cannot write raise NotImplementedError.
+        """
+        raise NotImplementedError(f"{type(self).__name__} cannot order tasks")
 
     def create_task(self, subject: str, description: str = "") -> TaskDetailDTO:
         """Create ONE task on the tracker and return it.
@@ -444,6 +459,9 @@ class TaigaAdapter(TaskSourceAdapter):
                         due_date=story.get("due_date") or None,
                         created_date=story.get("created_date") or None,
                         modified_date=story.get("modified_date") or None,
+                        order=story.get("backlog_order")
+                        if isinstance(story.get("backlog_order"), int)
+                        else None,
                     )
                 )
         return results
@@ -558,6 +576,24 @@ class TaigaAdapter(TaskSourceAdapter):
             f"/api/v1/userstories/{urllib.parse.quote(str(external_id))}", "PATCH", body
         )
         return self._story_detail(story or self._story(external_id))
+
+    def set_order(self, external_ids) -> None:
+        """Write positions 1..N onto these stories, in the order given.
+
+        Taiga's ``backlog_order`` is a microsecond stamp it assigns at creation
+        (~1.8e15 today), so the small numbers written here sit below every
+        number Taiga has ever produced. That is what makes an arranged task
+        recognisable as arranged — see ``ordering.EXPLICIT_CEILING`` — and it
+        also puts these stories at the top of Taiga's own backlog, which is
+        what a person who dragged them to the top meant.
+        """
+        for position, external_id in enumerate(external_ids, start=1):
+            story = self._story(external_id)
+            self._send(
+                f"/api/v1/userstories/{urllib.parse.quote(str(external_id))}",
+                "PATCH",
+                {"backlog_order": position, "version": story.get("version")},
+            )
 
     def create_task(self, subject: str, description: str = "") -> TaskDetailDTO:
         project_ids = self._project_ids()

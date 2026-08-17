@@ -21,6 +21,7 @@ def task(
     created_date="2026-01-10T09:00:00.000Z",
     modified_date="2026-06-10T09:00:00.000Z",
     assignee_label="sami",
+    order=None,
 ):
     return OpenTaskDTO(
         external_id=external_id,
@@ -29,6 +30,7 @@ def task(
         created_date=created_date,
         modified_date=modified_date,
         assignee_label=assignee_label,
+        order=order,
     )
 
 
@@ -112,3 +114,45 @@ def test_missing_dates_never_break_the_order():
 
 def test_nothing_open_is_an_empty_list():
     assert most_important_first([], TODAY) == []
+
+
+# --- an order a person put it in -------------------------------------------
+# Golda 2026-08-17: "if is explicit respect it."
+
+
+def test_an_arranged_task_beats_a_deadline():
+    arranged = rank(task("1", order=3), TODAY)
+    overdue = rank(task("2", due_date="2026-01-01"), TODAY)
+    assert arranged > overdue
+
+
+def test_arranged_tasks_come_back_in_the_order_they_were_put_in():
+    order = most_important_first(
+        [
+            task("c", "third", order=3),
+            task("a", "first", order=1),
+            task("b", "second", order=2),
+        ],
+        TODAY,
+    )
+    assert [t.subject for t in order] == ["first", "second", "third"]
+
+
+def test_arranging_some_leaves_the_rest_on_the_rule():
+    order = most_important_first(
+        [
+            task("dead", "untouched for months", modified_date="2025-01-01T09:00:00.000Z"),
+            task("due", "due soon", due_date="2026-08-06"),
+            task("mine", "I put this here", order=1),
+        ],
+        TODAY,
+    )
+    assert [t.subject for t in order] == ["I put this here", "due soon", "untouched for months"]
+
+
+def test_a_tracker_assigned_order_is_not_an_arrangement():
+    """Taiga stamps backlog_order with microseconds at creation. That is the
+    tracker numbering itself, not a person arranging anything."""
+    stamped = task("1", order=1785141104630819, due_date=None)
+    dated = task("2", due_date="2026-08-06")
+    assert rank(dated, TODAY) > rank(stamped, TODAY)

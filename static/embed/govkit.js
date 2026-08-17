@@ -182,6 +182,11 @@
       'govkit-checklist li.readmore a { font-size: 12.5px; color: inherit; opacity: 0.75; text-decoration: none; }',
       'govkit-checklist li.readmore a:hover { opacity: 1; text-decoration: underline; }',
       'govkit-tasks .status { font-size: 12px; opacity: 0.65; white-space: nowrap; }',
+      'govkit-tasks td.grip { width: 1em; padding-right: 0; cursor: grab; opacity: 0.35; user-select: none; }',
+      'govkit-tasks tr:hover td.grip { opacity: 0.7; }',
+      'govkit-tasks tr.dragging { opacity: 0.4; }',
+      'govkit-tasks tr:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }',
+      'govkit-tasks .ordersay { font-size: 12px; padding-top: 6px; }',
       'govkit-tasks .assignee { font-size: 12.5px; opacity: 0.8; white-space: nowrap; }',
       'govkit-tasks a { color: inherit; }',
       'govkit-money .totals { display: flex; gap: 16px; font-size: 13px; margin-bottom: 8px; flex-wrap: wrap; }',
@@ -593,6 +598,12 @@
     var tbody = el('tbody');
     tasks.forEach(function (t) {
       var tr = el('tr');
+      tr.dataset.id = t.external_id;
+      var tdGrip = el('td', 'grip');
+      tdGrip.textContent = '⠿';
+      tdGrip.title = 'Drag to arrange';
+      tdGrip.setAttribute('aria-hidden', 'true');
+      tr.appendChild(tdGrip);
       var tdSubject = el('td');
       // The row opens the task here, in place, rather than throwing the person
       // out to the tracker. The way back out lives inside the sheet.
@@ -632,6 +643,87 @@
     });
     table.appendChild(tbody);
     host.appendChild(table);
+    if (c) makeArrangeable(tbody, host, c);
+  }
+
+  // Drag a row up or down and the order is SAVED, on the task, on the tracker
+  // (POST tasks/order/ -> the tracker's own order field). Golda 2026-08-17:
+  // "must be able save explicit ordering" / "if is explicit respect it" — so
+  // the card stops re-sorting these rows by its own rule from then on.
+  //
+  // HTML5 drag-and-drop with the row as the handle, per the WAI-ARIA APG's
+  // advice to keep a keyboard path: Alt+Up / Alt+Down moves the focused row and
+  // saves the same way, so arranging the list never needs a mouse.
+  function makeArrangeable(tbody, host, c) {
+    var dragging = null;
+
+    function rowsInOrder() {
+      return Array.prototype.map.call(tbody.querySelectorAll('tr'), function (r) {
+        return r.dataset.id;
+      });
+    }
+
+    function save() {
+      var ids = rowsInOrder();
+      host.dataset.saving = '1';
+      fetch(c.up + '/api/v1/tasksources/orgs/' + c.org + '/tasks/order/', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'X-Govkit-Embed': '1', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: ids }),
+      })
+        .then(function (r) { if (!r.ok) throw new Error(r.status); })
+        .catch(function () {
+          // The order on screen is not the order on the board. Say so rather
+          // than leaving a lie the next reload silently corrects.
+          var note = host.querySelector('.ordersay') || el('div', 'ordersay');
+          note.textContent = 'That order is not saved. Try again.';
+          host.appendChild(note);
+        })
+        .then(function () {
+          delete host.dataset.saving;
+          var ok = host.querySelector('.ordersay');
+          if (ok && !ok.textContent) ok.remove();
+        });
+    }
+
+    Array.prototype.forEach.call(tbody.querySelectorAll('tr'), function (tr) {
+      tr.setAttribute('draggable', 'true');
+      tr.setAttribute('tabindex', '0');
+      tr.addEventListener('dragstart', function (e) {
+        dragging = tr;
+        tr.classList.add('dragging');
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', tr.dataset.id || '');
+        }
+      });
+      tr.addEventListener('dragend', function () {
+        tr.classList.remove('dragging');
+        dragging = null;
+        save();
+      });
+      tr.addEventListener('dragover', function (e) {
+        if (!dragging || dragging === tr) return;
+        e.preventDefault();
+        var box = tr.getBoundingClientRect();
+        var below = (e.clientY - box.top) > box.height / 2;
+        tbody.insertBefore(dragging, below ? tr.nextSibling : tr);
+      });
+      tr.addEventListener('keydown', function (e) {
+        if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+        e.preventDefault();
+        if (e.key === 'ArrowUp' && tr.previousElementSibling) {
+          tbody.insertBefore(tr, tr.previousElementSibling);
+        } else if (e.key === 'ArrowDown' && tr.nextElementSibling) {
+          tbody.insertBefore(tr.nextElementSibling, tr);
+        } else {
+          return;
+        }
+        tr.focus();
+        save();
+      });
+    });
   }
 
   // --- the task sheet ------------------------------------------------------
