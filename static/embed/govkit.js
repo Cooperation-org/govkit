@@ -63,8 +63,10 @@
       'govkit-pie[hidden], govkit-feed[hidden], govkit-checklist[hidden], govkit-tasks[hidden],',
       'govkit-money[hidden], govkit-activity[hidden], govkit-ventures[hidden],',
       'govkit-news[hidden] { display: none; }',
-      'govkit-pie .piewrap { display: grid; grid-template-columns: 200px 1fr; gap: 18px; align-items: center; }',
-      '@media (max-width: 560px) { govkit-pie .piewrap { grid-template-columns: 1fr; justify-items: center; } }',
+      // The shares read UNDER the pie, never beside it (golda 2026-08-17).
+      // Side by side they were squeezed into whatever was left of a narrow
+      // dash column and the names ran over the edge of the card.
+      'govkit-pie .piewrap { display: grid; grid-template-columns: 1fr; gap: 14px; justify-items: center; }',
       'govkit-pie .pieleg { display: grid; gap: 2px; width: 100%; }',
       'govkit-pie .leg-row { padding: 5px 10px; border-radius: 7px; }',
       'govkit-pie .leg-row .top { display: flex; align-items: center; gap: 8px; }',
