@@ -32,6 +32,7 @@ from .models import (
     ValuationMode,
     WeightWindow,
 )
+from .slugs import MAX_SLUG_LENGTH, MIN_SLUG_LENGTH, normalize_org_slug, unique_org_slug
 
 
 class OnboardingForm(forms.Form):
@@ -46,10 +47,13 @@ class OnboardingForm(forms.Form):
 
     display_name = forms.CharField(max_length=255, label="Organization name")
     slug = forms.SlugField(
-        max_length=64,
+        max_length=MAX_SLUG_LENGTH,
         required=False,
         label="URL slug",
-        help_text="Optional — made from the name if left blank. Used in every org URL.",
+        help_text=(
+            "Optional — made from the name if left blank. Used in every org URL, "
+            f"and in the team's CRM address. {MAX_SLUG_LENGTH} characters or fewer."
+        ),
     )
     unit_name = forms.CharField(
         max_length=32,
@@ -136,12 +140,22 @@ class OnboardingForm(forms.Form):
     )
 
     def clean_slug(self):
-        slug = slugify(self.cleaned_data.get("slug", ""))
-        if not slug:
+        raw = slugify(self.cleaned_data.get("slug", ""))
+        if not raw:
             return ""  # derived from the name in clean()
-        if Org.objects.filter(slug=slug).exists():
+        # Typed by a human: say what is wrong rather than silently shortening it.
+        if len(raw) > MAX_SLUG_LENGTH:
+            raise forms.ValidationError(
+                f"Keep this to {MAX_SLUG_LENGTH} characters or fewer — it is also "
+                "the name of the team's CRM address and database."
+            )
+        if len(raw) < MIN_SLUG_LENGTH:
+            raise forms.ValidationError(
+                f"Use at least {MIN_SLUG_LENGTH} characters."
+            )
+        if Org.objects.filter(slug=raw).exists():
             raise forms.ValidationError("That slug is already taken.")
-        return slug
+        return raw
 
     def clean(self):
         data = super().clean()
@@ -150,14 +164,10 @@ class OnboardingForm(forms.Form):
         if data["start_kind"] == self.START_FRESH:
             data["initial_valuation"] = None  # fresh pies begin empty
         if not data.get("slug") and data.get("display_name"):
-            base = slugify(data["display_name"])[:60]
+            base = normalize_org_slug(data["display_name"])
             if not base:
                 raise forms.ValidationError("Enter a name we can make a URL from.")
-            slug, n = base, 2
-            while Org.objects.filter(slug=slug).exists():
-                slug = f"{base}-{n}"
-                n += 1
-            data["slug"] = slug
+            data["slug"] = unique_org_slug(base)
         return data
 
     @transaction.atomic

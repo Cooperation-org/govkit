@@ -21,10 +21,10 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.db import transaction
-from django.utils.text import slugify
 
 from .amebo import provision_membership
 from .genesis import start_genesis
+from .slugs import normalize_org_slug, unique_org_slug
 from .models import (
     Invite,
     InviteAudience,
@@ -65,15 +65,6 @@ def get_invite_for_accept(code: str) -> Invite:
     return invite
 
 
-def _unique_org_slug(base: str) -> str:
-    slug = base
-    n = 2
-    while Org.objects.filter(slug=slug).exists():
-        slug = f"{base}-{n}"
-        n += 1
-    return slug
-
-
 def create_venture_org(invite: Invite, user) -> Org:
     """
     A founder's venture becomes a real org the moment they accept: Org (default
@@ -84,9 +75,9 @@ def create_venture_org(invite: Invite, user) -> Org:
     holds part of it, is the founder's own call — offered to them on their pie board
     once they are in, never decided for them by whoever sent the invite.
     """
-    base = slugify(invite.venture_name)[:60] or f"venture-{invite.code[:8].lower()}"
+    base = normalize_org_slug(invite.venture_name) or f"venture-{invite.code[:8].lower()}"
     org = Org.objects.create(
-        slug=_unique_org_slug(base),
+        slug=unique_org_slug(base),
         display_name=invite.venture_name,
         unit_name="slices",
     )
