@@ -65,6 +65,19 @@ def get_invite_for_accept(code: str) -> Invite:
     return invite
 
 
+def addressed_to(invite: Invite, user) -> bool:
+    """Is this invite made out to the person holding it right now?
+
+    Email stays what it has always been here — display and audit, never a gate on
+    accepting (an OAuth identity may carry a different verified address than the one
+    invited). This answers a narrower question, and only for BYOV: of the two people
+    who can be standing on a venture link inside the inviting org, is this the founder
+    it was minted for, or an admin reading someone else's mint? A blank invite email
+    answers neither, so it answers no.
+    """
+    return bool(invite.email) and bool(user.email) and invite.email.lower() == user.email.lower()
+
+
 def create_venture_org(invite: Invite, user) -> Org:
     """
     A founder's venture becomes a real org the moment they accept: Org (default
@@ -103,12 +116,37 @@ def accept_invite_for_user(invite: Invite, user) -> tuple[Membership | None, Org
 
     Idempotent for the user: if they already belong to the org, their existing
     membership is returned unchanged — and the invite is NOT consumed (an existing
-    member on an invite link is previewing it, not joining).
+    member on an invite link is previewing it, not joining). BYOV is the exception,
+    below: it joins nobody to the inviting org, so membership there decides nothing.
     """
     if not invite.can_accept:
         raise InviteError("This invite is no longer active.")
 
     membership = Membership.objects.filter(org=invite.org, user=user).first()
+    if invite.kind == InviteKind.BYOV:
+        # Founder Bringing their Own Venture: create THAT org (invitee as admin)
+        # and land them on it. They do NOT join the inviting org — the venture is
+        # its own home. (The distinct third invite type, golda 2026-07-24.)
+        #
+        # Belonging to the inviting org therefore says nothing about this accept.
+        # An accelerator member bringing their own venture is ordinary — an admin
+        # of the accelerator minting one for themselves most of all. The
+        # "already a member" check below used to run first and swallow it: the
+        # link appeared to work, no venture was created, no error was shown, and
+        # they landed back on the inviting org's dash with only that org to see
+        # (Alex / Lynxmonde, invite minted 2026-08-21).
+        #
+        # A member the invite is NOT made out to is looking at someone else's
+        # mint: hand back their membership and leave the code live. When the
+        # invite carries no email there is nothing to tell the two apart, so a
+        # member click stays a preview — minting a stranger's venture under the
+        # wrong founder is the worse failure, and the invite survives either way.
+        if membership is not None and not addressed_to(invite, user):
+            return membership, None
+        venture_org = create_venture_org(invite, user)
+        invite.mark_accepted(by=user)
+        transaction.on_commit(lambda: provision_membership(venture_org, user, MembershipRole.ADMIN))
+        return None, venture_org
     if membership is not None:
         # An existing member touching an invite link is previewing it (typically the
         # inviter checking their own mint) — never burn the single-use code on them,
@@ -118,14 +156,6 @@ def accept_invite_for_user(invite: Invite, user) -> tuple[Membership | None, Org
     if invite.kind == InviteKind.POOL:
         invite.mark_accepted(by=user)
         return None, None
-    if invite.kind == InviteKind.BYOV:
-        # Founder Bringing their Own Venture: create THAT org (invitee as admin)
-        # and land them on it. They do NOT join the inviting org — the venture is
-        # its own home. (The distinct third invite type, golda 2026-07-24.)
-        venture_org = create_venture_org(invite, user)
-        invite.mark_accepted(by=user)
-        transaction.on_commit(lambda: provision_membership(venture_org, user, MembershipRole.ADMIN))
-        return None, venture_org
     if invite.audience == InviteAudience.SUPPORTER:
         # Supporters never join an org (golda 2026-07-22): they are the email
         # list — wall card + dash + contact capture, no membership, no slices,

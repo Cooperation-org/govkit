@@ -541,6 +541,74 @@ def test_signed_in_founder_accept_creates_the_venture(client, admin_org, user_fa
     ).exists()
 
 
+def test_member_of_the_inviting_org_still_gets_their_own_venture(
+    client, admin_org, user_factory
+):
+    """An accelerator member bringing their own venture is the ordinary case.
+
+    BYOV never joins the inviting org, so already belonging to it decides nothing.
+    Before this, the "existing member is previewing" check ran first: the link
+    appeared to work, no venture appeared, and the founder landed back on the
+    inviting org's dash (Alex / Lynxmonde, 2026-08-21).
+    """
+    from apps.orgs.models import Org
+
+    org, _ = admin_org
+    founder = user_factory(email="fay@example.com")
+    Membership.objects.create(org=org, user=founder, role=MembershipRole.ADMIN)
+    invite = Invite.objects.create(
+        org=org,
+        role=MembershipRole.MEMBER,
+        audience="founder",
+        kind=InviteKind.BYOV,
+        name="Fay Founder",
+        email="fay@example.com",
+        venture_name="Wayfern",
+    )
+    client.force_login(founder)
+    resp = client.post(_accept_url(invite))
+
+    venture = Org.objects.get(display_name="Wayfern")
+    assert venture.id != org.id
+    assert resp["Location"] == reverse("orgs:dashboard", kwargs={"org_slug": venture.slug})
+    assert Membership.objects.filter(
+        org=venture, user=founder, role=MembershipRole.ADMIN
+    ).exists()
+    # Both memberships stand: the accelerator one they had, and the venture they brought.
+    assert Membership.objects.filter(user=founder).count() == 2
+    invite.refresh_from_db()
+    assert invite.status == InviteStatus.ACCEPTED
+
+
+def test_admin_reading_someone_elses_venture_mint_leaves_it_live(
+    client, admin_org, user_factory
+):
+    """A member opening a BYOV link addressed to someone else is previewing it.
+
+    No venture is minted under the wrong founder and the single-use code survives
+    for the person it was made out to.
+    """
+    from apps.orgs.models import Org
+
+    org, admin = admin_org
+    invite = Invite.objects.create(
+        org=org,
+        role=MembershipRole.MEMBER,
+        audience="founder",
+        kind=InviteKind.BYOV,
+        name="Fay Founder",
+        email="fay@example.com",
+        venture_name="Wayfern",
+    )
+    client.force_login(admin)
+    client.post(_accept_url(invite))
+
+    assert not Org.objects.filter(display_name="Wayfern").exists()
+    assert Membership.objects.filter(user=admin).count() == 1
+    invite.refresh_from_db()
+    assert invite.can_accept
+
+
 # --- Revoke ---------------------------------------------------------------------------------
 
 
