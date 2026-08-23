@@ -77,11 +77,16 @@ class LineProvenance:
 
 @dataclass
 class OpeningProvenance:
-    """One imported opening balance."""
+    """One opening balance row.
+
+    ``is_adjustment`` marks a correction to the rows before it rather than more value
+    put in, so a trace can read as a history and a summary can leave it out.
+    """
 
     opening_balance_id: int
     value: Decimal
     source_note: str
+    is_adjustment: bool = False
 
 
 @dataclass
@@ -97,6 +102,7 @@ class StakeProvenance:
     value: Decimal
     source_note: str
     target_pct: Optional[Decimal] = None
+    is_adjustment: bool = False
 
 
 # --------------------------------------------------------------------------- #
@@ -136,6 +142,12 @@ class PieSlice:
     # never anything this app computes.
     holder_url: str = ""
     stakes: List[StakeProvenance] = field(default_factory=list)
+    # A sponsor's stake split by the kind it was RECORDED in, because that is the kind
+    # it has to be corrected in: an amount stays where it is put, a percent of the
+    # starting split is re-resolved on every computation. ``stake_pct_total`` is None
+    # when the holder has no percent stake at all.
+    stake_fixed_total: Decimal = ZERO
+    stake_pct_total: Optional[Decimal] = None
 
     @property
     def is_sponsor(self) -> bool:
@@ -208,6 +220,7 @@ def _opening_provenance(ob: OpeningBalance) -> OpeningProvenance:
         opening_balance_id=ob.pk,
         value=ob.value,
         source_note=ob.source_note,
+        is_adjustment=ob.is_adjustment,
     )
 
 
@@ -291,6 +304,7 @@ def _sponsor_slices(org) -> List[PieSlice]:
     for stakes in _stakes_by_holder(org).values():
         holder = stakes[0].holder
         total = _cents(sum((resolved[s.pk] for s in stakes), ZERO))
+        pct_stakes = [s for s in stakes if s.value is None]
         slices.append(
             PieSlice(
                 membership_id=None,
@@ -304,12 +318,21 @@ def _sponsor_slices(org) -> List[PieSlice]:
                 holder_kind=HOLDER_SPONSOR,
                 holder_slug=holder.slug,
                 holder_url=holder.url,
+                stake_fixed_total=_cents(
+                    sum((s.value for s in stakes if s.value is not None), ZERO)
+                ),
+                stake_pct_total=(
+                    _cents(sum((s.target_pct or ZERO for s in pct_stakes), ZERO))
+                    if pct_stakes
+                    else None
+                ),
                 stakes=[
                     StakeProvenance(
                         stake_id=s.pk,
                         value=resolved[s.pk],
                         source_note=s.source_note,
                         target_pct=s.target_pct,
+                        is_adjustment=s.is_adjustment,
                     )
                     for s in stakes
                 ],

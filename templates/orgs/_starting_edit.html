@@ -1,0 +1,8 @@
+<form method="post" action="{{ action }}" class="gk-set-form">
+  {% csrf_token %}
+  <input type="hidden" name="back" value="{{ back }}">
+  <input type="number" step="0.01" min="0" name="{{ field }}" value="{{ current }}"
+         data-was="{{ current }}" aria-label="{{ label }}">
+  <span class="gk-set-unit">{{ suffix }}</span>
+  <button type="submit" class="gk-btn-quiet">Set</button>
+</form>

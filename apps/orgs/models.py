@@ -837,7 +837,15 @@ class ChecklistTask(models.Model):
 
 
 class OpeningBalance(models.Model):
-    """Imported pre-existing equity for a member (the historical-import target)."""
+    """Imported pre-existing equity for a member (the historical-import target).
+
+    Rows are additive and never edited, so setting a starting value to a number adds
+    one more row for the difference, negative when it comes down (apps.orgs.equity).
+    Such a row is flagged: it is a correction to what the rows above it say, not
+    another thing the member put in, and the two read differently everywhere they are
+    shown. The flag is on the row because that is where the fact belongs — reading it
+    back out of ``source_note`` would be guessing at prose.
+    """
 
     org = models.ForeignKey(Org, on_delete=models.CASCADE, related_name="opening_balances")
     membership = models.ForeignKey(
@@ -845,6 +853,7 @@ class OpeningBalance(models.Model):
     )
     value = models.DecimalField(max_digits=16, decimal_places=2)
     source_note = models.CharField(max_length=500, blank=True)
+    is_adjustment = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -922,6 +931,10 @@ class OrgStake(models.Model):
     # Share of the starting split (0–100), for stakes agreed as a percentage.
     target_pct = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     source_note = models.CharField(max_length=500, blank=True)
+    # A correction to what the rows above it say, rather than more value put in — see
+    # OpeningBalance.is_adjustment. Carries the difference, negative when the stake
+    # comes down, in whichever of value/target_pct the stake is recorded in.
+    is_adjustment = models.BooleanField(default=False)
     granted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,

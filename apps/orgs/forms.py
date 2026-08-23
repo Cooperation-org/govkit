@@ -150,9 +150,7 @@ class OnboardingForm(forms.Form):
                 "the name of the team's CRM address and database."
             )
         if len(raw) < MIN_SLUG_LENGTH:
-            raise forms.ValidationError(
-                f"Use at least {MIN_SLUG_LENGTH} characters."
-            )
+            raise forms.ValidationError(f"Use at least {MIN_SLUG_LENGTH} characters.")
         if Org.objects.filter(slug=raw).exists():
             raise forms.ValidationError("That slug is already taken.")
         return raw
@@ -503,6 +501,46 @@ class GrantValueForm(forms.Form):
         label="Starting value",
     )
     source_note = forms.CharField(max_length=500, required=False, label="Note")
+
+
+class SetStartingValueForm(forms.Form):
+    """Admin types what a member's starting stake should BE, rather than what to add.
+
+    Zero is allowed: setting a starting value to nothing is a correction like any
+    other, and it is recorded as an adjustment rather than by deleting rows
+    (apps.orgs.equity).
+    """
+
+    value = forms.DecimalField(
+        max_digits=16,
+        decimal_places=2,
+        min_value=Decimal("0"),
+        label="Starting value",
+    )
+
+
+class SetSponsorStakeForm(forms.Form):
+    """Admin types what a sponsor holds, in whichever kind their stake is recorded.
+
+    An amount for a fixed stake, a percent for a share of the starting split. One or
+    the other: a holder with both kinds gets a control for each, and each submission
+    carries the single field it edits.
+    """
+
+    value = forms.DecimalField(
+        required=False, max_digits=16, decimal_places=2, min_value=Decimal("0")
+    )
+    target_pct = forms.DecimalField(
+        required=False, max_digits=5, decimal_places=2, min_value=Decimal("0")
+    )
+
+    def clean(self):
+        data = super().clean()
+        if data.get("value") is None and data.get("target_pct") is None:
+            raise forms.ValidationError("Enter an amount or a percent.")
+        if data.get("value") is not None and data.get("target_pct") is not None:
+            raise forms.ValidationError("Set the amount or the percent, not both at once.")
+        return data
 
 
 class SponsorGrantForm(forms.Form):

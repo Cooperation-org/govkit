@@ -1292,3 +1292,24 @@ its own supporters the same code path.
 TO TURN THE IMPORT ON the cohort VM needs COMMS_CRM_URL_PATTERN=https://crm-{slug}.workers.vc
 and COMMS_CRM_KEY in its env (deploy config lives in ../earnkit, not here). The key has to
 exist in each team database it is used against. Unset, the control does not render.
+
+## STARTING VALUES ARE SETTABLE, UP OR DOWN (2026-08-23)
+A member's starting stake is the SUM of append-only `OpeningBalance` rows and a
+sponsor's is the sum of their `OrgStake` rows, so nothing in the app could lower a
+total — only the CSV import in REPLACE mode, which deletes, on a page with no nav tab.
+
+`apps/orgs/equity.py` sets a total to a number by APPENDING one row for the
+difference, negative when it comes down. The sum lands on the typed number, every
+earlier row is untouched, and the new row carries `is_adjustment=True` plus a note
+saying who set it, when, and what it was (orgs 0027 adds the flag to both tables).
+Golda's call: add the adjustment, don't collapse the rows.
+
+A sponsor is corrected in the kind their stake is RECORDED in — an amount for a fixed
+stake, a percent for a share of the starting split, because a percent is re-resolved
+on every pie computation and an amount typed over one would not stay put. A holder
+with both gets a control for each.
+
+The control is `templates/orgs/_starting_edit.html`, on the Members page (member rows
+and the Sponsors panel) and inside each trace on the Pie page. Drawn only while the
+pie is adjustable; `equity.py` refuses when LOCKED on its own, so hiding it is not the
+permission. CSV import untouched.

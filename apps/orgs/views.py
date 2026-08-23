@@ -27,6 +27,13 @@ from apps.commons import pictures, storage
 
 from .amebo import provision_membership
 from .doorway import wall_people_without_accounts
+from .equity import (
+    EquityLocked,
+    EquityRefused,
+    set_member_starting_total,
+    set_sponsor_fixed_total,
+    set_sponsor_pct_total,
+)
 from .forms import (
     GrantValueForm,
     InviteForm,
@@ -38,6 +45,8 @@ from .forms import (
     OrgQuoteForm,
     OrgRateForm,
     OrgSettingsForm,
+    SetSponsorStakeForm,
+    SetStartingValueForm,
     SponsorGrantForm,
 )
 from .genesis import MODULES, module_of, modules_for, start_genesis, toggle_item
@@ -937,6 +946,82 @@ def member_grant_value(request, org_slug, membership_id):
         f"to {membership.user.email} as a starting stake.",
     )
     return redirect("orgs:members", org_slug=request.org.slug)
+
+
+def _back_to(request, org_slug):
+    """Return to the page the edit was made on — the pie or the members list.
+
+    The same control sits on both, and an edit that bounced someone to the other
+    page would lose their place. Only these two are possible, so the field names a
+    page rather than carrying a URL to redirect to.
+    """
+    if request.POST.get("back") == "pie":
+        return redirect("pie:index", org_slug=org_slug)
+    return redirect("orgs:members", org_slug=org_slug)
+
+
+@login_required
+@require_POST
+def member_set_starting(request, org_slug, membership_id):
+    """Admin sets a member's starting stake TO a number, up or down.
+
+    The starting stake is the sum of append-only OpeningBalance rows, so this appends
+    one more for the difference rather than editing or deleting any of them
+    (apps.orgs.equity). Nothing is said back on success: the number on the page is
+    the answer.
+    """
+    _require_admin(request)
+    membership = Membership.objects.filter(org=request.org, id=membership_id).first()
+    if membership is None:
+        messages.error(request, "That member was not found.")
+        return _back_to(request, request.org.slug)
+
+    form = SetStartingValueForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Enter a starting value of zero or more.")
+        return _back_to(request, request.org.slug)
+
+    try:
+        set_member_starting_total(
+            request.org, membership, form.cleaned_data["value"], by_user=request.user
+        )
+    except (EquityLocked, EquityRefused) as exc:
+        messages.error(request, str(exc))
+    return _back_to(request, request.org.slug)
+
+
+@login_required
+@require_POST
+def sponsor_set_starting(request, org_slug, holder_slug):
+    """Admin sets what a sponsor holds TO a number, in the kind their stake is in.
+
+    An amount for a fixed stake, a percent for a share of the starting split — a
+    percent is re-resolved on every pie computation, so typing an amount over one
+    would not stay put. Appends the difference as its own row, like every other
+    correction here.
+    """
+    _require_admin(request)
+    holder = ExternalHolder.objects.filter(slug=holder_slug).first()
+    if holder is None or not OrgStake.objects.filter(org=request.org, holder=holder).exists():
+        messages.error(request, "That company holds no share of this org.")
+        return _back_to(request, request.org.slug)
+
+    form = SetSponsorStakeForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, form.errors.as_text().lstrip("* "))
+        return _back_to(request, request.org.slug)
+
+    pct = form.cleaned_data.get("target_pct")
+    try:
+        if pct is not None:
+            set_sponsor_pct_total(request.org, holder, pct, by_user=request.user)
+        else:
+            set_sponsor_fixed_total(
+                request.org, holder, form.cleaned_data["value"], by_user=request.user
+            )
+    except (EquityLocked, EquityRefused) as exc:
+        messages.error(request, str(exc))
+    return _back_to(request, request.org.slug)
 
 
 @login_required

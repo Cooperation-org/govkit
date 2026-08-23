@@ -99,9 +99,19 @@ urlpatterns = [
         name="member_grant_value",
     ),
     path(
+        "o/<slug:org_slug>/members/<int:membership_id>/starting/",
+        views.member_set_starting,
+        name="member_set_starting",
+    ),
+    path(
         "o/<slug:org_slug>/sponsors/grant/",
         views.sponsor_grant,
         name="sponsor_grant",
+    ),
+    path(
+        "o/<slug:org_slug>/sponsors/<slug:holder_slug>/starting/",
+        views.sponsor_set_starting,
+        name="sponsor_set_starting",
     ),
     path(
         "o/<slug:org_slug>/sponsors/<int:stake_id>/remove/",

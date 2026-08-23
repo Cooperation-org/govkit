@@ -51,7 +51,14 @@
                        aria-label="Grant {{ unit_name }} to {{ m.user.email }}">
                 <button type="submit" class="gk-btn-quiet">Grant</button>
               </form>
-              {% if m.opening_total %}<span class="gk-muted gk-stake-note">{{ m.opening_total }} {{ unit_name }} granted</span>{% endif %}
+              {% if pie_locked %}
+                {% if m.opening_total %}<span class="gk-muted gk-stake-note">{{ m.opening_total }} {{ unit_name }} granted</span>{% endif %}
+              {% else %}
+                {% url 'orgs:member_set_starting' org_slug=current_org.slug membership_id=m.id as set_url %}
+                <span class="gk-stake-note">
+                  {% include "orgs/_starting_edit.html" with action=set_url field="value" current=m.opening_total|default:"0.00" suffix=unit_name label="Starting value for "|add:m.user.email back="members" %}
+                </span>
+              {% endif %}
             </td>
             <td>
               <form method="post" class="gk-member-remove"
@@ -95,10 +102,23 @@
               <td>
                 {{ s.member_label }}
                 {% for st in s.stakes %}
-                  {% if st.source_note %}<br><small class="gk-muted">{{ st.source_note }}</small>{% endif %}
+                  {% if st.source_note and not st.is_adjustment %}<br><small class="gk-muted">{{ st.source_note }}</small>{% endif %}
                 {% endfor %}
               </td>
-              <td class="gk-num">{{ s.issued_total }}</td>
+              <td class="gk-num">
+                {% if pie_locked %}
+                  {{ s.issued_total }}
+                {% else %}
+                  {% url 'orgs:sponsor_set_starting' org_slug=current_org.slug holder_slug=s.holder_slug as sponsor_set_url %}
+                  {% if s.stake_pct_total is not None %}
+                    {% include "orgs/_starting_edit.html" with action=sponsor_set_url field="target_pct" current=s.stake_pct_total suffix="% of the starting split" label="Share of the starting split held by "|add:s.member_label back="members" %}
+                    <span class="gk-muted gk-stake-note">= {{ s.issued_total }} {{ unit_name }}</span>
+                  {% endif %}
+                  {% if s.stake_fixed_total or s.stake_pct_total is None %}
+                    {% include "orgs/_starting_edit.html" with action=sponsor_set_url field="value" current=s.stake_fixed_total suffix=unit_name label="Amount held by "|add:s.member_label back="members" %}
+                  {% endif %}
+                {% endif %}
+              </td>
               <td class="gk-num">{{ s.share_pct }}%</td>
               <td>
                 {% if s.holder_url %}
@@ -107,11 +127,13 @@
               </td>
               <td>
                 {% for st in s.stakes %}
-                  <form method="post"
-                        action="{% url 'orgs:sponsor_stake_remove' org_slug=current_org.slug stake_id=st.stake_id %}">
-                    {% csrf_token %}
-                    <button type="submit" class="gk-btn-danger">Remove {{ st.value }}</button>
-                  </form>
+                  {% if not st.is_adjustment %}
+                    <form method="post"
+                          action="{% url 'orgs:sponsor_stake_remove' org_slug=current_org.slug stake_id=st.stake_id %}">
+                      {% csrf_token %}
+                      <button type="submit" class="gk-btn-danger">Remove {{ st.value }}</button>
+                    </form>
+                  {% endif %}
                 {% endfor %}
               </td>
             </tr>

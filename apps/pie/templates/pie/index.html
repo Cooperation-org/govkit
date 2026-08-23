@@ -140,7 +140,7 @@
               </tr>
               <tr>
                 <td colspan="5">
-                  {% if s.lines or s.opening_balances or s.stakes %}
+                  {% if s.lines or s.opening_balances or s.stakes or can_set_starting %}
                     <details class="gk-trace">
                       <summary>Trace {{ s.member_label }}'s {{ s.issued_total }} {{ pie.unit_name }}</summary>
                       {% if s.lines %}
@@ -187,7 +187,7 @@
                           </thead>
                           <tbody>
                             {% for ob in s.opening_balances %}
-                              <tr>
+                              <tr{% if ob.is_adjustment %} class="gk-trace-adjustment"{% endif %}>
                                 <td>#{{ ob.opening_balance_id }}</td>
                                 <td class="gk-muted">{{ ob.source_note|default:"—" }}</td>
                                 <td class="gk-num">{{ ob.value }}</td>
@@ -195,6 +195,12 @@
                             {% endfor %}
                           </tbody>
                         </table>
+                      {% endif %}
+                      {% if can_set_starting and not s.is_sponsor %}
+                        {% url 'orgs:member_set_starting' org_slug=current_org.slug membership_id=s.membership_id as set_url %}
+                        <p class="gk-set-line">Starting value
+                          {% include "orgs/_starting_edit.html" with action=set_url field="value" current=s.opening_total suffix=pie.unit_name label="Starting value for "|add:s.member_label back="pie" %}
+                        </p>
                       {% endif %}
                       {% if s.stakes %}
 
@@ -204,7 +210,7 @@
                           </thead>
                           <tbody>
                             {% for st in s.stakes %}
-                              <tr>
+                              <tr{% if st.is_adjustment %} class="gk-trace-adjustment"{% endif %}>
                                 <td>#{{ st.stake_id }}</td>
                                 <td class="gk-muted">
                                   {{ st.source_note|default:"—" }}
@@ -215,6 +221,19 @@
                             {% endfor %}
                           </tbody>
                         </table>
+                        {% if can_set_starting %}
+                          {% url 'orgs:sponsor_set_starting' org_slug=current_org.slug holder_slug=s.holder_slug as sponsor_set_url %}
+                          {% if s.stake_pct_total is not None %}
+                            <p class="gk-set-line">Share of the starting split
+                              {% include "orgs/_starting_edit.html" with action=sponsor_set_url field="target_pct" current=s.stake_pct_total suffix="%" label="Share of the starting split held by "|add:s.member_label back="pie" %}
+                            </p>
+                          {% endif %}
+                          {% if s.stake_fixed_total or s.stake_pct_total is None %}
+                            <p class="gk-set-line">Amount held
+                              {% include "orgs/_starting_edit.html" with action=sponsor_set_url field="value" current=s.stake_fixed_total suffix=pie.unit_name label="Amount held by "|add:s.member_label back="pie" %}
+                            </p>
+                          {% endif %}
+                        {% endif %}
                         <p class="gk-muted">
                           A sponsor's share is equity only. It carries no vote, and it dilutes
                           like every other share as members earn.

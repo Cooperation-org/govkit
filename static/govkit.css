@@ -718,6 +718,12 @@ details.gk-unfold fieldset { border: none; padding: 0.25rem 0 0.75rem; margin: 0
 /* quiet = a secondary action that shouldn't compete with the primary button */
 .gk-btn-quiet { font-weight: 500; }
 
+/* set a starting total to a number: the value IS the field, saved on leaving it */
+.gk-set-form { display: inline-flex; align-items: center; gap: 0.3rem; margin: 0; }
+.gk-set-form input { width: 7rem; text-align: right; }
+.gk-set-unit { color: var(--gk-muted); font-size: 0.85rem; }
+.gk-set-line { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0 0; font-size: 0.85rem; color: var(--gk-muted); }
+
 /* invites ledger: the share link is the page's product — copyable, never a flash */
 .gk-sharelink { display: flex; align-items: center; gap: 0.4rem; }
 .gk-sharelink input {
@@ -890,3 +896,6 @@ details.gk-unfold fieldset { border: none; padding: 0.25rem 0 0.75rem; margin: 0
 .gk-addrow { display: grid; gap: 0.8rem; align-items: end;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 .gk-addrow button[type=submit] { justify-self: start; }
+
+/* an adjustment row in a trace: a correction to the rows above it, not more value in */
+.gk-trace-adjustment td { font-style: italic; }

@@ -51,3 +51,18 @@ and the calendar warnings are held back there.
 ## `base.html`
 
 - The copy button opens `data-open` on the click itself. Opening it after awaiting the clipboard write is a popup a blocker eats.
+
+## `orgs/_starting_edit.html`
+
+- One control, both pages, both kinds. Setting a member's starting value and setting a sponsor's stake are the same gesture — type what the number should BE — so they share a partial rather than being written twice. `field` says which the record is (`value` in units, or `target_pct`, a percent of the starting split): a percent is re-resolved on every pie computation, so an amount typed over one would not stay put. `back` names the page it was submitted from so the redirect keeps the person's place, and is a page name rather than a URL because only two exist.
+- The value the person sees IS the input. Saved on leaving the field, with a Set button for anyone who would rather press something (UX_PRINCIPLES §4, §5); the submit-on-change listener is in `base.html` since two pages use it.
+- Drawn only while the pie is adjustable. The server refuses after lock-in independently — hiding a control is not a permission.
+
+## `orgs/members.html`
+
+- The Stake cell keeps the "+ starting value" grant box AND gains the settable total. A grant adds a row with its own note; the total is what the row sums to. Neither replaces the other.
+- A sponsor's Holds cell shows a control per kind the holder actually has. A percent stake shows the percent with the amount it currently resolves to underneath, because the percent is the record and the amount is derived.
+
+## `pie/index.html`
+
+- The starting-value control sits inside the trace, next to the opening-balance rows it changes, not in the table's row. The row's number is drops plus starting value; only the starting part is settable, and putting a field on the total would say otherwise.

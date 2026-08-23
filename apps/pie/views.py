@@ -125,6 +125,10 @@ def index(request, org_slug):
         "segments": _svg_segments(pie),
         "pie_phase": org.pie_phase,
         "is_pie_admin": _is_pie_admin(request),
+        # The starting split is adjustable in place until the team locks it in. After
+        # lock-in the control is gone AND the endpoint refuses (apps.orgs.equity), so
+        # this only decides what is drawn.
+        "can_set_starting": _is_pie_admin(request) and org.pie_phase != PiePhase.LOCKED,
         "is_member": membership is not None,
         # Live lock-in vote, if one is running.
         "lock": lock,

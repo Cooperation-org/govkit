@@ -96,6 +96,15 @@
   })();
 
   (function () {
+    document.addEventListener("change", function (e) {
+      var input = e.target.closest(".gk-set-form input[type=number]");
+      if (!input || input.value === input.dataset.was) return;
+      input.dataset.was = input.value;
+      input.form.requestSubmit();
+    });
+  })();
+
+  (function () {
     var menu = document.querySelector(".gk-usermenu");
     if (!menu) return;
     document.addEventListener("click", function (e) {
