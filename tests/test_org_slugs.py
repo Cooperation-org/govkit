@@ -1,9 +1,12 @@
-"""Org slugs stay inside what earnkit's add-team.yml will accept.
+"""Org slugs stay inside what the whole provisioning chain will accept.
 
-A slug over 31 characters produces a GovKit org whose team stack can never be
+A slug over 30 characters produces a GovKit org whose team stack can never be
 built: add-team.yml fails its opening assert and no Odoo DB, Taiga project,
 amebo instance or Caddy route is ever created. That happened to a real venture
 ("Alonovo: Value Aligned Consumer Spending and Investing", 53 characters).
+
+30, not 31, because the host's crm-route-listener stops there: a 31-character
+slug builds everything else and then has no CRM address.
 """
 
 import re
@@ -15,7 +18,11 @@ from apps.orgs.models import Org
 from apps.orgs.slugs import MAX_SLUG_LENGTH, normalize_org_slug, unique_org_slug
 
 # The pattern add-team.yml asserts on, verbatim.
-ADD_TEAM_SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{1,30}$")
+ADD_TEAM_SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{1,29}$")
+
+# The pattern the host's crm-route-listener enforces, verbatim. Every slug we
+# mint has to satisfy BOTH, so the tests check both.
+ROUTE_LISTENER_SLUG = re.compile(r"^[a-z0-9]([a-z0-9-]{0,28}[a-z0-9])?$")
 
 LONG_NAME = "Alonovo: Value Aligned Consumer Spending and Investing"
 
@@ -24,6 +31,7 @@ def test_long_venture_name_gives_a_slug_add_team_accepts():
     slug = normalize_org_slug(LONG_NAME)
     assert len(slug) <= MAX_SLUG_LENGTH
     assert ADD_TEAM_SLUG.match(slug)
+    assert ROUTE_LISTENER_SLUG.match(slug)
 
 
 def test_truncation_never_leaves_a_trailing_hyphen():
@@ -44,6 +52,7 @@ def test_collision_suffix_stays_inside_the_cap():
     assert second != first
     assert len(second) <= MAX_SLUG_LENGTH
     assert ADD_TEAM_SLUG.match(second)
+    assert ROUTE_LISTENER_SLUG.match(second)
 
 
 @pytest.mark.django_db
@@ -51,6 +60,7 @@ def test_onboarding_derives_a_short_slug_from_a_long_name():
     form = OnboardingForm(data={"display_name": LONG_NAME, "unit_name": "slices"})
     assert form.is_valid(), form.errors
     assert ADD_TEAM_SLUG.match(form.cleaned_data["slug"])
+    assert ROUTE_LISTENER_SLUG.match(form.cleaned_data["slug"])
 
 
 @pytest.mark.django_db

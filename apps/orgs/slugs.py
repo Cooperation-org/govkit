@@ -18,8 +18,11 @@ from __future__ import annotations
 
 from django.utils.text import slugify
 
-# add-team.yml: ^[a-z0-9][a-z0-9-]{1,30}$ — 2 to 31 characters.
-MAX_SLUG_LENGTH = 31
+# The host's crm-route-listener is the strictest link in the chain and therefore
+# the limit: ^[a-z0-9]([a-z0-9-]{0,28}[a-z0-9])?$ — 30 characters. A 31-character
+# slug passes add-team.yml, provisions the database, the board and the org, then
+# fails on the one step that gives the team a CRM address.
+MAX_SLUG_LENGTH = 30
 MIN_SLUG_LENGTH = 2
 
 
