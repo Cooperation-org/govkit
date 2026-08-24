@@ -61,14 +61,12 @@ MODULES = [
         1,
         [
             ("who.team-kickoff", "Hold your team kickoff meeting, and invite all your team members"),
-            ("who.what-problem", "Write down what problem you are trying to solve, for who"),
             ("who.calendar-standup", "Create your team calendar and set your standup schedule"),
+            ("who.what-problem", "Write down what problem you are trying to solve, for who"),
             ("who.set-goal", "Set a goal"),
-            ("who.tasks", "Create tasks on your task board"),
-            ("who.drop", "Do one drop"),
+            ("who.tasks", "Create tasks on your task board, and do one drop"),
             ("who.expand-crm", "Try to add 10 contacts; try to talk to at least 3 people who have the problem you are trying to solve"),
             ("who.forwardable-email", "If you have not written a forwardable intro email before, read how"),
-            ("who.update-goals-tasks", "Update your goals and tasks.  Is there a demo or artifact you need to build to show people?"),
             ("who.ask", "Ask for what you need"),
             ("who.report-prep", "Prepare to report progress towards your goal in a 2-3 minute slot next week"),
         ],
@@ -193,14 +191,13 @@ ITEM_LINKS = {
     "exist.tasks": [("Your task board", "/tasks/")],
     "who.team-kickoff": [("Members", "/members/")],
     "who.calendar-standup": [("Settings", "/settings/")],
-    "who.tasks": [("Your task board", "/tasks/")],
+    "who.tasks": [("Your task board", "/tasks/"), ("Your pie", "/pie/")],
     "who.forwardable-email": [
         (
             "How to write a forwardable intro email",
             "https://also.roybahat.com/introductions-and-the-forward-intro-email-14e2827716a1",
         )
     ],
-    "who.drop": [("Your pie", "/pie/")],
     "who.ask": [("Mentors", "site:/mentors/")],
     "money.one-page": [("Money", "/projects/")],
 }

@@ -27,6 +27,9 @@
 //     set, each module's panel links to the reading doc at
 //     <data-reading>#chapter-<module-key>. A pointer keyed by module key, never a
 //     copy of the text. Omit it and no read link renders.
+//   - <govkit-checklist data-week="1"> — optional. Which week of the program today
+//     is, from the host's cohort clock. That module opens first instead of the
+//     first one with work left. Omit it and nothing changes.
 //   - Every fetch carries credentials: 'include' (the member's own GovKit session;
 //     cross-origin needs GovKit's CORS allowlist — see PLAN-cohort-dash.md).
 //     GETs are deduped per URL for the life of the page, so components that read
@@ -139,7 +142,8 @@
       '.gk-sheet-note { padding: 0 20px 16px; font-size: 13px; color: var(--ink, #26221c); }',
       // What the item is asking for, above the box you answer it in.
       '.gk-sheet-brief { margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.85; }',
-      '.gk-sheet-bullets { margin: 6px 0 0; padding-left: 18px; font-size: 14px; line-height: 1.5; opacity: 0.85; }',
+      '.gk-sheet-intro { display: grid; gap: 6px; }',
+      '.gk-sheet-bullets { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.5; opacity: 0.85; }',
       '.gk-sheet-bullets li { margin: 2px 0; }',
       'govkit-tasks .rowopen {',
       '  background: none; border: none; padding: 0; font: inherit; color: inherit;',
@@ -441,10 +445,16 @@
     var org = (cfg(host) || {}).org || '';
     var tasksApp = host.dataset.tasksApp && host.dataset.tasksApp.replace(/\/+$/, '');
     var open = openModules(org);
-    // Nothing opened yet: start on the first module with work left, so the panel
-    // opens where the team actually is rather than always at the top.
+    // Nothing opened yet. The host page passes data-week when it knows which week
+    // of the program today is (the cohort clock), so the panel opens on the week
+    // the team is actually in — an earlier week left unfinished stays closed.
+    // Without it, fall back to the first module with work left.
     if (!open.length) {
-      var next = modules.filter(function (m) { return m.done < m.total; })[0];
+      var week = parseInt(host.dataset.week, 10);
+      var thisWeek = isNaN(week) ? null : modules.filter(function (m) {
+        return m.week === week;
+      })[0];
+      var next = thisWeek || modules.filter(function (m) { return m.done < m.total; })[0];
       if (next) open = [next.key];
     }
 
@@ -1004,11 +1014,17 @@
 
     function render(text) {
       body.replaceChildren();
-      if (item.brief) body.appendChild(el('p', 'gk-sheet-brief', item.brief));
-      if (item.bullets && item.bullets.length) {
-        var ul = el('ul', 'gk-sheet-bullets');
-        item.bullets.forEach(function (line) { ul.appendChild(el('li', null, line)); });
-        body.appendChild(ul);
+      // Brief and bullets are one block: the sheet body is a grid, so without a
+      // wrapper its gap would push an item's bullets away from its own brief.
+      if (item.brief || (item.bullets && item.bullets.length)) {
+        var intro = el('div', 'gk-sheet-intro');
+        if (item.brief) intro.appendChild(el('p', 'gk-sheet-brief', item.brief));
+        if (item.bullets && item.bullets.length) {
+          var ul = el('ul', 'gk-sheet-bullets');
+          item.bullets.forEach(function (line) { ul.appendChild(el('li', null, line)); });
+          intro.appendChild(ul);
+        }
+        body.appendChild(intro);
       }
       body.appendChild(fieldRow('What you did', text || '', true, save));
       renderFoot();
