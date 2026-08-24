@@ -180,7 +180,8 @@ ITEM_BULLETS = {
 #
 # `where` is a path relative to this org (a leading "/" is filled in with
 # /o/<slug>), a "site:" path for a page that is not org-scoped (site:/mentors/ →
-# /mentors/), or a full URL. Curriculum content, so it lives here with the items;
+# /mentors/), an "amebo:" path resolved against AMEBO_BASE_URL, or a full URL.
+# Curriculum content, so it lives here with the items;
 # a link for an item that no longer exists is dropped rather than raising, because
 # a stale link is not worth breaking every dashboard over.
 ITEM_LINKS = {
@@ -191,6 +192,9 @@ ITEM_LINKS = {
     "exist.tasks": [("Your task board", "/tasks/")],
     "who.team-kickoff": [("Members", "/members/")],
     "who.calendar-standup": [("Settings", "/settings/")],
+    # Goals live in amebo, so setting one there is also how amebo learns what the
+    # team is going for.
+    "who.set-goal": [("Your week goals", "amebo:/dashboard/goals")],
     "who.tasks": [("Your task board", "/tasks/"), ("Your pie", "/pie/")],
     "who.forwardable-email": [
         (
@@ -402,13 +406,24 @@ def _item_links(item, org):
 
     "site:" marks a page that is not org-scoped (the cohort's Mentors page), so
     it keeps its own path instead of being hung under /o/<slug>.
+
+    "amebo:" is a page in amebo, resolved against AMEBO_BASE_URL — the deployment
+    says where its amebo is, the curriculum does not. A deployment without one
+    drops the link rather than pointing everybody at ours.
     """
     if org is None:
         return []
+    from django.conf import settings
+
+    amebo = (getattr(settings, "AMEBO_BASE_URL", "") or "").rstrip("/")
     base = f"/o/{org.slug}"
     out = []
     for label, where in item.links:
-        if where.startswith("site:"):
+        if where.startswith("amebo:"):
+            if not amebo:
+                continue
+            url = amebo + where[len("amebo:") :]
+        elif where.startswith("site:"):
             url = where[len("site:") :]
         elif "//" in where:
             url = where
