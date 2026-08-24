@@ -61,12 +61,18 @@ MODULES = [
         1,
         [
             ("who.team-kickoff", "Hold your team kickoff meeting"),
+            ("who.invite-all", "Invite all your team members"),
+            ("who.calendar-standup", "Create your team calendar and set your standup schedule"),
+            ("who.set-goal", "Set a goal"),
+            ("who.tasks", "Create tasks on your task board"),
+            ("who.drop", "Do one drop"),
             ("who.what-problem", "Write down what problem you are trying to solve, for who"),
             ("who.three-people", "Name three real people who have the problem"),
             ("who.talk-to-one", "Talk to one or more of them; write down what they said"),
             ("who.expand-crm", "Try to add 10 contacts to your CRM you want to reach out to"),
             ("who.present", "Present your results to the group in a 2 minute slot"),
             ("who.update-goals-tasks", "Update your goals and tasks.  Is there a demo or artifact you need to build to show people?"),
+            ("who.report-prep", "Prepare to report progress towards your goal in a 2-3 minute slot next week"),
         ],
     ),
     (
@@ -168,6 +174,10 @@ ITEM_LINKS = {
     "exist.calendar": [("Settings", "/settings/")],
     "exist.chat": [("Settings", "/settings/")],
     "exist.tasks": [("Your task board", "/tasks/")],
+    "who.invite-all": [("Members", "/members/")],
+    "who.calendar-standup": [("Settings", "/settings/")],
+    "who.tasks": [("Your task board", "/tasks/")],
+    "who.drop": [("Your pie", "/pie/")],
     "money.one-page": [("Money", "/projects/")],
 }
 
