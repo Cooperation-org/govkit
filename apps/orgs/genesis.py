@@ -67,6 +67,7 @@ MODULES = [
             ("who.tasks", "Create tasks on your task board"),
             ("who.drop", "Do one drop"),
             ("who.ask", "Ask for what you need"),
+            ("who.forwardable-email", "If you have not written a forwardable intro email before, read how"),
             ("who.what-problem", "Write down what problem you are trying to solve, for who"),
             ("who.three-people", "Name three real people who have the problem"),
             ("who.talk-to-one", "Talk to one or more of them; write down what they said"),
@@ -162,6 +163,9 @@ ITEM_BRIEFS = {
     # golda's own words, 2026-08-24.
     "who.ask": "Ask in the Discord. Some things we can help with: a Wellfound posting "
     "to add team members, introductions to the network, mentor time.",
+    "who.forwardable-email": "You write it, the person connecting you forwards it "
+    "once the other side says yes. amebo has a skill for this — ask it to check yours "
+    "against the format.",
 }
 
 # item key -> [(label, where)] — the places a team has to go to actually do it.
@@ -181,6 +185,12 @@ ITEM_LINKS = {
     "who.invite-all": [("Members", "/members/")],
     "who.calendar-standup": [("Settings", "/settings/")],
     "who.tasks": [("Your task board", "/tasks/")],
+    "who.forwardable-email": [
+        (
+            "How to write a forwardable intro email",
+            "https://also.roybahat.com/introductions-and-the-forward-intro-email-14e2827716a1",
+        )
+    ],
     "who.drop": [("Your pie", "/pie/")],
     "money.one-page": [("Money", "/projects/")],
 }
