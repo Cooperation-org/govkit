@@ -66,6 +66,7 @@ MODULES = [
             ("who.set-goal", "Set a goal"),
             ("who.tasks", "Create tasks on your task board"),
             ("who.drop", "Do one drop"),
+            ("who.ask", "Ask for what you need"),
             ("who.what-problem", "Write down what problem you are trying to solve, for who"),
             ("who.three-people", "Name three real people who have the problem"),
             ("who.talk-to-one", "Talk to one or more of them; write down what they said"),
@@ -158,6 +159,9 @@ ITEM_BRIEFS = {
     "people saying they like it.",
     "exist.tasks": "Your own board, your own key, in Settings. After this, hours on "
     "tasks become slices without anyone deciding anything.",
+    # golda's own words, 2026-08-24.
+    "who.ask": "Ask in the Discord. Some things we can help with: a Wellfound posting "
+    "to add team members, introductions to the network, mentor time.",
 }
 
 # item key -> [(label, where)] — the places a team has to go to actually do it.
