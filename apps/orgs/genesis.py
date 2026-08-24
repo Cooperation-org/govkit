@@ -60,20 +60,16 @@ MODULES = [
         "Who's it for",
         1,
         [
-            ("who.team-kickoff", "Hold your team kickoff meeting"),
-            ("who.invite-all", "Invite all your team members"),
+            ("who.team-kickoff", "Hold your team kickoff meeting, and invite all your team members"),
+            ("who.what-problem", "Write down what problem you are trying to solve, for who"),
             ("who.calendar-standup", "Create your team calendar and set your standup schedule"),
             ("who.set-goal", "Set a goal"),
             ("who.tasks", "Create tasks on your task board"),
             ("who.drop", "Do one drop"),
-            ("who.ask", "Ask for what you need"),
+            ("who.expand-crm", "Try to add 10 contacts; try to talk to at least 3 people who have the problem you are trying to solve"),
             ("who.forwardable-email", "If you have not written a forwardable intro email before, read how"),
-            ("who.what-problem", "Write down what problem you are trying to solve, for who"),
-            ("who.three-people", "Name three real people who have the problem"),
-            ("who.talk-to-one", "Talk to one or more of them; write down what they said"),
-            ("who.expand-crm", "Try to add 10 contacts to your CRM you want to reach out to"),
-            ("who.present", "Present your results to the group in a 2 minute slot"),
             ("who.update-goals-tasks", "Update your goals and tasks.  Is there a demo or artifact you need to build to show people?"),
+            ("who.ask", "Ask for what you need"),
             ("who.report-prep", "Prepare to report progress towards your goal in a 2-3 minute slot next week"),
         ],
     ),
@@ -146,9 +142,9 @@ ITEM_BRIEFS = {
     "exist.calendar": "Without a calendar your page cannot offer anyone a time to meet you.",
     "exist.chat": "Wherever your team already talks is fine. Tell us which one, so amebo "
     "can reach you there instead of somewhere you never look.",
-    "who.three-people": "Real names, not a segment. If you cannot name three, you are "
+    "who.what-problem": "Real names, not a segment. If you cannot name three, you are "
     "guessing at who this is for.",
-    "who.talk-to-one": "Ask about their problem, not your idea. Write down what they "
+    "who.expand-crm": "Ask about their problem, not your idea. Write down what they "
     "said in their words, not your summary of it.",
     "build.smallest": "The least you can put in front of someone to find out whether "
     "you are right. List its handful of features, not everything you want.",
@@ -161,19 +157,32 @@ ITEM_BRIEFS = {
     "exist.tasks": "Your own board, your own key, in Settings. After this, hours on "
     "tasks become slices without anyone deciding anything.",
     # golda's own words, 2026-08-24.
-    "who.ask": "Ask in the Discord. Some things we can help with: a Wellfound posting "
-    "to add team members, introductions to the network, mentor time.",
+    "who.ask": "Ask in the Discord.",
     "who.forwardable-email": "You write it, the person connecting you forwards it "
     "once the other side says yes. amebo has a skill for this — ask it to check yours "
     "against the format.",
+}
+
+# item key -> [line, ...] — the concrete ways to do this item, rendered as a
+# bulleted list under the brief. An item with several distinct routes reads as a
+# list, not as one sentence with commas in it.
+ITEM_BULLETS = {
+    "who.what-problem": ["Name three real people who have the problem"],
+    # golda's own words, 2026-08-24.
+    "who.ask": [
+        "Identify who you need an intro to, send a forwardable email to a connector",
+        "Post on Wellfound or LinkedIn for additional team members",
+        "Go to the Mentors tab and sign up for time to get feedback or advice",
+    ],
 }
 
 # item key -> [(label, where)] — the places a team has to go to actually do it.
 # Some items are answered by typing; some are done somewhere else and the note is
 # just the record. These are the "somewhere else" links, shown in the item's panel.
 #
-# `where` is either a path relative to this org (a leading "/" is filled in with
-# /o/<slug>) or a full URL. Curriculum content, so it lives here with the items;
+# `where` is a path relative to this org (a leading "/" is filled in with
+# /o/<slug>), a "site:" path for a page that is not org-scoped (site:/mentors/ →
+# /mentors/), or a full URL. Curriculum content, so it lives here with the items;
 # a link for an item that no longer exists is dropped rather than raising, because
 # a stale link is not worth breaking every dashboard over.
 ITEM_LINKS = {
@@ -182,7 +191,7 @@ ITEM_LINKS = {
     "exist.calendar": [("Settings", "/settings/")],
     "exist.chat": [("Settings", "/settings/")],
     "exist.tasks": [("Your task board", "/tasks/")],
-    "who.invite-all": [("Members", "/members/")],
+    "who.team-kickoff": [("Members", "/members/")],
     "who.calendar-standup": [("Settings", "/settings/")],
     "who.tasks": [("Your task board", "/tasks/")],
     "who.forwardable-email": [
@@ -192,6 +201,7 @@ ITEM_LINKS = {
         )
     ],
     "who.drop": [("Your pie", "/pie/")],
+    "who.ask": [("Mentors", "site:/mentors/")],
     "money.one-page": [("Money", "/projects/")],
 }
 
@@ -283,7 +293,17 @@ def latest_events(org):
 class _Item:
     """One rendered checklist item. Derived per request; never stored."""
 
-    __slots__ = ("key", "title", "brief", "links", "done", "done_at", "done_by", "retired")
+    __slots__ = (
+        "key",
+        "title",
+        "brief",
+        "bullets",
+        "links",
+        "done",
+        "done_at",
+        "done_by",
+        "retired",
+    )
 
     def __init__(self, key, title, event, retired=False):
         from .models import ChecklistAction
@@ -293,6 +313,8 @@ class _Item:
         self.title = title
         # How to actually do it. Retired items have none, which renders as nothing.
         self.brief = "" if retired else ITEM_BRIEFS.get(key, "")
+        # The concrete routes, when there is more than one way to do it.
+        self.bullets = [] if retired else list(ITEM_BULLETS.get(key, ()))
         # Where to go to do it, when the doing happens somewhere else.
         self.links = [] if retired else list(ITEM_LINKS.get(key, ()))
         self.done = done
@@ -354,6 +376,7 @@ def serialize_modules(modules, org=None):
                     "key": item.key,
                     "title": item.title,
                     "brief": item.brief,
+                    "bullets": item.bullets,
                     "links": _item_links(item, org),
                     "has_note": item.key in written,
                     "done": item.done,
@@ -378,13 +401,23 @@ def _written_keys(org):
 
 
 def _item_links(item, org):
-    """[(label, where)] as [{label, url}], org-relative paths made absolute."""
+    """[(label, where)] as [{label, url}], org-relative paths made absolute.
+
+    "site:" marks a page that is not org-scoped (the cohort's Mentors page), so
+    it keeps its own path instead of being hung under /o/<slug>.
+    """
     if org is None:
         return []
     base = f"/o/{org.slug}"
     out = []
     for label, where in item.links:
-        out.append({"label": label, "url": where if "//" in where else base + where})
+        if where.startswith("site:"):
+            url = where[len("site:") :]
+        elif "//" in where:
+            url = where
+        else:
+            url = base + where
+        out.append({"label": label, "url": url})
     return out
 
 

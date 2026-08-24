@@ -475,6 +475,18 @@ rect.gk-cat-5, path.gk-cat-5, circle.gk-cat-5 { fill: var(--gk-cat-5); }
   color: var(--gk-muted);
   max-width: 62ch;
 }
+/* The concrete routes for an item that has more than one. Same voice as the
+   brief, listed instead of run together. */
+.gk-cyoa-bullets {
+  margin: 0.15rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--gk-muted);
+  max-width: 62ch;
+  list-style: disc;
+}
+.gk-cyoa-bullets li { margin: 0.1rem 0; }
 .gk-checkbox {
   width: 1.15rem;
   height: 1.15rem;

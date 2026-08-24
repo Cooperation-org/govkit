@@ -139,6 +139,8 @@
       '.gk-sheet-note { padding: 0 20px 16px; font-size: 13px; color: var(--ink, #26221c); }',
       // What the item is asking for, above the box you answer it in.
       '.gk-sheet-brief { margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.85; }',
+      '.gk-sheet-bullets { margin: 6px 0 0; padding-left: 18px; font-size: 14px; line-height: 1.5; opacity: 0.85; }',
+      '.gk-sheet-bullets li { margin: 2px 0; }',
       'govkit-tasks .rowopen {',
       '  background: none; border: none; padding: 0; font: inherit; color: inherit;',
       '  text-align: left; cursor: pointer; text-decoration: underline;',
@@ -1003,6 +1005,11 @@
     function render(text) {
       body.replaceChildren();
       if (item.brief) body.appendChild(el('p', 'gk-sheet-brief', item.brief));
+      if (item.bullets && item.bullets.length) {
+        var ul = el('ul', 'gk-sheet-bullets');
+        item.bullets.forEach(function (line) { ul.appendChild(el('li', null, line)); });
+        body.appendChild(ul);
+      }
       body.appendChild(fieldRow('What you did', text || '', true, save));
       renderFoot();
       body.appendChild(foot);

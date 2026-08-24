@@ -69,6 +69,10 @@
                       <span class="gk-muted gk-done-meta">{{ item.done_by.email|default:"" }} · {{ item.done_at|date:"M j" }}</span>
                     {% else %}{% if item.brief %}
                       <p class="gk-cyoa-brief">{{ item.brief }}</p>
+                    {% endif %}{% if item.bullets %}
+                      <ul class="gk-cyoa-bullets">
+                        {% for line in item.bullets %}<li>{{ line }}</li>{% endfor %}
+                      </ul>
                     {% endif %}{% endif %}
                   </div>
                 </li>
