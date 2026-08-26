@@ -303,6 +303,24 @@ def _invite_payload(invite: Invite, request) -> dict:
     }
 
 
+def _invite_link_payload(link: InviteLink) -> dict:
+    """What a shared link opens, and whether it is still open."""
+    return {
+        "code": link.code,
+        "kind": link.kind,
+        "audience": link.audience,
+        "role": link.role,
+        "label": link.label,
+        "open": link.is_open,
+        "reason": link.closed_reason,
+        "uses": link.uses,
+        "max_uses": link.max_uses,
+        "expires_at": link.expires_at.isoformat() if link.expires_at else None,
+        "org_slug": link.org.slug,
+        "org_name": link.org.display_name,
+    }
+
+
 def _s2s_invite(request, org_slug, code):
     """Shared auth + lookup. Returns (invite, None) or (None, error response)."""
     if not _s2s_authorized(request):
@@ -320,6 +338,32 @@ def invite_detail(request, org_slug, code):
     if error:
         return error
     return JsonResponse(_invite_payload(invite, request))
+
+
+@require_GET
+def invite_by_code(request, code):
+    """Resolve a code without knowing which org minted it.
+
+    The magic link is the code and nothing else (DOORWAY_BASE_URL + code), so
+    the doorway holds no org when someone arrives on it. An invite minted by a
+    TEAM — a hand raised at that team belongs to that team — is not under the
+    accelerator's slug, and the org-scoped route above answers 404 for it: a
+    real invitee is told their link is bad. Invite.code is unique across every
+    org, so a code identifies one invite on its own.
+
+    Same bearer secret as the scoped routes, and the payload carries `org_slug`
+    for the calls that follow (committed). The scoped route stays as it is —
+    a caller that knows the org still gets 404 for the wrong one.
+    """
+    if not _s2s_authorized(request):
+        return JsonResponse({"error": "unauthorized"}, status=401)
+    invite = Invite.objects.filter(code=code).select_related("org").first()
+    if invite is None:
+        return JsonResponse({"error": "not_found"}, status=404)
+    return JsonResponse(_invite_payload(invite, request))
+
+
+invite_by_code.org_context_exempt = True
 
 
 # Bearer-secret auth, not a browser session: skip OrgContextMiddleware's login redirect.
@@ -467,25 +511,29 @@ def invite_link_detail(request, org_slug, code):
     link = InviteLink.objects.filter(org__slug=org_slug, code=code).select_related("org").first()
     if link is None:
         return JsonResponse({"error": "not_found"}, status=404)
-    return JsonResponse(
-        {
-            "code": link.code,
-            "kind": link.kind,
-            "audience": link.audience,
-            "role": link.role,
-            "label": link.label,
-            "open": link.is_open,
-            "reason": link.closed_reason,
-            "uses": link.uses,
-            "max_uses": link.max_uses,
-            "expires_at": link.expires_at.isoformat() if link.expires_at else None,
-            "org_slug": link.org.slug,
-            "org_name": link.org.display_name,
-        }
-    )
+    return JsonResponse(_invite_link_payload(link))
 
 
 invite_link_detail.org_context_exempt = True
+
+
+@require_GET
+def invite_link_by_code(request, code):
+    """The same door, opened without knowing whose org it belongs to.
+
+    A shared link handed out by a team is that team's, and the person walking
+    through it arrives at the doorway with only the code. InviteLink.code is
+    unique across orgs; the payload names the org it belongs to.
+    """
+    if not _s2s_authorized(request):
+        return JsonResponse({"error": "unauthorized"}, status=401)
+    link = InviteLink.objects.filter(code=code).select_related("org").first()
+    if link is None:
+        return JsonResponse({"error": "not_found"}, status=404)
+    return JsonResponse(_invite_link_payload(link))
+
+
+invite_link_by_code.org_context_exempt = True
 
 
 @require_GET
@@ -1052,6 +1100,14 @@ urlpatterns = router.urls + [
         "<slug:org_slug>/profile/<str:kind>/<int:row_id>/",
         profile_row,
         name="s2s_profile_row",
+    ),
+    # Org-less lookups: the magic link is the code alone, so the doorway has no
+    # org to scope by. Literal first segment, so no org slug can shadow them.
+    path("invites/by-code/<str:code>/", invite_by_code, name="s2s_invite_by_code"),
+    path(
+        "invite-links/by-code/<str:code>/",
+        invite_link_by_code,
+        name="s2s_invite_link_by_code",
     ),
     # Before the <str:code> route below, or "mint" is read as an invite code.
     path("<slug:org_slug>/invites/mint/", invite_mint, name="s2s_invite_mint"),

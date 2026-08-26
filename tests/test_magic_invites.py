@@ -174,6 +174,27 @@ def test_s2s_detail_unknown_code_or_wrong_org_404(client, invite, org_factory, s
 
 
 @pytest.mark.django_db
+def test_by_code_resolves_an_invite_minted_by_another_org(client, invite, org_factory, settings):
+    """The magic link is the code alone: the doorway holds no org when someone
+    arrives on it, and a team's invite is not under the accelerator's slug."""
+    settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
+    team = org_factory(slug="teamco")
+    theirs = Invite.objects.create(org=team, name="Raised A Hand", audience="founder")
+    url = reverse("s2s_invite_by_code", kwargs={"code": theirs.code})
+    body = client.get(url, **_auth()).json()
+    assert body["code"] == theirs.code
+    assert body["org_slug"] == "teamco"
+
+
+@pytest.mark.django_db
+def test_by_code_needs_the_bearer_token_and_404s_an_unknown_code(client, settings):
+    settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
+    url = reverse("s2s_invite_by_code", kwargs={"code": "nope"})
+    assert client.get(url, HTTP_AUTHORIZATION="Bearer wrong").status_code == 401
+    assert client.get(url, **_auth()).status_code == 404
+
+
+@pytest.mark.django_db
 def test_s2s_committed_happy_path_and_idempotency(client, invite, settings):
     settings.GOVKIT_S2S_TOKEN = S2S_TOKEN
     resp = client.post(
