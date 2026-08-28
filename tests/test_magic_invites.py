@@ -18,7 +18,7 @@ from apps.orgs.models import (
     Membership,
     MembershipRole,
 )
-from apps.orgs.invites import SESSION_KEY
+from apps.orgs.invites import SESSION_KEY, accept_invite_for_user
 
 S2S_TOKEN = "test-s2s-secret"
 
@@ -856,11 +856,63 @@ def test_admin_mints_pool_invite_from_members_page(client, admin_org):
     client.force_login(admin)
     resp = client.post(
         reverse("orgs:invite_create", kwargs={"org_slug": org.slug}),
-        {"name": "Walk Up", "audience": "supporter", "kind": "pool", "role": "member"},
+        {"name": "Walk Up", "audience": "founder", "kind": "pool", "role": "member"},
     )
     assert resp.status_code == 302
     invite = Invite.objects.get(org=org, name="Walk Up")
     assert invite.kind == InviteKind.POOL
+
+
+@pytest.mark.django_db
+def test_supporter_is_not_offered_in_the_mint_form(client, admin_org):
+    """Supporter is gone from what an admin can mint (golda 2026-08-28).
+
+    It read like every other audience but was the only one that joined nobody,
+    so picking it produced a link that looked like a member invite and left the
+    person with no org (Vaishak / IntegralMASS, 2026-08-27).
+    """
+    org, admin = admin_org
+    client.force_login(admin)
+    page = client.get(reverse("orgs:members", kwargs={"org_slug": org.slug})).content.decode()
+    assert 'value="supporter"' not in page
+    assert 'value="mentor"' in page
+
+    resp = client.post(
+        reverse("orgs:invite_create", kwargs={"org_slug": org.slug}),
+        {"name": "Nope", "audience": "supporter", "kind": "org", "role": "member"},
+    )
+    assert resp.status_code == 302
+    assert not Invite.objects.filter(org=org, name="Nope").exists()
+
+
+@pytest.mark.django_db
+def test_org_invite_joins_the_org_whatever_the_audience_says(client, admin_org, user_factory):
+    """An org invite joins you to the org. Every audience, no exceptions.
+
+    Supporter+org used to accept cleanly and create nothing: the person signed
+    in, the org was not there, and nothing said why (invite 79, 2026-08-27).
+    Old supporter rows are still out there, so the accept path has to hold this
+    on its own, not only the mint form.
+    """
+    from apps.orgs.models import InviteKind
+
+    org, _ = admin_org
+    invite = Invite.objects.create(
+        org=org,
+        kind=InviteKind.ORG,
+        audience="supporter",
+        role=MembershipRole.STEWARD,
+        name="Late Supporter",
+        email="late@example.com",
+    )
+    user = user_factory(email="late@example.com")
+    membership, venture_org = accept_invite_for_user(invite, user)
+    assert venture_org is None
+    assert membership is not None
+    assert membership.org == org
+    assert membership.role == MembershipRole.STEWARD
+    invite.refresh_from_db()
+    assert invite.status == InviteStatus.ACCEPTED
 
 
 @pytest.mark.django_db

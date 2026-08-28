@@ -235,8 +235,19 @@ class InviteForm(forms.Form):
     # Founder + pool is what most invites actually are (golda 2026-07-27): the
     # common act is screening someone into the applicant pool, not handing out
     # membership. The rarer, heavier choices stay one selection away.
+    #
+    # Supporter is NOT offered here (golda 2026-08-28). It reads like every other
+    # audience in this dropdown but it is the only one that joins nobody, so an
+    # admin picking it mints a link that looks like a member invite and produces
+    # no membership. That is exactly what happened to IntegralMASS: a supporter
+    # invite was minted for a new team member, he accepted, and the org was not
+    # there. Supporter stays a real wall audience on workers.vc (the email list),
+    # and stays valid on invites already minted -- it is only gone from what an
+    # admin can choose here.
     audience = forms.ChoiceField(
-        choices=InviteAudience.choices, initial=InviteAudience.FOUNDER, label="Audience"
+        choices=[c for c in InviteAudience.choices if c[0] != InviteAudience.SUPPORTER],
+        initial=InviteAudience.FOUNDER,
+        label="Audience",
     )
     kind = forms.ChoiceField(
         choices=InviteKind.choices, initial=InviteKind.POOL, label="Invite type"

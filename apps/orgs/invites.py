@@ -27,7 +27,6 @@ from .genesis import start_genesis
 from .slugs import normalize_org_slug, unique_org_slug
 from .models import (
     Invite,
-    InviteAudience,
     InviteKind,
     InviteStatus,
     Membership,
@@ -156,14 +155,19 @@ def accept_invite_for_user(invite: Invite, user) -> tuple[Membership | None, Org
     if invite.kind == InviteKind.POOL:
         invite.mark_accepted(by=user)
         return None, None
-    if invite.audience == InviteAudience.SUPPORTER:
-        # Supporters never join an org (golda 2026-07-22): they are the email
-        # list — wall card + dash + contact capture, no membership, no slices,
-        # and NOT listed in the applicant pool (that's people seeking a team).
-        invite.mark_accepted(by=user)
-        return None, None
-    # Org membership: join the inviting org (a founder invited here is a co-founder
-    # of THIS org, no venture — venture belongs to the BYOV path above).
+    # An ORG invite joins you to the org. Every audience, no exceptions — that is
+    # the one path, and it works every time (golda 2026-08-28).
+    #
+    # Supporter used to be carved out here: supporters are the email list, not
+    # members (golda 2026-07-22), so supporter+org accepted cleanly and created
+    # nothing. The person signed in, the org was not there, and nothing said why
+    # (Vaishak / IntegralMASS, invite 79, 2026-08-27). "Not a member" is what
+    # POOL already means, and pool returns above, so the carve-out only ever fired
+    # on an org invite — where it contradicted the invite. Supporter is also gone
+    # from the mint form now, so the pairing cannot be made by hand any more.
+    #
+    # A founder invited here is a co-founder of THIS org, no venture — a venture
+    # belongs to the BYOV path above.
     membership = Membership.objects.create(org=invite.org, user=user, role=invite.role)
     invite.mark_accepted(by=user)
 
