@@ -1,5 +1,10 @@
 # Cohort Dash — cross-repo plan (govkit copy)
 
+> **This is the build plan and its status log — history, not contract.**
+> The durable contract lives in `docs/COMPOSITION.md`: the composition diagram, the
+> component catalog across every repo, the mount/auth/expand/config contracts, local
+> development, and how to build a second dashboard. When the two disagree, that wins.
+
 2026-07-19. One of six coordinated plan files, one per repo:
 `workers.vc`, `govkit`, `amebo`, `marten`, `crm-outreach-runner`, `earnkit` —
 each named `PLAN-cohort-dash.md` at the repo root. The **Architecture**

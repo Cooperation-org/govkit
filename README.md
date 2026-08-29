@@ -50,6 +50,28 @@ documentation is part of Milestone 2.
 Formal **elections** are intentionally out of scope — those stay in the team's existing
 email-based ElectionRunner. GovKit does not build voting-by-email.
 
+## Composing GovKit into a dashboard
+
+GovKit ships a **web-component bundle** (`static/embed/govkit.js`) so another page can
+show a team's pie, earned-work feed, curriculum checklist, open tasks, money and
+attention rail without copying any of that data. Each component takes `data-up` (this
+GovKit's base URL) and `data-org`, fetches with the member's own session, and renders
+nothing at all when the answer is empty or forbidden.
+
+```html
+<script src="https://dash.workers.vc/static/embed/govkit.js" defer></script>
+<govkit-tasks data-up="https://dash.workers.vc" data-org="wayfern" data-limit="6"></govkit-tasks>
+```
+
+**`docs/COMPOSITION.md` is the master document** for this: the composition diagram, the
+full component catalog across every repo in the set, the mount / auth / expand-link /
+config contracts, how to run the whole composition locally, and how to build a second
+dashboard for a different audience out of the same parts. The component reference for
+this bundle is the comment header of `static/embed/govkit.js`.
+
+Cross-origin embedding needs `CORS_ALLOWED_ORIGINS` set to the host page's origin
+(`.env.sample`); `CORS_ALLOW_CREDENTIALS` is on and CORS is scoped to `/api/`.
+
 ## Getting started
 
 Self-hosting via Docker Compose is covered step by step in the
@@ -64,6 +86,19 @@ A minimal first run:
 cp .env.sample .env          # then set SECRET_KEY and GOVKIT_SECRET_KEY (see the guide)
 docker compose up --build    # brings up Postgres + web and applies migrations
 ```
+
+Serve on another port with `WEB_PORT=8010 docker compose up`. Without Docker, point
+`DATABASE_URL` at any Postgres and run it as a normal Django app:
+
+```bash
+python -m venv venv && venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+venv/bin/python manage.py migrate && venv/bin/python manage.py runserver 8010
+venv/bin/pytest
+```
+
+`ALLOWED_HOSTS=localhost,127.0.0.1` and an empty `BASE_PATH` are the local values in
+`.env.sample`. To develop against a dashboard running on your machine, add its origin
+to `CORS_ALLOWED_ORIGINS` — see `docs/COMPOSITION.md`, "Running the composition locally".
 
 ## Stack
 

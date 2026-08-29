@@ -83,6 +83,8 @@ mentors, all_teams, cohort_progress, about, onboarding, settings),
 ## Docs in the repo
 
 `README.md`, `CLAUDE.md`, `AGENTS.md`, `UX_PRINCIPLES.md`, `docs/BOUNDARIES.md`,
+**`docs/COMPOSITION.md` (the master doc for how the workers.vc tools compose into a
+dashboard — every repo in the set links here)**,
 `docs/self-hosting.md`, `docs/governance-practices.md`, `docs/design/pattern-language.md`,
 `PLAN-cohort-dash.md`, `scratch.md` (session coordination board — read the tail first).
 
