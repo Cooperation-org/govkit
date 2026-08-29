@@ -18,31 +18,34 @@ A dashboard is a **shell** page that mounts **components** served by the apps th
 the data. No app's data is copied into the shell. Every card expands into the app
 that owns it.
 
-```
-   ┌─── SHELL ───────────────────────────────────────────────────────────┐
-   │  workers.vc  /dash/<org-slug>/          repo: workers.vc            │
-   │  owns: nav, layout, copy, the org slug, and every peer URL (env)    │
-   │                                                                     │
-   │   <govkit-checklist>  <govkit-tasks>  <govkit-feed>                 │
-   │   <govkit-money>      <crm-reachout>                                │
-   └──────────┬──────────────────────────────────────┬───────────────────┘
-              │ <script src>                         │ <script src>
-              ▼                                      ▼
-   dash.workers.vc                        crm-<org>.workers.vc
-   /static/embed/govkit.js                /crm_outreach_runner/static/src/embed/
-   repo: govkit                              crm-reachout.js
-   Django + DRF + Postgres                 repo: crm-outreach-runner (Odoo 17 addon)
+```mermaid
+graph TD
+    SHELL["<b>SHELL</b> — repo: workers.vc<br/>workers.vc/dash/&lt;org&gt;/<br/>nav · layout · copy · every peer URL from env"]
 
-   Component providers not currently mounted on this shell:
-   amebo.workers.vc/embed/amebo.js        repo: amebo   (<amebo-ask>, <amebo-goals>, …)
+    GK["<b>govkit</b><br/>dash.workers.vc<br/>/static/embed/govkit.js"]
+    CRM["<b>crm-outreach-runner</b><br/>crm-&lt;org&gt;.workers.vc<br/>Odoo 17 addon bundle"]
+    AM["<b>amebo</b><br/>amebo.workers.vc<br/>/embed/amebo.js"]
 
-   ┌─── EXPAND TARGETS (full apps, linked to, never embedded) ───────────┐
-   │  dash.workers.vc/o/<org>/…   GovKit   pie, drops, votes, members    │
-   │  marten.workers.vc/p/<org>/board?story=<ref>   Chiku over Taiga     │
-   │  crm-<org>.workers.vc/       Elm (fast front) and Odoo under /web   │
-   │  amebo.workers.vc/           the team agent                         │
-   └─────────────────────────────────────────────────────────────────────┘
+    SHELL -->|"&lt;govkit-checklist&gt; &lt;govkit-tasks&gt;<br/>&lt;govkit-feed&gt; &lt;govkit-money&gt;"| GK
+    SHELL -->|"&lt;crm-reachout&gt;"| CRM
+    SHELL -.->|"not mounted today"| AM
+
+    GK --> GKX["dash.workers.vc/o/&lt;org&gt;/<br/>pie · drops · votes · members"]
+    CRM --> CRMX["crm-&lt;org&gt;.workers.vc/<br/><b>elm</b>, and Odoo under /web"]
+    SHELL --> CH["<b>chiku</b> (marten.workers.vc)<br/>/p/&lt;org&gt;/board?story=&lt;ref&gt;"]
+
+    classDef shell fill:#fff4d6,stroke:#a3780a,stroke-width:2px
+    classDef prov fill:#e8f0fb,stroke:#4e79a7,stroke-width:1.5px
+    classDef exp fill:#f2f2f2,stroke:#888,stroke-dasharray:4 3
+    class SHELL shell
+    class GK,CRM,AM prov
+    class GKX,CRMX,CH exp
 ```
+
+Solid arrows are **components** the shell mounts; the boxes below are **expand
+targets** a card links out to. Nothing flows the other way: no provider knows a shell
+exists.
+
 
 Verified live 2026-08-29: `https://workers.vc/dash/` serves exactly the five
 components and two script tags above.
