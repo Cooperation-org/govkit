@@ -669,6 +669,35 @@ def zone(edition: Edition):
 # --- the mailing list --------------------------------------------------------
 
 
+def add_typed(org_slug: str, email: str, name: str = "") -> tuple[bool, str]:
+    """Put an address someone typed themselves onto Supporters.
+
+    The one list a person can join without anybody importing them. `external_id`
+    is the normalised address, so the same person typing it twice is the same
+    row rather than a duplicate.
+
+    Typing your address in after unsubscribing is a person asking to come back,
+    so it clears their earlier stop for this org. It is deliberate and it is the
+    only thing that undoes an unsubscribe.
+
+    Returns (created, address).
+    """
+    address = (email or "").strip().lower()
+    if not address:
+        return False, ""
+    Subscriber.objects.filter(
+        org_slug=org_slug, email__iexact=address, unsubscribed_at__isnull=False
+    ).update(unsubscribed_at=None)
+    _, created = Subscriber.objects.update_or_create(
+        org_slug=org_slug,
+        audience=SUPPORTERS,
+        source=Subscriber.TYPED,
+        external_id=address,
+        defaults={"email": address, "name": (name or "").strip()[:255], "unsubscribed_at": None},
+    )
+    return created, address
+
+
 def subscribers(org_slug: str, audience: str):
     """Everyone on one list who has not unsubscribed."""
     return Subscriber.objects.filter(

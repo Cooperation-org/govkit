@@ -26,6 +26,7 @@ from apps.comms.models import (
     AUDIENCE_KEYS,
     MENTORS,
     SUPPORTERS,
+    Subscriber,
     VENTURES,
     WORKERS,
     Edition,
@@ -959,3 +960,62 @@ def test_the_page_shows_what_was_written(client, admin_at_vc, edition):
     page = client.get(reverse("comms_public:bulletin", kwargs={"token": send.public_token}))
     assert b"Only this." in page.content
     assert b"Week 2 kickoff" not in page.content
+
+
+# --- the join page's address ------------------------------------------------
+#
+# Somebody typing their address into workers.vc is the one way onto a list that
+# needs no importing, so it is the one that has to hold up on its own.
+
+JOIN = "/api/v1/comms/vc/subscribers/"
+BEARER = {"HTTP_AUTHORIZATION": "Bearer letmein"}
+
+
+@pytest.mark.django_db
+def test_an_address_without_the_shared_secret_is_refused(client, settings):
+    settings.GOVKIT_S2S_TOKEN = "letmein"
+    response = client.post(JOIN, json.dumps({"email": "a@b.com"}), "application/json")
+    assert response.status_code == 401
+    assert not Subscriber.objects.exists()
+
+
+@pytest.mark.django_db
+def test_a_typed_address_lands_on_supporters(client, settings):
+    settings.GOVKIT_S2S_TOKEN = "letmein"
+    response = client.post(
+        JOIN, json.dumps({"email": "Ada@Example.com", "name": "Ada"}), "application/json", **BEARER
+    )
+    assert response.status_code == 201
+    row = Subscriber.objects.get()
+    assert (row.org_slug, row.audience, row.source) == ("vc", SUPPORTERS, Subscriber.TYPED)
+    assert row.email == "ada@example.com"
+    assert "ada@example.com" in services.recipient_emails("vc", SUPPORTERS)
+
+
+@pytest.mark.django_db
+def test_typing_it_twice_is_one_person(client, settings):
+    settings.GOVKIT_S2S_TOKEN = "letmein"
+    body = json.dumps({"email": "ada@example.com"})
+    assert client.post(JOIN, body, "application/json", **BEARER).status_code == 201
+    assert client.post(JOIN, body, "application/json", **BEARER).status_code == 200
+    assert Subscriber.objects.count() == 1
+
+
+@pytest.mark.django_db
+def test_typing_it_in_again_undoes_an_unsubscribe(client, settings):
+    settings.GOVKIT_S2S_TOKEN = "letmein"
+    body = json.dumps({"email": "ada@example.com"})
+    client.post(JOIN, body, "application/json", **BEARER)
+    services.unsubscribe("vc", "ada@example.com", SUPPORTERS)
+    assert "ada@example.com" not in services.recipient_emails("vc", SUPPORTERS)
+
+    client.post(JOIN, body, "application/json", **BEARER)
+    assert "ada@example.com" in services.recipient_emails("vc", SUPPORTERS)
+
+
+@pytest.mark.django_db
+def test_something_that_is_not_an_address_is_refused(client, settings):
+    settings.GOVKIT_S2S_TOKEN = "letmein"
+    response = client.post(JOIN, json.dumps({"email": "ada"}), "application/json", **BEARER)
+    assert response.status_code == 400
+    assert not Subscriber.objects.exists()

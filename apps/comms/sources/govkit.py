@@ -7,8 +7,9 @@ functions is the exact API a spun-out comms service would have to be given
 `tests/test_comms.py` fails the build if it does.
 
 Facts named here: an org's display name, its calendar URL, the run it is part of
-and when that run started, how many people are in each audience, and whether the
-person looking is an admin.
+and when that run started, how many people are in each audience, whether the
+person looking is an admin, and whether a server-to-server caller holds this
+install's shared secret.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from __future__ import annotations
 import logging
 
 from apps.orgs.models import MembershipRole, Org
+from apps.orgs.s2s import authorized as _s2s_authorized
 
 logger = logging.getLogger(__name__)
 
@@ -240,3 +242,14 @@ def viewer_is_admin(request) -> bool:
         return True
     membership = getattr(request, "membership", None)
     return membership is not None and membership.role == MembershipRole.ADMIN
+
+
+def caller_is_trusted_server(request) -> bool:
+    """One server-to-server secret for the whole install (apps/orgs/s2s.py).
+
+    The workers.vc doorway posts a typed address here, holding the same bearer
+    it already uses for invites and sponsor pledges. A spun-out comms would own
+    this secret itself; today it borrows GovKit's, so the check lives here with
+    every other borrowed fact.
+    """
+    return _s2s_authorized(request)
