@@ -7,9 +7,9 @@ functions is the exact API a spun-out comms service would have to be given
 `tests/test_comms.py` fails the build if it does.
 
 Facts named here: an org's display name, its calendar URL, the run it is part of
-and when that run started, how many people are in each audience, whether the
-person looking is an admin, and whether a server-to-server caller holds this
-install's shared secret.
+and when that run started, this week's curriculum module, how many people are in
+each audience, whether the person looking is an admin, and whether a
+server-to-server caller holds this install's shared secret.
 """
 
 from __future__ import annotations
@@ -188,6 +188,23 @@ def mentors_url() -> str:
 def pool_url() -> str:
     """The page listing the people in the applicant pool."""
     return _own_page("commons:pool")
+
+
+def curriculum_week(week_number: int):
+    """The curriculum module for one week of the run: (label, [item titles]).
+
+    The curriculum is GovKit's (apps/orgs/genesis.py), keyed by week from the
+    run's start. None when the week is unknown or the run has no module for it,
+    which reads as no curriculum section at all rather than an empty one.
+    """
+    from apps.orgs.genesis import MODULES
+
+    if not week_number:
+        return None
+    for _key, label, week, items in MODULES:
+        if week == week_number:
+            return label, [title for _item_key, title in items]
+    return None
 
 
 def venture_goals():

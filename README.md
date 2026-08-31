@@ -63,6 +63,25 @@ nothing at all when the answer is empty or forbidden.
 <govkit-tasks data-up="https://dash.workers.vc" data-org="wayfern" data-limit="6"></govkit-tasks>
 ```
 
+## The curriculum has one home
+
+`apps/orgs/genesis.py` `MODULES` is the whole accelerator curriculum: module, week,
+and the items under it. Item **keys are permanent** (a team's ticks hang off them);
+titles and briefs are free to reword. Two readers, no copies:
+
+- the dash checklist, through `GET /api/v1/orgs/{org}/checklist/` and `<govkit-checklist>`
+- the weekly cohort email, through `apps/comms/sources/govkit.py:curriculum_week()`,
+  which seeds the "The curriculum this week" section of that week's edition
+
+Reword a module and both change. Never retype curriculum text into a template, an
+email, or a comms line: `apps/comms` may read GovKit only through its one adapter file
+(`apps/comms/BOUNDARIES.md`).
+
+One weekly meeting for the whole of workers.vc, on Monday, six teams, five minutes
+each: what you can share from last week, what you will do this week, what you need.
+Teams run their own standups on their own schedule. If a curriculum item says
+otherwise, it is the item that is wrong.
+
 **`docs/COMPOSITION.md` is the master document** for this: the composition diagram, the
 full component catalog across every repo in the set, the mount / auth / expand-link /
 config contracts, how to run the whole composition locally, and how to build a second

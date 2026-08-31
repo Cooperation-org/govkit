@@ -28,7 +28,7 @@ graph TD
 
     SHELL -->|"&lt;govkit-checklist&gt; &lt;govkit-tasks&gt;<br/>&lt;govkit-feed&gt; &lt;govkit-money&gt;"| GK
     SHELL -->|"&lt;crm-reachout&gt;"| CRM
-    SHELL -.->|"not mounted today"| AM
+    SHELL -.->|"not mounted since the v3 redesign"| AM
 
     GK --> GKX["dash.workers.vc/o/&lt;org&gt;/<br/>pie · drops · votes · members"]
     CRM --> CRMX["crm-&lt;org&gt;.workers.vc/<br/><b>elm</b>, and Odoo under /web"]
@@ -47,8 +47,12 @@ targets** a card links out to. Nothing flows the other way: no provider knows a 
 exists.
 
 
-Verified live 2026-08-29: `https://workers.vc/dash/` serves exactly the five
-components and two script tags above.
+Verified live 2026-08-31: `https://workers.vc/dash/` serves the five govkit/CRM
+components above. The amebo arrow is dashed because the v3 dash dropped what the
+earlier one mounted (`<amebo-skills>`, `<amebo-goals>`, and `amebo.js`), not because
+amebo is unavailable: `amebo.workers.vc/embed/amebo.js` answers 200 and the tests in
+`workers.vc/doorway/tests.py` still require those cards. Restoring them is one script
+tag and two cards.
 
 ### The three roles a repo can play
 
@@ -94,7 +98,17 @@ hostname; the Odoo session cookie is the auth.
 **Nav** — `workers.vc/static/embed/cohort-nav.js`
 
 `<cohort-nav>` — the 32px bar every workers.vc surface mounts, so there is one copy of
-the cohort's map. Attributes `data-org`, `data-domain`, `data-current`, `data-site-url`.
+the cohort's map. Attributes `data-org`, `data-domain`, `data-current`, `data-site-url`,
+`data-vc-org`, `data-chat-url`, `data-calendar-url`.
+
+**The nav is mounted, never copied.** Every place the bar offers, its order, who may see
+each one, and every peer URL live in `workers.vc/doorway/static/embed/cohort-nav.js`.
+A page that writes its own `<a>` links to peer apps has forked the cohort's map, and it
+goes stale the day it is written: between 2026-08-26 and 2026-08-31 the redesigned
+`/dash/` shipped a hand-written topnav and silently lost Comms, Cohort Calendar, Worker
+Pool, Site, the account menu, and every identity gate. Restyle it from the host page
+(`cohort-nav .cn-bar`, `cohort-nav a`, `cohort-nav a[aria-current="page"]`); there is no
+shadow DOM. Add or remove a place by editing the bundle, once, for every surface.
 
 ---
 

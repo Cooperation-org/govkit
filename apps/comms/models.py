@@ -44,6 +44,7 @@ AUDIENCE_KEYS = [k for k, _ in AUDIENCES]
 # Titles are edited in place, so this is only the starting set.
 DEFAULT_SECTIONS = [
     {"k": "goals", "title": "Goals this week", "tpl": [WORKERS, VENTURES]},
+    {"k": "curric", "title": "The curriculum this week", "tpl": [WORKERS, VENTURES]},
     # A mentor opens this to see when to turn up, and then who they would be
     # sitting with — so the week comes before the teams, and there is no
     # opportunities section for them at all (golda 2026-08-10).
