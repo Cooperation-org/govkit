@@ -97,6 +97,7 @@ def open_edition(org_slug: str, today: date | None = None) -> Edition:
     edition.items = [item_from_event(edition, e) for e in events]
     edition.items += _carried_forward(org_slug, edition)
     _seed_section(edition, GOALS_SECTION, _goal_lines(edition))
+    _seed_section(edition, CURRICULUM_SECTION, _curriculum_lines(edition))
     _seed_section(edition, OPPORTUNITIES_SECTION, _opportunity_lines(edition))
     _seed_section(edition, VENTURES_SECTION, _venture_news_lines(edition))
     try:
@@ -118,14 +119,16 @@ def _catch_up(edition: Edition, end: date) -> None:
     A cut line keeps its uid in `items`, so nothing here puts back what someone
     took out, and a meeting already in the email is left exactly as it is.
     """
+    added = _add_missing_sections(edition)
     seeded = _seed_section(edition, GOALS_SECTION, _goal_lines(edition))
+    seeded |= _seed_section(edition, CURRICULUM_SECTION, _curriculum_lines(edition))
     seeded |= _seed_section(edition, OPPORTUNITIES_SECTION, _opportunity_lines(edition))
     seeded |= _seed_section(edition, VENTURES_SECTION, _venture_news_lines(edition))
     widened = end > edition.window_end
     empty = not any(i.get("sec") == CALENDAR_SECTION for i in edition.items)
     if not (widened or empty):
-        if seeded:
-            edition.save(update_fields=["items", "updated_at"])
+        if seeded or added:
+            edition.save(update_fields=["sections", "items", "updated_at"])
         return
     if widened:
         edition.window_end = end
@@ -135,16 +138,19 @@ def _catch_up(edition: Edition, end: date) -> None:
         edition.tz_name = tz_name
     known = {i.get("uid") for i in edition.items if i.get("uid")}
     fresh = [item_from_event(edition, e) for e in events if e.uid not in known]
-    if not (fresh or widened or seeded):
+    if not (fresh or widened or seeded or added):
         return
     edition.items += fresh
     _sort_calendar(edition)
-    edition.save(update_fields=["items", "window_end", "tz_name", "updated_at"])
+    edition.save(
+        update_fields=["sections", "items", "window_end", "tz_name", "updated_at"]
+    )
 
 
 GOALS_SECTION = "goals"
 OPPORTUNITIES_SECTION = "opp"
 VENTURES_SECTION = "vent"
+CURRICULUM_SECTION = "curric"
 
 
 def sent_audiences(edition: Edition) -> set:
@@ -153,6 +159,25 @@ def sent_audiences(edition: Edition) -> set:
         # Still being built, so nothing has been sent from it yet.
         return set()
     return set(edition.sends.filter(sent_at__isnull=False).values_list("audience", flat=True))
+
+
+def _add_missing_sections(edition: Edition) -> bool:
+    """Give a draft any section added to DEFAULT_SECTIONS since it was built.
+
+    A section that arrives later goes in at its default position, so an open
+    draft reads in the same order as a new one. Titles a person edited, and
+    every line already written, are untouched: this only adds what is absent.
+    """
+    known = {s.get("k") for s in edition.sections}
+    missing = [s for s in DEFAULT_SECTIONS if s["k"] not in known]
+    if not missing:
+        return False
+    order = [s["k"] for s in DEFAULT_SECTIONS]
+    edition.sections = sorted(
+        edition.sections + [dict(s) for s in missing],
+        key=lambda s: order.index(s["k"]) if s.get("k") in order else len(order),
+    )
+    return True
 
 
 def _seed_section(edition: Edition, key: str, lines: list[dict]) -> bool:
@@ -200,6 +225,21 @@ def _goal_lines(edition: Edition) -> list[dict]:
         {"title": title, "href": url, "tpl": [VENTURES]} for title, url in govkit.venture_goals()
     ]
     return lines
+
+
+def _curriculum_lines(edition: Edition) -> list[dict]:
+    """This week of the curriculum, so the email says the same thing the dash does.
+
+    The curriculum is GovKit's, keyed by week of the run. Comms only reads it:
+    the module for this edition's week becomes one line per item, for the people
+    doing the work. No week, or no module for it, means no lines and the section
+    stays out of the email.
+    """
+    module = govkit.curriculum_week(edition.week_number)
+    if module is None:
+        return []
+    _label, titles = module
+    return [{"title": title, "tpl": [VENTURES, WORKERS]} for title in titles]
 
 
 def _people_line(people: list[dict], plural: str, url: str) -> list[dict]:
