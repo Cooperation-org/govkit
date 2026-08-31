@@ -79,8 +79,7 @@ email, or a comms line: `apps/comms` may read GovKit only through its one adapte
 
 One weekly meeting for the whole of workers.vc, on Monday, six teams, five minutes
 each: what you can share from last week, what you will do this week, what you need.
-Teams run their own standups on their own schedule. If a curriculum item says
-otherwise, it is the item that is wrong.
+Teams run their own standups on their own schedule.
 
 **`docs/COMPOSITION.md` is the master document** for this: the composition diagram, the
 full component catalog across every repo in the set, the mount / auth / expand-link /
