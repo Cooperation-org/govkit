@@ -14,7 +14,14 @@ from unittest.mock import patch
 import pytest
 from django.core.cache import cache
 
-from apps.orgs.genesis import ITEM_BRIEFS, ITEM_LINKS, MODULES, start_genesis, toggle_item
+from apps.orgs.genesis import (
+    ITEM_BRIEFS,
+    ITEM_BULLETS,
+    ITEM_LINKS,
+    MODULES,
+    start_genesis,
+    toggle_item,
+)
 from apps.orgs.models import ChecklistEvent
 from apps.projects.models import Deal, Payout, Project, ProjectKind, Split
 from apps.tasksources.adapters import OpenTaskDTO
@@ -141,6 +148,7 @@ def test_checklist_shape_for_member(client, team):
             {"label": label, "url": f"/o/{org.slug}{where}"}
             for label, where in ITEM_LINKS.get(FIRST_KEY, ())
         ],
+        "bullets": list(ITEM_BULLETS.get(FIRST_KEY, ())),
         # Ticked, but nobody has written anything about it yet.
         "has_note": False,
         "done": True,
