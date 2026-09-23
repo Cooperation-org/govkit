@@ -1,8 +1,8 @@
-# 3 — Opportunity to Object
+# 3 · Opportunity to Object
 
 ## Clauses, as written
 
-**Bylaws 3.9** — [corporate-bylaws](../archive/corporate-bylaws.md)
+**Bylaws 3.9** · [corporate-bylaws](../archive/corporate-bylaws.md)
 > Actions taken by the Board of Directors or their representatives may be subject to
 > Opportunity to Object. The proposed action shall be communicated to all TeamCookHolders
 > and an approved voting method provided. In order that actions may be taken quickly,
@@ -21,14 +21,14 @@
 > action may be proposed again not sooner than 30 days after a vote of objection, and may be
 > subject to a further vote.
 
-**Bylaws 4.13** — what always goes to a vote
+**Bylaws 4.13**, what always goes to a vote
 > Appointment of a CEO or Chief Executive Officer of the Company
 > Removal of a CEO or Chief Executive Officer of the Company
 > Authorizing the spending velocity or budget of company funds and/or COOK
 > Any one-time expenditure that is greater than the current monthly budget of the Company
 > The policies and velocity under which TEAMCOOK are issued
 
-**Bylaws 11.1** — changing the agreement
+**Bylaws 11.1**, changing the agreement
 > Any modification to these Bylaws shall not take effect until an Opportunity to Object vote
 > has been held and the modification has been approved with at least 60% of the vote.
 

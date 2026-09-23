@@ -1,12 +1,12 @@
-# 2 — Transparency, not permission
+# 2 · Transparency, not permission
 
 ## Clauses, as written
 
-**Practice** — [budgets-and-payments-2022](../archive/budgets-and-payments-2022.md)
+**Practice** · [budgets-and-payments-2022](../archive/budgets-and-payments-2022.md)
 > We are committed to transparency - you can always know how much money we have, and to see
 > what we spend it by examining the labels in taiga.
 
-**Bylaws 3.3** — [corporate-bylaws](../archive/corporate-bylaws.md)
+**Bylaws 3.3** · [corporate-bylaws](../archive/corporate-bylaws.md)
 > Team Members shall have the right to inspect books, accounts and records of the
 > Corporation at any time with reasonable advance notice, with the exception of personnel
 > records of individuals.

@@ -5,7 +5,7 @@ worked example. Signature names removed: this repo is public and carries no pers
 Not legal advice. A lawyer reviews any instrument before it is used.
 -->
 
-# Corporate bylaws — reference example
+# Corporate bylaws, reference example
 
 Adopted bylaws of a Delaware public benefit corporation that transfers common-shareholder
 rights to holders of a non-transferable, work-earned voting token. The clauses worth

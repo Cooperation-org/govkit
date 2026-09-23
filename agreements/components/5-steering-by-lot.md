@@ -1,12 +1,12 @@
-# 5 — Steering by lot (optional)
+# 5 · Steering by lot (optional)
 
 ## As written
 
 **Practice** · [SRC: project owner, 2026-06-14]
-> Steering committee is filled by rotating, work-weighted sortition — not elected.
+> Steering committee is filled by rotating, work-weighted sortition, not elected.
 
 **[Grow like Trees](https://linkedtrust.us/blog/grow-like-trees-an-organic-approach-to-societal-regrowth/)**
-> sortition — rotating committees randomly selected from equity holders
+> rotating committees randomly selected from equity holders
 
 **Role** · [SRC: project owner, 2026-09-23]
 > optional component for sortition-based steering committee to advise

@@ -1,8 +1,8 @@
-# 1 — Work becomes ownership
+# 1 · Work becomes ownership
 
 ## Clauses, as written
 
-**Bylaws 2.1** — [corporate-bylaws](../archive/corporate-bylaws.md)
+**Bylaws 2.1** · [corporate-bylaws](../archive/corporate-bylaws.md)
 > The Corporation shall maintain a tracking system for work performed, referred to here
 > forward as a "Task Tracker". The Task Tracker must have a method for peer review and
 > approval of tasks.
@@ -11,7 +11,7 @@
 > A "Team Member" shall refer to any individual who performed work that was recorded on the
 > Task Tracker and who has continued access to record work on the Task Tracker.
 
-**Bylaws 7.1** — issuance
+**Bylaws 7.1**, issuance
 > TEAMCOOK shall be issued in proportion to the COOK assigned to each Team Member on the
 > Task Tracker, but the amount of TEAMCOOK issued in any 30 day period is not to exceed 10%
 > of total existing issued TEAMCOOK.
@@ -21,7 +21,7 @@
 > be issued no more often than every 14 days and no less often than every 90 days as long as
 > work is continued to be performed by Team Members.
 
-**Practice** — [budgets-and-payments-2022](../archive/budgets-and-payments-2022.md)
+**Practice** · [budgets-and-payments-2022](../archive/budgets-and-payments-2022.md)
 > Payment is always based on completed tasks in Taiga, that are in the Review or Done
 > column. _All tasks must contain deliverables_: a link to a PR, to a google doc, the URL
 > of a social media post, etc. What is it that got accomplished, and where is it?

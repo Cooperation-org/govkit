@@ -6,7 +6,7 @@ Source: company records, via the project owner. Signature names removed.
 Not legal advice. A lawyer reviews any instrument before it is used.
 -->
 
-# Rolling SAFE — reference example
+# Rolling SAFE, reference example
 
 A Rolling SAFE stays open continuously instead of closing a round: an investor buys at the
 price shown on a dashboard at the moment of purchase, set by a published linear function,

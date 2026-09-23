@@ -1,8 +1,8 @@
-# 4 — Work-weighted, ranked-choice voting
+# 4 · Work-weighted, ranked-choice voting
 
 ## Clauses, as written
 
-**Bylaws 2.4** — [corporate-bylaws](../archive/corporate-bylaws.md)
+**Bylaws 2.4** · [corporate-bylaws](../archive/corporate-bylaws.md)
 > TEAMCOOK shall refer to a voting token or voting right that is granted only to Team
 > Members in recognition of work performed, may be held by Former Team Members, and is non
 > transferable. Under no circumstance may TEAMCOOK be purchased or received by means other

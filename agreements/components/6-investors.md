@@ -1,16 +1,16 @@
-# 6 — Investors
+# 6 · Investors
 
 ## As written
 
 **[SRC: project owner, 2026-07-16]**
 > Money can buy SAFE-like slices over future equity, but not governance.
 
-**Bylaws 2.3** — [corporate-bylaws](../archive/corporate-bylaws.md)
+**Bylaws 2.3** · [corporate-bylaws](../archive/corporate-bylaws.md)
 > COOK or $COOK shall refer to the smart token over future equity instrument that is granted
 > to investors and team members... COOK may be purchased or granted in recognition of work
 > performed or other valuable services, and is transferable.
 
-**Rolling SAFE, §2 definitions** — [rolling-safe](../archive/rolling-safe.md)
+**Rolling SAFE, §2 definitions** · [rolling-safe](../archive/rolling-safe.md)
 > "Effective Purchase Price" means the effective price per Token depicted on the Investor's
 > Dashboard at the time of the execution of this Rolling SAFE on the Site, which price
 > reflects the effective average price per Token as determined by the linear function used
@@ -21,7 +21,7 @@
 > decrease the Rolling SAFE equity percentage without the prior consent of a majority of the
 > Rolling SAFE Investors.
 
-**Practice** — [budgets-and-payments-2022](../archive/budgets-and-payments-2022.md)
+**Practice** · [budgets-and-payments-2022](../archive/budgets-and-payments-2022.md)
 > The COOK will turn into Option Tokens on our investment dashboard AND also convert to
 > TEAMCOOK governance tokens. For the governance tokens we may have a multiplier that limits
 > how much new governance can be issued each month, depending on what we agree on.

@@ -5,7 +5,7 @@ because the agreement components come from it. Names replaced; this repo is publ
 Source: Taiga wiki, project `epics`, page `10-budgets-and-payments`.
 -->
 
-# Budgets and payments, 2022 — the practice before the toolkit
+# Budgets and payments, 2022
 
 Budgets and Payments
 --------------------
