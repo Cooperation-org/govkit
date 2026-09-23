@@ -36,6 +36,13 @@ Each clause is adopted or struck. The words are from the documents in
 **6 · Investors** · adopt ☐ strike ☐ · [component](components/6-investors.md)
 > Money can buy SAFE-like slices over future equity, but not governance.
 
+**7 · Mutual grants** · proposed, not adopted · [component](components/7-mutual-grants.md)
+> granting equity to Workers.VC itself, if the accelerator program was useful - say $1k
+> equity - do folks agree? And then Workers.VC granting equity to the cohort members if
+> they gave valuable feedback. FI has a thing where all members grant some to each other.
+> do we want that. but can do by task and by reaction in slack/discord in future so its
+> granular not automatic
+
 **Changing this** · Opportunity to Object, **60%** of the vote.
 
 ---

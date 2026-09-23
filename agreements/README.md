@@ -12,6 +12,7 @@
 4. [Work-weighted, ranked-choice voting](components/4-work-weighted-voting.md)
 5. [Steering by lot](components/5-steering-by-lot.md) · optional
 6. [Investors](components/6-investors.md) · money buys economics, not votes
+7. [Mutual grants](components/7-mutual-grants.md) · proposed, not adopted
 
 Each is the clause as written in the source, the numbers a team sets, and what GovKit does.
 
