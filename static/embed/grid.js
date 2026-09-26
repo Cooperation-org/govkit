@@ -275,6 +275,12 @@
       this.cards.forEach(function (c) {
         self.watch(c);
       });
+      this.relayout();
+      // Signed out, or GovKit unreachable: an arrangement could not be kept, so
+      // nothing can be moved and only the page's own links show in the row.
+      if (!this.canSave) {
+        [this.btnGrid, this.btnOne, this.addWrap, this.btnReset].forEach(function (b) { b.hidden = true; });
+      }
       this.tools.hidden = false;
       this.syncStatic();
       window.addEventListener('resize', function () { self.syncStatic(); });
@@ -301,25 +307,50 @@
           if (self.present[c.id] && self.grid) self.grid.resizeToContent(c.item);
         }).observe(c.node);
       }
-      sync();
     }
 
     syncCard(c) {
-      var want = this.shouldShow(c);
-      var have = !!this.present[c.id];
-      if (want === have) return;
-      if (want) {
-        var p = this.saved.items[c.id] || this.defaultPos[c.id];
-        c.item.classList.remove('bg-out');
-        c.item.classList.add('grid-stack-item');
-        this.grid.makeWidget(c.item, { id: c.id, x: p.x, y: p.y, w: p.w || c.w, sizeToContent: true });
-        this.present[c.id] = true;
-      } else {
-        this.grid.removeWidget(c.item, false, false);
-        delete this.present[c.id];
+      if (this.shouldShow(c) !== !!this.present[c.id]) this.relayout();
+    }
+
+    // Place every card that should show, in the order it was put (top to bottom,
+    // left to right). Cards appear at different moments as their data arrives;
+    // laying them all out again in that order is what keeps the result the same
+    // every time, whichever card answered first.
+    relayout() {
+      var self = this;
+      var show = this.cards.filter(function (c) { return self.shouldShow(c); });
+      show.sort(function (a, b) {
+        var p = self.intended(a.id), q = self.intended(b.id);
+        return p.y - q.y || p.x - q.x;
+      });
+      this.grid.batchUpdate();
+      this.cards.forEach(function (c) {
+        if (!self.present[c.id]) return;
+        self.grid.removeWidget(c.item, false, false);
+        delete self.present[c.id];
         c.item.className = 'bg-item bg-out';
         c.item.removeAttribute('style');
-      }
+      });
+      // Heights are only known once each card has rendered, so saved rows can
+      // overlap while cards grow. Spread the rows far apart and let the grid pack
+      // them up: the order holds, the gaps close.
+      var rows = [];
+      show.forEach(function (c) {
+        var y = self.intended(c.id).y;
+        if (rows.indexOf(y) === -1) rows.push(y);
+      });
+      rows.sort(function (a, b) { return a - b; });
+      show.forEach(function (c) {
+        var p = self.intended(c.id);
+        c.item.classList.remove('bg-out');
+        c.item.classList.add('grid-stack-item');
+        self.grid.makeWidget(c.item, {
+          id: c.id, x: p.x, y: rows.indexOf(p.y) * 1000, w: p.w || c.w, sizeToContent: true,
+        });
+        self.present[c.id] = true;
+      });
+      this.grid.batchUpdate(false);
       this.syncStatic();
       this.renderTabs();
     }
@@ -330,8 +361,9 @@
     syncStatic() {
       if (!this.grid) return;
       var narrow = window.innerWidth <= NARROW;
-      this.grid.setStatic(narrow || this.saved.view === 'one');
-      this.classList.toggle('bg-static', narrow || this.saved.view === 'one');
+      var fixed = narrow || this.saved.view === 'one' || !this.canSave;
+      this.grid.setStatic(fixed);
+      this.classList.toggle('bg-static', fixed);
       this.classList.toggle('bg-narrow', narrow);
       var self = this;
       this.inOrder().forEach(function (id, i) { self.byId[id].item.style.order = i; });
@@ -408,7 +440,7 @@
         li.appendChild(b);
         self.addList.appendChild(li);
       });
-      this.addWrap.hidden = !this.addList.children.length;
+      this.addWrap.hidden = !this.canSave || !this.addList.children.length;
     }
 
     reset() {
@@ -433,21 +465,12 @@
     }
 
     applyLayout(layout) {
-      var self = this;
       this.saved = {
         items: layout.items || {}, hidden: layout.hidden || [],
         view: layout.view || 'grid', current: layout.current || '',
       };
       this.defaultPos = defaults(this.cards);
-      this.grid.batchUpdate();
-      this.cards.forEach(function (c) {
-        self.syncCard(c);
-        if (self.present[c.id]) {
-          var p = self.saved.items[c.id] || self.defaultPos[c.id];
-          self.grid.update(c.item, { x: p.x, y: p.y, w: p.w || c.w });
-        }
-      });
-      this.grid.batchUpdate(false);
+      this.relayout();
       this.renderAddList();
       this.setView(this.saved.view, false);
     }
