@@ -83,6 +83,15 @@ contract; the shell supplies the values.
 | `<govkit-ventures>` | `GET /api/v1/commons/ventures/` | `data-limit` (no org — every venture) |
 | `<govkit-news>` | `GET /api/v1/commons/news/mine/` | `data-limit` (no org — the viewer's own rail) |
 
+**GovKit grid** — `<govkit-base>/static/embed/grid.js` (`govkit/static/embed/grid.js`)
+
+`<baobab-grid>` holds a page's cards and lets each person arrange them: drag by the
+heading, widen or narrow, hide and bring back, one at a time, reset with undo. Attributes
+`data-up` (GovKit base), `data-dashboard` (which saved layout). Children carry
+`data-card="<id>"` and `data-w="<1-12>"`; `data-tool` children join its control row.
+Saved per person at `/api/v1/accounts/me/layouts/<dashboard>/`. Mounted by
+`workers.vc/doorway/templates/cohort_dash.html` (the default `/dash/<org>/`).
+
 **amebo** — `<amebo-base>/embed/amebo.js` (`amebo/embed/amebo.js`; details in `amebo/embed/README.md`)
 
 `<amebo-ask>`, `<amebo-goals>`, `<amebo-goal>`, `<amebo-claws>`, `<amebo-create-claw>`,
