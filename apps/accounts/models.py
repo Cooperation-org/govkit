@@ -157,3 +157,25 @@ class ProfileLink(models.Model):
 
     def __str__(self):
         return f"{self.user.email}: {self.kind} {self.handle or self.url}"
+
+
+class DashLayout(models.Model):
+    """How one person has arranged one dashboard: card order, sizes, hidden cards.
+
+    The dashboard page owns the default; this row holds only what the person changed,
+    and only the person changes it. ``dashboard`` names the page (e.g. ``cohort``),
+    not an org, so the arrangement follows the person across every team's dash.
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="dash_layouts")
+    dashboard = models.SlugField(max_length=64)
+    layout = models.JSONField(default=dict)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "dashboard"], name="uniq_dash_layout"),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email}: {self.dashboard}"

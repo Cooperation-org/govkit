@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import ProfileLink, User
+from .models import DashLayout, ProfileLink, User
 
 
 class ProfileLinkInline(admin.TabularInline):
@@ -29,3 +29,9 @@ class UserAdmin(BaseUserAdmin):
         ("Dates", {"fields": ("last_login", "date_joined")}),
     )
     add_fieldsets = ((None, {"classes": ("wide",), "fields": ("email", "password1", "password2")}),)
+
+
+@admin.register(DashLayout)
+class DashLayoutAdmin(admin.ModelAdmin):
+    list_display = ("user", "dashboard", "updated_at")
+    search_fields = ("user__email", "dashboard")

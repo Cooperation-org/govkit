@@ -12,6 +12,8 @@ NOTE (orchestrator): mount this router by adding to config/urls.py:
 
 from __future__ import annotations
 
+import json
+
 from django.contrib.auth import get_user_model
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -23,10 +25,11 @@ from rest_framework.response import Response
 from rest_framework.routers import DefaultRouter
 from rest_framework.views import APIView
 
+from apps.orgs.embed_auth import EmbedSessionAuthentication
 from apps.orgs.models import Invite, InviteKind, InviteStatus, Membership
 from apps.orgs.s2s import authorized as s2s_authorized
 
-from .models import ProfileLink
+from .models import DashLayout, ProfileLink
 
 
 class _MembershipSummarySerializer(serializers.ModelSerializer):
@@ -83,6 +86,38 @@ class MeView(APIView):
                 ).data,
             }
         )
+
+
+class DashLayoutView(APIView):
+    """The signed-in person's own arrangement of one dashboard.
+
+    GET answers ``{"layout": {...}}``; an empty object means "the page default".
+    PUT replaces it; DELETE returns the person to the default. Nobody but the person
+    reads or writes their row: there is no user in the URL.
+    """
+
+    authentication_classes = [EmbedSessionAuthentication]
+    permission_classes = [IsAuthenticated]
+    MAX_BYTES = 32_000
+
+    def get(self, request, dashboard):
+        row = DashLayout.objects.filter(user=request.user, dashboard=dashboard).first()
+        return Response({"layout": row.layout if row else {}})
+
+    def put(self, request, dashboard):
+        layout = request.data.get("layout") if isinstance(request.data, dict) else None
+        if not isinstance(layout, dict):
+            return Response({"detail": "layout must be an object"}, status=400)
+        if len(json.dumps(layout)) > self.MAX_BYTES:
+            return Response({"detail": "layout too large"}, status=400)
+        DashLayout.objects.update_or_create(
+            user=request.user, dashboard=dashboard, defaults={"layout": layout}
+        )
+        return Response({"layout": layout})
+
+    def delete(self, request, dashboard):
+        DashLayout.objects.filter(user=request.user, dashboard=dashboard).delete()
+        return Response({"layout": {}})
 
 
 class _PublicProfileLinkSerializer(serializers.ModelSerializer):
@@ -223,6 +258,7 @@ router = DefaultRouter()  # reserved for future account resources
 
 urlpatterns = router.urls + [
     path("me/", MeView.as_view(), name="me"),
+    path("me/layouts/<slug:dashboard>/", DashLayoutView.as_view(), name="dash_layout"),
     path(
         "profiles/by-claim/<int:claim_id>/",
         PublicProfileByClaimView.as_view(),
