@@ -165,7 +165,8 @@
           self.canSave = true;
           self.saved = {
             items: l.items && typeof l.items === 'object' && !Array.isArray(l.items) ? l.items : {},
-            hidden: Array.isArray(l.hidden) ? l.hidden.filter(function (id) { return self.byId[id]; }) : [],
+            // Kept even for cards not on this page today, so the choice holds when they return.
+            hidden: Array.isArray(l.hidden) ? l.hidden.filter(function (id) { return typeof id === 'string'; }) : [],
             view: l.view === 'one' ? 'one' : 'grid',
             current: typeof l.current === 'string' ? l.current : '',
           };
@@ -370,8 +371,12 @@
     }
 
     // Where a card was put on a wide screen: what the person saved, else the default.
+    // A card the person has not placed yet goes after everything they arranged.
     intended(id) {
-      return this.saved.items[id] || this.defaultPos[id];
+      if (this.saved.items[id]) return this.saved.items[id];
+      var d = this.defaultPos[id];
+      if (!Object.keys(this.saved.items).length) return d;
+      return { x: d.x, y: 100000 + d.y, w: d.w };
     }
 
     // Positions of what is on the grid now, merged over what was saved, so a card
@@ -447,21 +452,19 @@
       var self = this;
       var before = JSON.parse(JSON.stringify(Object.assign({}, this.saved, { items: this.collect() })));
       this.applyLayout({ items: {}, hidden: [], view: 'grid', current: '' });
-      if (this.canSave) {
-        fetch(this.layoutUrl(), {
-          method: 'DELETE', credentials: 'include', headers: { 'X-Govkit-Embed': '1' },
-        }).catch(function () {});
-      }
       this.note.textContent = '';
+      var deleted = !this.canSave ? Promise.resolve() : fetch(this.layoutUrl(), {
+        method: 'DELETE', credentials: 'include', headers: { 'X-Govkit-Embed': '1' },
+      }).then(function (r) { if (!r.ok) throw new Error(r.status); })
+        .catch(function () { self.note.textContent = 'The reset is not saved.'; });
       var undo = el('button', null, 'Undo');
       undo.type = 'button';
       undo.addEventListener('click', function () {
         self.applyLayout(before);
-        self.put(before);
         self.note.textContent = '';
+        deleted.then(function () { self.put(before); });
       });
-      this.note.append('Reset. ', undo);
-      setTimeout(function () { if (undo.isConnected) self.note.textContent = ''; }, 10000);
+      deleted.then(function () { if (!self.note.textContent) self.note.append('Reset. ', undo); });
     }
 
     applyLayout(layout) {
