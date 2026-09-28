@@ -117,6 +117,12 @@ MODULES = [
             ("agreements.customize", "Review the standard agreements and decide if you want to customize them"),
             ("agreements.mutual", "Provide LinkedIn reviews, certificates and other mutual assistance to teammates"),
             ("agreements.plan", "Plan if and how to continue after the accelerator, what entity to form, and sign the customized agreements"),
+            # Graduation requirements, golda's graduation email, 2026-09-28.
+            ("agreements.pie", "Graduation: have a pie in the dashboard with more than one member"),
+            ("agreements.vc-slice", "Grant Workers.VC itself a slice, in proportion to its value to you"),
+            ("agreements.demo", "Come to ONE of the final two sessions, Monday at 7am OR Tuesday at 7am PT, and we will record your latest demo to share"),
+            ("agreements.artifact", "Upload an artifact: a demo video, screenshots, pitch deck or real world photo"),
+            ("agreements.recommend-vc", "Write a recommendation for Workers.VC"),
         ],
     ),
 ]
@@ -156,6 +162,20 @@ ITEM_BRIEFS = {
     "tasks become slices without anyone deciding anything.",
     # golda's own words, 2026-08-24.
     "who.ask": "Ask in the Discord.",
+    # golda's own words, graduation email, 2026-09-28.
+    "agreements.pie": "To complete the Earned Governance Accelerator, you must have a "
+    "pie in the dashboard with more than one member. If you need help with your pie, "
+    "ask and we can help!",
+    "agreements.vc-slice": "Our estimate of the value we hope we provided for the full "
+    "5-week cohort and one year of access to all tools is about $400, but feel free to "
+    "grant whatever value you believe is appropriate for the benefit you received - if any!",
+    "agreements.artifact": "Another way to share your venture. And of course we will "
+    "share the website and other information from your profile.",
+    "agreements.mutual": "If people have joined for equity and made valuable "
+    "contributions, make sure to write them a recommendation on LinkedIn. We will also "
+    "issue certificates to all team members of graduating ventures.",
+    "agreements.recommend-vc": "We will greatly appreciate it and share! You can "
+    "mention your venture!",
     "who.forwardable-email": "You write it, the person connecting you forwards it "
     "once the other side says yes. amebo has a skill for this — ask it to check yours "
     "against the format.",
@@ -204,6 +224,14 @@ ITEM_LINKS = {
     ],
     "who.ask": [("Mentors", "site:/mentors/")],
     "money.one-page": [("Money", "/projects/")],
+    "agreements.pie": [("Your pie", "/pie/")],
+    "agreements.vc-slice": [("Your pie", "/pie/")],
+    "agreements.artifact": [
+        ("Upload to Qrati", "https://qrati.com/event/workersvc-cohort-4e89e2")
+    ],
+    "agreements.recommend-vc": [
+        ("Recommend Workers.VC", "https://live.linkedtrust.us/e/124858")
+    ],
 }
 
 MODULE_LABELS = {key: label for key, label, _week, _items in MODULES}
