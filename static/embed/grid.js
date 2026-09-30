@@ -155,7 +155,9 @@
     fetchLayout() {
       var self = this;
       if (!this.up) return Promise.resolve();
-      return fetch(this.layoutUrl(), { credentials: 'include' })
+      // The embed header on the read too: GovKit's embed auth asks for it on every
+      // method, and without it the read failed and the grid could never be arranged.
+      return fetch(this.layoutUrl(), { credentials: 'include', headers: { 'X-Govkit-Embed': '1' } })
         .then(function (r) {
           if (!r.ok) throw new Error(r.status);
           return r.json();
