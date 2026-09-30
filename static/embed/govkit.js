@@ -100,6 +100,18 @@
       'govkit-feed tr:last-child td, govkit-tasks tr:last-child td, govkit-money tr:last-child td { border-bottom: none; }',
       'govkit-feed .who { display: flex; align-items: center; gap: 8px; white-space: nowrap; }',
       'govkit-feed .pdot { width: 8px; height: 8px; border-radius: 50%; flex: none; }',
+      // A narrow card: the task on its own line, who and how much under it.
+      'govkit-feed { container-type: inline-size; }',
+      '@container (max-width: 480px) {',
+      '  govkit-feed table, govkit-feed tbody { display: block; }',
+      '  govkit-feed tr { display: grid; grid-template-columns: 1fr auto; column-gap: 10px; row-gap: 2px;',
+      '    padding: 8px 0; border-bottom: 1px solid rgba(127,127,127,0.2); }',
+      '  govkit-feed tr:last-child { border-bottom: none; }',
+      '  govkit-feed td { display: block; padding: 0; border: none; }',
+      '  govkit-feed td.tk { grid-column: 1 / 3; grid-row: 1; }',
+      '  govkit-feed td:first-child { grid-column: 1; grid-row: 2; font-size: 12px; opacity: 0.75; }',
+      '  govkit-feed td.val { grid-column: 2; grid-row: 2; font-size: 12.5px; }',
+      '}',
       'govkit-feed .val, govkit-money .num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; opacity: 0.85; }',
       // The task sheet. Lives on <body>, so it reads the host page's own tokens
       // (--surface / --ink / --hairline / --font-head) and falls back to warm
@@ -451,6 +463,8 @@
     (d.slices || []).forEach(function (s, i) {
       (s.lines || []).forEach(function (ln) {
         rows.push({
+          run: ln.run_id || 0,
+          line: ln.line_id || 0,
           who: s.member_label,
           color: i,
           task: (ln.tasks && ln.tasks[0] && ln.tasks[0].subject) || '',
@@ -459,6 +473,8 @@
         });
       });
     });
+    // Newest reviewed work first, whoever did it, not one person's list then the next.
+    rows.sort(function (a, b) { return b.run - a.run || b.line - a.line; });
     var limit = parseInt(host.dataset.limit || '8', 10);
     rows = rows.slice(0, limit > 0 ? limit : 8);
     if (!rows.length) return false;
