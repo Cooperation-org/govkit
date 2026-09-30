@@ -321,6 +321,12 @@
     relayout() {
       var self = this;
       var show = this.cards.filter(function (c) { return self.shouldShow(c); });
+      // Default places come from the cards that are showing, so a card that stays
+      // hidden (no data yet, or hidden by the person) leaves no hole in its row.
+      // A card brought back by the person keeps its place at the end.
+      Object.assign(this.defaultPos, defaults(show.filter(function (c) {
+        return self.defaultPos[c.id].y < 100000;
+      })));
       show.sort(function (a, b) {
         var p = self.intended(a.id), q = self.intended(b.id);
         return p.y - q.y || p.x - q.x;

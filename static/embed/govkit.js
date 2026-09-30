@@ -61,26 +61,35 @@
       'govkit-pie, govkit-feed, govkit-checklist, govkit-tasks, govkit-money,',
       'govkit-activity, govkit-ventures, govkit-news {',
       '  display: block; font-family: system-ui, -apple-system, sans-serif;',
-      '  font-size: 14px; color: inherit; line-height: 1.4;',
+      '  font-size: 13px; color: inherit; line-height: 1.4;',
       '}',
       'govkit-pie[hidden], govkit-feed[hidden], govkit-checklist[hidden], govkit-tasks[hidden],',
       'govkit-money[hidden], govkit-activity[hidden], govkit-ventures[hidden],',
       'govkit-news[hidden] { display: none; }',
-      // The shares read UNDER the pie, never beside it (golda 2026-08-17).
-      // Side by side they were squeezed into whatever was left of a narrow
-      // dash column and the names ran over the edge of the card.
+      // The shares read UNDER the pie in a narrow card (golda 2026-08-17): side
+      // by side they were squeezed and the names ran over the edge. Beside the
+      // pie only when the card itself is wide enough for the names.
+      'govkit-pie { container-type: inline-size; }',
       'govkit-pie .piewrap { display: grid; grid-template-columns: 1fr; gap: 14px; justify-items: center; }',
+      '@container (min-width: 440px) {',
+      '  govkit-pie .piewrap { grid-template-columns: 170px 1fr; gap: 20px; align-items: start; }',
+      '  govkit-pie .piewrap svg { width: 170px; height: 170px; }',
+      '}',
       'govkit-pie .pieleg { display: grid; gap: 2px; width: 100%; }',
+      'govkit-pie .leg-row[hidden] { display: none; }',
+      'govkit-pie .leg-more { justify-self: start; font: inherit; font-size: 12px; color: inherit; opacity: 0.7;',
+      '  background: none; border: 0; padding: 4px 10px; cursor: pointer; }',
+      'govkit-pie .leg-more:hover { opacity: 1; text-decoration: underline; }',
       'govkit-pie .leg-row { padding: 5px 10px; border-radius: 7px; }',
       'govkit-pie .leg-row .top { display: flex; align-items: center; gap: 8px; }',
       'govkit-pie .leg-row .sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }',
-      'govkit-pie .leg-row .who { font-size: 13.5px; white-space: nowrap; }',
-      'govkit-pie .leg-row .pct { margin-left: auto; font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; }',
+      'govkit-pie .leg-row .who { font-size: 13px; white-space: nowrap; }',
+      'govkit-pie .leg-row .pct { margin-left: auto; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }',
       'govkit-pie .leg-row .sub { font-size: 12px; opacity: 0.65; margin-left: 18px; font-variant-numeric: tabular-nums; }',
       'govkit-pie .pie-sub { font-size: 12px; opacity: 0.65; margin-bottom: 8px; }',
       'govkit-feed table, govkit-tasks table, govkit-money table { width: 100%; border-collapse: collapse; }',
       'govkit-feed td, govkit-tasks td, govkit-money td {',
-      '  padding: 8px 10px; border-bottom: 1px solid rgba(127,127,127,0.2); font-size: 13.5px; vertical-align: middle;',
+      '  padding: 8px 10px; border-bottom: 1px solid rgba(127,127,127,0.2); font-size: 13px; vertical-align: middle;',
       '}',
       'govkit-feed tr:last-child td, govkit-tasks tr:last-child td, govkit-money tr:last-child td { border-bottom: none; }',
       'govkit-feed .who { display: flex; align-items: center; gap: 8px; white-space: nowrap; }',
@@ -168,7 +177,7 @@
       '}',
       'govkit-checklist .module-head[aria-expanded="true"] .caret { transform: rotate(90deg); }',
       'govkit-checklist .module-head .count.alldone { opacity: 1; font-weight: 600; }',
-      'govkit-checklist .module-head .title { font-weight: 600; font-size: 13.5px; }',
+      'govkit-checklist .module-head .title { font-weight: 600; font-size: 13px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
       'govkit-checklist .module-head .count { margin-left: auto; font-size: 12px; opacity: 0.65; font-variant-numeric: tabular-nums; }',
       'govkit-checklist ul { list-style: none; margin: 2px 0 8px; padding: 0 0 0 22px; }',
       'govkit-checklist ul[hidden] { display: none; }',
@@ -179,7 +188,9 @@
       'govkit-checklist li.done .item-title { text-decoration: line-through; }',
       // The title opens the item. A button, because it does something; styled as
       // the text it replaces so the list still reads as a list.
-      'govkit-checklist li .item-title { flex: 1 1 auto; text-align: left; background: none;',
+      // One line per item; the whole text is in the tooltip and in the sheet it opens.
+      'govkit-checklist li .item-title { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden;',
+      '  text-overflow: ellipsis; text-align: left; background: none;',
       '  border: none; color: inherit; font: inherit; padding: 0; cursor: pointer; border-radius: 4px; }',
       'govkit-checklist li .item-title:hover { text-decoration: underline; }',
       'govkit-checklist li .item-title:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }',
@@ -198,11 +209,17 @@
       'govkit-money .totals { display: flex; gap: 16px; font-size: 13px; margin-bottom: 8px; flex-wrap: wrap; }',
       'govkit-money .totals .lbl { opacity: 0.65; margin-right: 4px; }',
       'govkit-money .kind { font-size: 12px; opacity: 0.65; white-space: nowrap; }',
+      'govkit-money .rowopen { background: none; border: none; padding: 0; font: inherit; font-weight: 600; color: inherit; text-align: left; cursor: pointer; }',
+      'govkit-money .rowopen:hover { text-decoration: underline; }',
+      'govkit-money tr.split[hidden] { display: none; }',
+      'govkit-money tr.split td { padding-top: 0; font-size: 12.5px; }',
+      'govkit-money .mline { display: flex; gap: 10px; padding: 2px 0 2px 12px; }',
+      'govkit-money .mline .num { margin-left: auto; }',
       'govkit-activity .row, govkit-news .row { padding: 8px 0; border-bottom: 1px solid rgba(127,127,127,0.2); }',
       'govkit-activity .row:last-child, govkit-news .row:last-child { border-bottom: none; }',
       'govkit-activity .row.answered, govkit-news .row.waiting { opacity: 0.55; }',
       'govkit-activity .head, govkit-news .head { display: flex; align-items: baseline; gap: 8px; }',
-      'govkit-activity .who, govkit-news .who { font-weight: 600; font-size: 13.5px; }',
+      'govkit-activity .who, govkit-news .who { font-weight: 600; font-size: 13px; }',
       'govkit-activity .when, govkit-news .when { margin-left: auto; font-size: 12px; opacity: 0.65; white-space: nowrap; }',
       'govkit-activity .note, govkit-news .note { font-size: 13px; margin: 3px 0 5px; }',
       'govkit-activity .mail, govkit-news .out { font-size: 12.5px; }',
@@ -360,9 +377,12 @@
     });
     wrap.appendChild(svg);
 
+    // The biggest shares, then the rest on request.
+    var TOP = 5;
     var leg = el('div', 'pieleg');
     slices.forEach(function (s, i) {
       var row = el('div', 'leg-row');
+      row.hidden = i >= TOP;
       var top = el('div', 'top');
       var sw = el('span', 'sw');
       sw.style.background = sliceColor(i);
@@ -375,6 +395,18 @@
         (issued == null ? '' : issued.toLocaleString()) + ' ' + (d.unit_name || '')));
       leg.appendChild(row);
     });
+    if (slices.length > TOP) {
+      var more = el('button', 'leg-more', (slices.length - TOP) + ' more');
+      more.type = 'button';
+      more.setAttribute('aria-expanded', 'false');
+      more.addEventListener('click', function () {
+        var open = more.getAttribute('aria-expanded') !== 'true';
+        leg.querySelectorAll('.leg-row').forEach(function (r, i) { r.hidden = !open && i >= TOP; });
+        more.setAttribute('aria-expanded', open ? 'true' : 'false');
+        more.textContent = open ? 'fewer' : (slices.length - TOP) + ' more';
+      });
+      leg.appendChild(more);
+    }
     wrap.appendChild(leg);
     host.appendChild(wrap);
   }
@@ -497,6 +529,7 @@
         if (c && !item.retired) {
           var open = el('button', 'item-title', item.title);
           open.type = 'button';
+          open.title = item.title;
           var mark = el('span', 'haswords', '✎');
           mark.hidden = !item.has_note;
           mark.title = 'You have written something here';
@@ -506,7 +539,9 @@
           li.appendChild(open);
           li.appendChild(mark);
         } else {
-          li.appendChild(el('span', 'item-title', item.title));
+          var plain = el('span', 'item-title', item.title);
+          plain.title = item.title;
+          li.appendChild(plain);
         }
         ul.appendChild(li);
       });
@@ -1055,11 +1090,13 @@
   function money(value, currency) {
     var n = num(value);
     if (n == null) return '';
-    return n.toLocaleString(undefined, { minimumFractionDigits: 2 }) +
+    // Cents only when there are any: 4,500 not 4,500.00.
+    var cents = Math.round(n * 100) % 100 !== 0;
+    return n.toLocaleString(undefined, { minimumFractionDigits: cents ? 2 : 0, maximumFractionDigits: 2 }) +
       (currency ? ' ' + currency : '');
   }
 
-  function renderMoney(host, d) {
+  function renderMoney(host, d, c) {
     var projects = d.projects || [];
     if (!projects.length) return false;
 
@@ -1080,13 +1117,50 @@
     var tbody = el('tbody');
     projects.forEach(function (p) {
       var tr = el('tr');
-      tr.appendChild(el('td', 'name', p.name));
+      // The name opens who is promised what on this project and what they were paid.
+      var tdName = el('td', 'name');
+      var open = el('button', 'rowopen', p.name);
+      open.type = 'button';
+      open.setAttribute('aria-expanded', 'false');
+      tdName.appendChild(open);
+      tr.appendChild(tdName);
       tr.appendChild(el('td', 'kind', p.kind + ' · ' + p.status));
       tr.appendChild(el('td', 'num',
         p.budget_total == null
           ? money(p.paid_total, d.currency)
           : money(p.paid_total, null) + ' / ' + money(p.budget_total, d.currency)));
       tbody.appendChild(tr);
+      var detail = el('tr', 'split');
+      detail.hidden = true;
+      var td = el('td');
+      td.colSpan = 3;
+      detail.appendChild(td);
+      tbody.appendChild(detail);
+      var loaded = false;
+      open.addEventListener('click', function () {
+        var show = detail.hidden;
+        detail.hidden = !show;
+        open.setAttribute('aria-expanded', show ? 'true' : 'false');
+        if (!show || loaded || !c) return;
+        loaded = true;
+        td.textContent = '…';
+        jget(c.up + '/api/v1/projects/orgs/' + c.org + '/projects/' + p.id + '/summary/')
+          .then(function (sm) {
+            td.replaceChildren();
+            var members = sm.members || [];
+            if (!members.length) { td.textContent = 'No one is promised a share yet.'; return; }
+            members.forEach(function (m) {
+              var line = el('div', 'mline');
+              line.appendChild(el('span', 'mname', m.name));
+              line.appendChild(el('span', 'num',
+                m.promised == null
+                  ? money(m.paid_out, sm.currency) + ' paid'
+                  : money(m.paid_out, null) + ' / ' + money(m.promised, sm.currency) + ' · ' + num(m.percent) + '%'));
+              td.appendChild(line);
+            });
+          })
+          .catch(function () { loaded = false; td.textContent = 'Could not load.'; });
+      });
     });
     table.appendChild(tbody);
     host.appendChild(table);
@@ -1321,7 +1395,10 @@
   function define(tag, path, render) {
     if (customElements.get(tag)) return;
     customElements.define(tag, class extends HTMLElement {
-      connectedCallback() { mount(this, path, render); }
+      // Once per element. The dashboard grid reorders cards in the page when a
+      // card changes height, which connects each component again; mounting
+      // again refetched and redrew it, throwing away what the person had open.
+      connectedCallback() { if (this.__mounted) return; this.__mounted = true; mount(this, path, render); }
     });
   }
 
@@ -1333,12 +1410,12 @@
   define('govkit-activity', 'commons/orgs/{org}/attention/', renderActivity);
   if (!customElements.get('govkit-ventures')) {
     customElements.define('govkit-ventures', class extends HTMLElement {
-      connectedCallback() { mountVentures(this); }
+      connectedCallback() { if (this.__mounted) return; this.__mounted = true; mountVentures(this); }
     });
   }
   if (!customElements.get('govkit-news')) {
     customElements.define('govkit-news', class extends HTMLElement {
-      connectedCallback() { mountNews(this); }
+      connectedCallback() { if (this.__mounted) return; this.__mounted = true; mountNews(this); }
     });
   }
 })();
