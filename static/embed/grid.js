@@ -136,6 +136,9 @@
       this.defaultPos = defaults(this.cards);
       this.saved = { items: {}, hidden: [], view: 'grid', current: '' };
       this.canSave = false;
+      // data-controls="none": the page wants the cards and nothing to arrange
+      // them with. No view switch, no add, no reset, no hiding, no dragging.
+      this.controls = this.dataset.controls !== 'none';
 
       this.buildFrame();
       Promise.all([loadGridStack(), this.fetchLayout()])
@@ -281,7 +284,7 @@
       this.relayout();
       // Signed out, or GovKit unreachable: an arrangement could not be kept, so
       // nothing can be moved and only the page's own links show in the row.
-      if (!this.canSave) {
+      if (!this.canSave || !this.controls) {
         [this.btnGrid, this.btnOne, this.addWrap, this.btnReset].forEach(function (b) { b.hidden = true; });
       }
       this.tools.hidden = false;
@@ -297,7 +300,7 @@
     // not hidden by the person.
     shouldShow(c) {
       return c.node.isConnected && c.node.parentNode === c.content && !c.node.hidden
-        && this.saved.hidden.indexOf(c.id) === -1;
+        && (!this.controls || this.saved.hidden.indexOf(c.id) === -1);
     }
 
     watch(c) {
@@ -370,7 +373,7 @@
     syncStatic() {
       if (!this.grid) return;
       var narrow = window.innerWidth <= NARROW;
-      var fixed = narrow || this.saved.view === 'one' || !this.canSave;
+      var fixed = narrow || this.saved.view === 'one' || !this.canSave || !this.controls;
       this.grid.setStatic(fixed);
       this.classList.toggle('bg-static', fixed);
       this.classList.toggle('bg-narrow', narrow);
@@ -453,7 +456,7 @@
         li.appendChild(b);
         self.addList.appendChild(li);
       });
-      this.addWrap.hidden = !this.canSave || !this.addList.children.length;
+      this.addWrap.hidden = !this.canSave || !this.controls || !this.addList.children.length;
     }
 
     reset() {
@@ -487,6 +490,7 @@
     }
 
     setView(view, persist) {
+      if (!this.controls) view = 'grid';
       this.saved.view = view;
       this.classList.toggle('bg-one', view === 'one');
       this.btnGrid.setAttribute('aria-pressed', String(view === 'grid'));
