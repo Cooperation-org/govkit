@@ -581,6 +581,18 @@ fieldset > ul, fieldset div > ul { list-style: none; padding-left: 0; margin: 0.
 fieldset > ul li, fieldset div > ul li { margin: 0.2rem 0; }
 fieldset > ul label, fieldset div > ul label { color: var(--gk-ink); }
 
+/* ---- about (first sentence shows; the rest opens in place) ---------------- */
+
+details.gk-about { margin: 0.25rem 0 1rem; max-width: 46rem; }
+details.gk-about > summary {
+  cursor: pointer;
+  color: var(--gk-muted);
+  font-size: 0.9rem;
+}
+details.gk-about > summary:hover,
+details.gk-about[open] > summary { color: var(--gk-ink-2); }
+details.gk-about > p { margin: 0.5rem 0 0 1rem; color: var(--gk-ink-2); font-size: 0.9rem; }
+
 /* ---- unfolds (19 · DETAILS UNFOLD) ---------------------------------------- */
 /* High level visible first; detail opens in place. Summary states the concept
    AND the defaults, so skipping it is an informed choice, not a leap. */
