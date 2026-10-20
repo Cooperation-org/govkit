@@ -26,6 +26,7 @@ def nav(request):
         for label, url_name, ns in (
             ("Drops", "drops:index", "drops"),
             ("Pie", "pie:index", "pie"),
+            ("Cap table", "captable:index", "captable"),
             ("Votes", "votes:index", "votes"),
             ("Committee", "sortition:index", "sortition"),
         )

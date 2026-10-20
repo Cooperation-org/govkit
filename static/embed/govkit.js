@@ -9,6 +9,8 @@
 //   <govkit-checklist>  genesis checklist modules + items  (orgs/<org>/checklist/)
 //   <govkit-tasks>      open tracker work                  (tasksources/orgs/<org>/tasks/open/)
 //   <govkit-money>      project portfolio + totals         (projects/orgs/<org>/portfolio/)
+//   <govkit-captable>   the company: founders pool, investors, not yet sold
+//                                                          (captable/orgs/<org>/)
 //   <govkit-activity>   the org's attention rail           (commons/orgs/<org>/attention/)
 //   <govkit-ventures>   venture cards + raise-a-hand       (commons/ventures/; data-up only,
 //                       no data-org — it lists every venture for a person in the pool)
@@ -59,13 +61,13 @@
     s.id = 'govkit-embed-styles';
     s.textContent = [
       'govkit-pie, govkit-feed, govkit-checklist, govkit-tasks, govkit-money,',
-      'govkit-activity, govkit-ventures, govkit-news {',
+      'govkit-activity, govkit-ventures, govkit-news, govkit-captable {',
       '  display: block; font-family: system-ui, -apple-system, sans-serif;',
       '  font-size: 13px; color: inherit; line-height: 1.4;',
       '}',
       'govkit-pie[hidden], govkit-feed[hidden], govkit-checklist[hidden], govkit-tasks[hidden],',
       'govkit-money[hidden], govkit-activity[hidden], govkit-ventures[hidden],',
-      'govkit-news[hidden] { display: none; }',
+      'govkit-news[hidden], govkit-captable[hidden] { display: none; }',
       // The shares read UNDER the pie in a narrow card (golda 2026-08-17): side
       // by side they were squeezed and the names ran over the edge. Beside the
       // pie only when the card itself is wide enough for the names.
@@ -283,6 +285,18 @@
       'govkit-ventures .state { font-size: 12.5px; opacity: 0.75; }',
       'govkit-ventures button { font: inherit; font-size: 12.5px; cursor: pointer; border: 1px solid rgba(127,127,127,0.4); background: none; color: inherit; border-radius: 6px; padding: 3px 10px; }',
       'govkit-ventures button:hover { background: rgba(127,127,127,0.12); }',
+      'govkit-captable .cap-sub { font-size: 12px; opacity: 0.65; margin-bottom: 8px; }',
+      'govkit-captable table { width: 100%; border-collapse: collapse; }',
+      'govkit-captable td { padding: 6px 8px; border-bottom: 1px solid rgba(127,127,127,0.2); font-size: 13px; vertical-align: baseline; }',
+      'govkit-captable tr:last-child td { border-bottom: none; }',
+      'govkit-captable tr.grp td { font-weight: 600; }',
+      'govkit-captable tr.in td:first-child { padding-left: 20px; }',
+      'govkit-captable tr.in[hidden] { display: none; }',
+      'govkit-captable tr.unsold td { opacity: 0.65; }',
+      'govkit-captable .num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }',
+      'govkit-captable .what { font-size: 12px; opacity: 0.65; }',
+      'govkit-captable .rowopen { background: none; border: none; padding: 0; font: inherit; font-weight: 600; color: inherit; text-align: left; cursor: pointer; }',
+      'govkit-captable .rowopen:hover { text-decoration: underline; }',
       'govkit-ventures textarea { width: 100%; font: inherit; font-size: 13px; margin: 6px 0; border-radius: 6px; border: 1px solid rgba(127,127,127,0.4); background: none; color: inherit; padding: 6px 8px; box-sizing: border-box; }',
     ].join('\n');
     document.head.appendChild(s);
@@ -1438,6 +1452,71 @@
       });
   }
 
+  // --- <govkit-captable> ---------------------------------------------------
+  // The whole company in lines that sum to 100%: the founders pool (the pie,
+  // scaled into it; opens to the people in it), each investment, and what the
+  // investor tranche has not sold yet. Value is at the latest post-money.
+
+  function renderCaptable(host, d) {
+    var lines = d.lines || [];
+    var pool = lines.filter(function (l) {
+      return l.kind === 'founder' || l.kind === 'sponsor' || l.kind === 'pool_unearned';
+    });
+    var earned = pool.filter(function (l) { return l.kind !== 'pool_unearned'; });
+    var investors = lines.filter(function (l) { return l.kind === 'investor'; });
+    var unsold = lines.filter(function (l) { return l.kind === 'unsold'; })[0];
+    if (!earned.length && !(d.rounds || []).length) return false;
+
+    var valued = d.latest_post_money != null;
+    if (valued) {
+      host.appendChild(el('div', 'cap-sub',
+        money(d.latest_post_money, d.currency) + ' post-money · ' + (d.latest_round_name || '')));
+    }
+
+    function sum(rows) {
+      return rows.reduce(function (a, l) { return a + (num(l.value) || 0); }, 0);
+    }
+    function row(cls, label, what, pct, value) {
+      var tr = el('tr', cls);
+      var td = el('td');
+      if (label instanceof Node) td.appendChild(label); else td.textContent = label;
+      if (what) { td.appendChild(document.createTextNode(' ')); td.appendChild(el('span', 'what', what)); }
+      tr.appendChild(td);
+      tr.appendChild(el('td', 'num', num(pct).toFixed(2) + '%'));
+      tr.appendChild(el('td', 'num', valued && value != null ? money(value, null) : ''));
+      return tr;
+    }
+
+    var table = el('table');
+    var tbody = el('tbody');
+
+    var open = el('button', 'rowopen', 'Founders pool');
+    open.type = 'button';
+    open.setAttribute('aria-expanded', 'false');
+    tbody.appendChild(row('grp', earned.length ? open : 'Founders pool',
+      earned.length ? earned.length + (earned.length === 1 ? ' holder' : ' holders') : '',
+      d.founders_pool_pct, sum(pool)));
+    var inRows = earned.map(function (l) {
+      var tr = row('in', l.label, l.pie_share_pct != null ? num(l.pie_share_pct).toFixed(1) + '% of pool' : '', l.pct, l.value);
+      tr.hidden = true;
+      tbody.appendChild(tr);
+      return tr;
+    });
+    open.addEventListener('click', function () {
+      var show = open.getAttribute('aria-expanded') !== 'true';
+      inRows.forEach(function (r) { r.hidden = !show; });
+      open.setAttribute('aria-expanded', show ? 'true' : 'false');
+    });
+
+    investors.forEach(function (l) {
+      tbody.appendChild(row('', l.label, l.round_name, l.pct, l.value));
+    });
+    if (unsold) tbody.appendChild(row('unsold', unsold.label, '', unsold.pct, unsold.value));
+
+    table.appendChild(tbody);
+    host.appendChild(table);
+  }
+
   // --- element registration ------------------------------------------------
 
   function define(tag, path, render) {
@@ -1455,6 +1534,7 @@
   define('govkit-checklist', 'orgs/{org}/checklist/', renderChecklist);
   define('govkit-tasks', 'tasksources/orgs/{org}/tasks/open/', renderTasks);
   define('govkit-money', 'projects/orgs/{org}/portfolio/', renderMoney);
+  define('govkit-captable', 'captable/orgs/{org}/', renderCaptable);
   define('govkit-activity', 'commons/orgs/{org}/attention/', renderActivity);
   if (!customElements.get('govkit-ventures')) {
     customElements.define('govkit-ventures', class extends HTMLElement {

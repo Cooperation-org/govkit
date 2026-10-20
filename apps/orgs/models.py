@@ -863,8 +863,19 @@ class OpeningBalance(models.Model):
         return f"OpeningBalance({self.membership}, {self.value})"
 
 
+class StakeholderType(models.TextChoices):
+    """Open Cap Format ``StakeholderType``: a person, or an institution."""
+
+    INDIVIDUAL = "INDIVIDUAL", "Person"
+    INSTITUTION = "INSTITUTION", "Company"
+
+
 class ExternalHolder(models.Model):
-    """An outside company that can hold equity in an org without being one.
+    """An outside company, or a person who is not a member, that can hold equity in an
+    org without being one.
+
+    Sponsors are companies. An investor in a venture's cap table (apps.captable) may be
+    either, which ``stakeholder_type`` records in Open Cap Format's own terms.
 
     The sponsor of a venture is typically NOT a tenant here: LinkedTrust funds ventures
     in the cohort but does not run its pie in GovKit, has no members here, and must
@@ -887,6 +898,9 @@ class ExternalHolder(models.Model):
         blank=True,
         help_text="Where this company's own equity actually lives, e.g. its Fairmint cap "
         "table. A reference for people to follow. GovKit never reads or computes it.",
+    )
+    stakeholder_type = models.CharField(
+        max_length=12, choices=StakeholderType.choices, default=StakeholderType.INSTITUTION
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

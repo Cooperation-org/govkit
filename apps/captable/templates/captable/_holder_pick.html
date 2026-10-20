@@ -1,0 +1,11 @@
+<span class="gk-cap-pick">
+  <select name="holder" aria-label="Holder">
+    <option value="">Someone new</option>
+    {% for h in holders %}<option value="{{ h.key }}">{{ h.label }}</option>{% endfor %}
+  </select>
+  <input class="gk-cap-new" name="holder_name" placeholder="Name" aria-label="New holder's name">
+  <select class="gk-cap-new" name="holder_type" aria-label="Person or company">
+    <option value="INDIVIDUAL">Person</option>
+    <option value="INSTITUTION">Company</option>
+  </select>
+</span>

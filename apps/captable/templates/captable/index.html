@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+{% load captable_fmt %}
+{% block title %}{{ page_title }} — {{ current_org.display_name }}{% endblock %}
+{% block content %}
+{% with cur=table.currency %}
+
+  <div class="gk-pagehead">
+    <h1>{{ page_title }}</h1>
+    <a href="{% url 'captable-ocf' org_slug=current_org.slug %}?as=zip">Export (Open Cap Format) &darr;</a>
+  </div>
+  {% if table.latest_post_money %}
+    <p class="gk-muted">{{ table.latest_post_money|money:cur }} post-money, {{ table.latest_round_name }}</p>
+  {% endif %}
+
+  <div class="gk-card" id="pool">
+    <table class="gk-cap">
+      <thead>
+        <tr>
+          <th>Holder</th>
+          <th>&nbsp;</th>
+          <th class="gk-num">Of the company</th>
+          <th class="gk-num">Value</th>
+          {% if is_admin %}<th>&nbsp;</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="gk-cap-group">
+          <td><a href="{% url 'pie:index' org_slug=current_org.slug %}">Founders pool</a></td>
+          <td class="gk-muted">{{ table.unit_name }} earned</td>
+          <td class="gk-num">
+            {% if is_admin %}
+              <form method="post" action="{% url 'captable:save_settings' org_slug=current_org.slug %}" class="gk-set-form">
+                {% csrf_token %}
+                <input type="number" step="0.01" min="0" max="100" name="founders_pool_pct"
+                       value="{{ table.founders_pool_pct|plain }}" data-was="{{ table.founders_pool_pct|plain }}"
+                       aria-label="Founders pool, percent of the company">
+                <span class="gk-set-unit">%</span>
+                <button type="submit" class="gk-btn-quiet">Set</button>
+              </form>
+            {% else %}{{ table.founders_pool_pct }}%{% endif %}
+          </td>
+          <td class="gk-num">{{ pool_value|money:cur }}</td>
+          {% if is_admin %}<td></td>{% endif %}
+        </tr>
+        {% for ln in pool_lines %}
+          <tr>
+            <td class="gk-cap-in">{{ ln.label }}</td>
+            <td class="gk-muted">{% if ln.pie_share_pct is not None %}{{ ln.pie_total }} · {{ ln.pie_share_pct }}% of pool{% endif %}</td>
+            <td class="gk-num">{{ ln.pct_display }}%</td>
+            <td class="gk-num">{{ ln.value|money:cur }}</td>
+            {% if is_admin %}<td></td>{% endif %}
+          </tr>
+        {% endfor %}
+
+        <tr class="gk-cap-group" id="investors">
+          <td>Investors</td>
+          <td></td>
+          <td class="gk-num">{{ table.investor_pool_pct }}%</td>
+          <td class="gk-num">{{ investor_value|money:cur }}</td>
+          {% if is_admin %}<td></td>{% endif %}
+        </tr>
+        {% for ln in investor_lines %}
+          <tr>
+            <td class="gk-cap-in">{{ ln.label }}</td>
+            <td class="gk-muted">
+              {% if is_admin %}
+                <form id="inv-{{ ln.investment_id }}" method="post"
+                      action="{% url 'captable:save_investment' org_slug=current_org.slug pk=ln.investment_id %}" class="gk-cap-row">
+                  {% csrf_token %}
+                  <input type="number" step="0.01" min="0.01" name="amount" value="{{ ln.amount|plain }}"
+                         aria-label="Amount {{ ln.label }} invested" class="gk-cap-amt">
+                  <select name="round" aria-label="Round">
+                    {% for r in round_objs %}<option value="{{ r.pk }}"{% if r.pk == ln.round_id %} selected{% endif %}>{{ r.name }}</option>{% endfor %}
+                  </select>
+                  <button type="submit" class="gk-btn-quiet">Save</button>
+                </form>
+              {% else %}{{ ln.amount|money:cur }} · {{ ln.round_name }}{% endif %}
+            </td>
+            <td class="gk-num">{{ ln.pct_display }}%</td>
+            <td class="gk-num">{{ ln.value|money:cur }}</td>
+            {% if is_admin %}
+              <td>
+                <form method="post" action="{% url 'captable:delete_investment' org_slug=current_org.slug pk=ln.investment_id %}">
+                  {% csrf_token %}
+                  <button type="submit" class="gk-btn-quiet" aria-label="Remove {{ ln.label }}'s investment">Remove</button>
+                </form>
+              </td>
+            {% endif %}
+          </tr>
+        {% endfor %}
+        {% if unsold %}
+          <tr>
+            <td class="gk-cap-in gk-muted">{{ unsold.label }}</td>
+            <td></td>
+            <td class="gk-num">{{ unsold.pct_display }}%</td>
+            <td class="gk-num">{{ unsold.value|money:cur }}</td>
+            {% if is_admin %}<td></td>{% endif %}
+          </tr>
+        {% endif %}
+        {% if is_admin and round_objs %}
+          <tr>
+            <td colspan="5">
+              <form method="post" action="{% url 'captable:add_investment' org_slug=current_org.slug %}" class="gk-cap-row gk-cap-add">
+                {% csrf_token %}
+                {% include "captable/_holder_pick.html" %}
+                <input type="number" step="0.01" min="0.01" name="amount" placeholder="Amount" aria-label="Amount" required class="gk-cap-amt">
+                <select name="round" aria-label="Round">
+                  {% for r in round_objs %}<option value="{{ r.pk }}"{% if forloop.last %} selected{% endif %}>{{ r.name }}</option>{% endfor %}
+                </select>
+                <button type="submit">Add investment</button>
+              </form>
+            </td>
+          </tr>
+        {% endif %}
+        <tr class="gk-cap-total">
+          <td>Total</td>
+          <td></td>
+          <td class="gk-num">{{ table.total_pct }}%</td>
+          <td class="gk-num">{{ table.total_value|money:cur }}</td>
+          {% if is_admin %}<td></td>{% endif %}
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="rounds">Rounds</h2>
+  <div class="gk-card">
+    <table class="gk-cap">
+      <thead>
+        <tr>
+          <th>Round</th>
+          <th>Date</th>
+          <th>Instrument</th>
+          <th class="gk-num">Pre-money</th>
+          <th class="gk-num">Post-money</th>
+          <th class="gk-num">Raised</th>
+          {% if is_admin %}<th>&nbsp;</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in table.rounds %}
+          {% if is_admin %}
+            <tr>
+              <td>
+                <form id="round-{{ r.round_id }}" method="post"
+                      action="{% url 'captable:save_round' org_slug=current_org.slug pk=r.round_id %}">{% csrf_token %}</form>
+                <input form="round-{{ r.round_id }}" name="name" value="{{ r.name }}" aria-label="Round name" required>
+              </td>
+              <td><input form="round-{{ r.round_id }}" type="date" name="date" value="{{ r.date|date:'Y-m-d' }}" aria-label="Date" required></td>
+              <td>
+                <select form="round-{{ r.round_id }}" name="instrument" aria-label="Instrument">
+                  {% for v, l in instruments %}<option value="{{ v }}"{% if v == r.instrument %} selected{% endif %}>{{ l }}</option>{% endfor %}
+                </select>
+              </td>
+              <td class="gk-num"><input form="round-{{ r.round_id }}" type="number" step="0.01" min="0" name="pre_money_valuation"
+                         value="{{ r.stated_pre|plain }}"
+                         placeholder="{{ r.pre_money|plain }}" aria-label="Pre-money valuation" class="gk-cap-amt"></td>
+              <td class="gk-num"><input form="round-{{ r.round_id }}" type="number" step="0.01" min="0" name="post_money_valuation"
+                         value="{{ r.stated_post|plain }}"
+                         placeholder="{{ r.post_money|plain }}" aria-label="Post-money valuation" class="gk-cap-amt"></td>
+              <td class="gk-num">{{ r.raised|money:cur }}</td>
+              <td>
+                <button form="round-{{ r.round_id }}" type="submit" class="gk-btn-quiet">Save</button>
+                {% if not r.investment_count %}
+                  <form method="post" action="{% url 'captable:delete_round' org_slug=current_org.slug pk=r.round_id %}" class="gk-inline-form">
+                    {% csrf_token %}<button type="submit" class="gk-btn-quiet">Remove</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td>{{ r.name }}</td>
+              <td>{{ r.date|date:"Y-m-d" }}</td>
+              <td>{% for v, l in instruments %}{% if v == r.instrument %}{{ l }}{% endif %}{% endfor %}</td>
+              <td class="gk-num">{{ r.pre_money|money:cur }}</td>
+              <td class="gk-num">{{ r.post_money|money:cur }}</td>
+              <td class="gk-num">{{ r.raised|money:cur }}</td>
+            </tr>
+          {% endif %}
+        {% endfor %}
+        {% if is_admin %}
+          <tr>
+            <td>
+              <form id="round-new" method="post" action="{% url 'captable:add_round' org_slug=current_org.slug %}">{% csrf_token %}</form>
+              <input form="round-new" name="name" placeholder="Round name" aria-label="Round name" required>
+            </td>
+            <td><input form="round-new" type="date" name="date" aria-label="Date" required></td>
+            <td>
+              <select form="round-new" name="instrument" aria-label="Instrument">
+                {% for v, l in instruments %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+              </select>
+            </td>
+            <td class="gk-num"><input form="round-new" type="number" step="0.01" min="0" name="pre_money_valuation" placeholder="Pre-money" aria-label="Pre-money valuation" class="gk-cap-amt"></td>
+            <td class="gk-num"><input form="round-new" type="number" step="0.01" min="0" name="post_money_valuation" placeholder="Post-money" aria-label="Post-money valuation" class="gk-cap-amt"></td>
+            <td></td>
+            <td><button form="round-new" type="submit">Add round</button></td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if table.holdings or is_admin %}
+    <h2 id="stock">Stock of record</h2>
+    <div class="gk-card">
+      <table class="gk-cap">
+        <thead>
+          <tr>
+            <th>Holder</th>
+            <th>Class</th>
+            <th class="gk-num">Shares</th>
+            <th class="gk-num">Of shares</th>
+            {% if is_admin %}<th>&nbsp;</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in table.holdings %}
+            <tr>
+              <td>{{ h.label }}</td>
+              {% if is_admin %}
+                <td>
+                  <form id="stock-{{ h.holding_id }}" method="post"
+                        action="{% url 'captable:save_holding' org_slug=current_org.slug pk=h.holding_id %}">{% csrf_token %}</form>
+                  <input form="stock-{{ h.holding_id }}" name="stock_class" value="{{ h.stock_class }}" aria-label="Stock class">
+                </td>
+                <td class="gk-num"><input form="stock-{{ h.holding_id }}" type="number" min="1" step="1" name="quantity" value="{{ h.quantity }}" aria-label="Shares" class="gk-cap-amt"></td>
+              {% else %}
+                <td>{{ h.stock_class }}</td>
+                <td class="gk-num">{{ h.quantity }}</td>
+              {% endif %}
+              <td class="gk-num">{{ h.pct_of_shares }}%</td>
+              {% if is_admin %}
+                <td>
+                  <button form="stock-{{ h.holding_id }}" type="submit" class="gk-btn-quiet">Save</button>
+                  <form method="post" action="{% url 'captable:delete_holding' org_slug=current_org.slug pk=h.holding_id %}" class="gk-inline-form">
+                    {% csrf_token %}<button type="submit" class="gk-btn-quiet">Remove</button>
+                  </form>
+                </td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+          {% if is_admin %}
+            <tr>
+              <td colspan="5">
+                <form method="post" action="{% url 'captable:add_holding' org_slug=current_org.slug %}" class="gk-cap-row gk-cap-add">
+                  {% csrf_token %}
+                  {% include "captable/_holder_pick.html" %}
+                  <input name="stock_class" value="Common" aria-label="Stock class">
+                  <input type="number" min="1" step="1" name="quantity" placeholder="Shares" aria-label="Shares" required class="gk-cap-amt">
+                  <button type="submit">Add stock</button>
+                </form>
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  {% if is_admin %}
+    <details class="gk-trace" id="entity">
+      <summary>{{ settings.legal_name|default:"Legal entity" }}</summary>
+      <form method="post" action="{% url 'captable:save_settings' org_slug=current_org.slug %}" class="gk-cap-row">
+        {% csrf_token %}
+        <input name="legal_name" value="{{ settings.legal_name }}" placeholder="Legal name" aria-label="Legal name">
+        <input type="date" name="formation_date" value="{{ settings.formation_date|date:'Y-m-d' }}" aria-label="Formation date">
+        <input name="country_of_formation" value="{{ settings.country_of_formation }}" placeholder="Country (US)" maxlength="2" size="4" aria-label="Country of formation">
+        <input name="country_subdivision_of_formation" value="{{ settings.country_subdivision_of_formation }}" placeholder="State (DE)" maxlength="6" size="6" aria-label="State of formation">
+        <input name="currency" value="{{ settings.currency }}" maxlength="3" size="4" aria-label="Currency">
+        <button type="submit" class="gk-btn-quiet">Save</button>
+      </form>
+    </details>
+  {% endif %}
+
+{% endwith %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    // Save on leaving a field (UX 5): any changed field in a row form submits it.
+    document.addEventListener("change", function (e) {
+      var f = e.target;
+      if (!f.form || !f.closest(".gk-cap") || f.closest(".gk-cap-add") || f.form.id === "round-new") return;
+      if (f.closest(".gk-set-form")) return; // base.html already saves these
+      if (f.form.checkValidity()) f.form.requestSubmit();
+    });
+    // Someone new: their name and kind; someone already here: just the pick.
+    function syncPick(sel) {
+      var row = sel.closest(".gk-cap-pick");
+      var isNew = sel.value === "";
+      row.querySelectorAll(".gk-cap-new").forEach(function (n) {
+        n.hidden = !isNew;
+        if (n.name === "holder_name") n.required = isNew;
+      });
+    }
+    document.querySelectorAll(".gk-cap-pick select[name=holder]").forEach(function (sel) {
+      syncPick(sel);
+      sel.addEventListener("change", function () { syncPick(sel); });
+    });
+  })();
+</script>
+{% endblock %}

@@ -11,6 +11,7 @@
 | Orgs, memberships, roles, invites (`apps/orgs`) | Who a person *is*, notes, history → **abra** |
 | The earnings record: drop runs, issued lines (`apps/drops`) | Tasks and their status → **the team's own tracker** (Taiga/Marten) |
 | The pie — shares derived from issued lines (`apps/pie`) | Contacts and outreach → **Odoo CRM** |
+| The cap table: founders pool %, rounds, investments, stock of record, OCF export (`apps/captable`); founders' lines are always derived from the pie | Who a holder *is* → **abra**; the legal documents → the team's own files |
 | Votes and sortition draws off the same record (`apps/votes`, `apps/sortition`) | Login and identity → **LinkedTrust SSO** (trust_claim_backend as OIDC provider) |
 | Per-org task-source config and the valuation mirror (`apps/tasksources`) | Trust claims, attestations → **LinkedTrust** |
 | The genesis checklist as *events* — what a team did, appended (`apps/orgs/genesis.py`) | The curriculum text itself → code (`genesis.py` MODULES) + the reading page in **workers.vc** |

@@ -79,6 +79,7 @@ contract; the shell supplies the values.
 | `<govkit-checklist>` | `GET /api/v1/orgs/{org}/checklist/` | `data-org`, `data-reading`, `data-week` |
 | `<govkit-tasks>` | `GET /api/v1/tasksources/orgs/{org}/tasks/open/` | `data-org`, `data-limit`, `data-tasks-app` |
 | `<govkit-money>` | `GET /api/v1/projects/orgs/{org}/portfolio/` | `data-org` |
+| `<govkit-captable>` | `GET /api/v1/captable/orgs/{org}/` | `data-org` |
 | `<govkit-activity>` | `GET /api/v1/commons/orgs/{org}/attention/` | `data-org` |
 | `<govkit-ventures>` | `GET /api/v1/commons/ventures/` | `data-limit` (no org — every venture) |
 | `<govkit-news>` | `GET /api/v1/commons/news/mine/` | `data-limit` (no org — the viewer's own rail) |

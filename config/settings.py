@@ -220,6 +220,7 @@ INSTALLED_APPS = [
     "apps.projects",
     "apps.commons",
     "apps.comms",
+    "apps.captable",
     # --- Auth seam (uncomment once django-linkedtrust-auth is installed) ---
     # "linkedtrust_auth",
 ]

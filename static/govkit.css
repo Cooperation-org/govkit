@@ -923,3 +923,13 @@ details.gk-unfold fieldset { border: none; padding: 0.25rem 0 0.75rem; margin: 0
 
 /* an adjustment row in a trace: a correction to the rows above it, not more value in */
 .gk-trace-adjustment td { font-style: italic; }
+
+/* ---- cap table (apps/captable) ------------------------------------------ */
+.gk-cap-group td { font-weight: 600; border-bottom-color: var(--gk-border-strong); }
+.gk-cap-in { padding-left: 1.4rem; }
+.gk-cap-total td { font-weight: 600; border-top: 1px solid var(--gk-border-strong); border-bottom: none; }
+.gk-cap-row { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin: 0; }
+.gk-cap-pick { display: inline-flex; flex-wrap: wrap; gap: 0.35rem; }
+.gk-cap-new[hidden] { display: none; }
+.gk-cap .gk-cap-amt { width: 8.5rem; text-align: right; }
+.gk-cap input[type="date"] { width: 9.5rem; }
