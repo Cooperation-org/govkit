@@ -1313,3 +1313,8 @@ The control is `templates/orgs/_starting_edit.html`, on the Members page (member
 and the Sponsors panel) and inside each trace on the Pie page. Drawn only while the
 pie is adjustable; `equity.py` refuses when LOCKED on its own, so hiding it is not the
 permission. CSV import untouched.
+
+## CAP TABLE, IN PROGRESS (2026-10-20)
+Picking up the Workers.VC cap table (model: projects repo `Internal/10-20-2026-workersvc-cap-table-model.md`).
+New app `apps/captable`: founders pool % per org (pie runs inside it), rounds + investments,
+unsold reserve line, legal stock holdings, OCF export. Page `/o/<org>/captable/`, card `<govkit-captable>`.
