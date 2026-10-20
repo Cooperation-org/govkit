@@ -1326,3 +1326,8 @@ Page `/o/<org>/captable/` (tab after Pie), API `/api/v1/captable/orgs/<org>/…`
 OCF schemas. Founders' lines export as CONVERTIBLE_SECURITY with
 FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION; SAFEs as SAFE_CONVERSION, post-money cap.
 NOT DONE: the card is not mounted on workers.vc's cohort_dash.html (other repo).
+
+## ONBOARDING OVERLAY + CAP TABLE ON THE DASH (2026-10-20, in progress)
+`<govkit-onboarding>` in static/embed/govkit.js (7 steps for an org admin, 5 for a worker,
+spec `projects/Internal/10-20-2026-workersvc-dashboard-review-and-onboarding.md`); mounted on
+workers.vc's dash with `<govkit-captable>`. Pie page wording: sponsor dilution line, SAFE line.
