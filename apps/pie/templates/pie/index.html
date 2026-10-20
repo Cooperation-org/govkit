@@ -24,7 +24,7 @@
       slice traces back to the tasks that earned it.
     </p>
     <p>
-      The total valuation is an estimate. It will likely change when we negotiate with
+      The <a href="{% url 'captable:index' org_slug=current_org.slug %}">total valuation</a> is an estimate. It will likely change when we negotiate with
       investors. Invested money buys a share of the money paid out if the venture
       succeeds, with investors paid before workers. It does not buy a vote on how the
       venture is run. Ownership is earned: votes stay with the people doing the work,
@@ -86,7 +86,7 @@
         <a href="{% url 'orgs:members' org_slug=current_org.slug %}#starting-shares">starting split</a>,
         which can still be adjusted. Nothing is final until lock-in by majority
         decision: a vote weighted by each member's stake — what they've earned plus
-        their starting balance. Money doesn't vote; it gets preferred shares in the SAFE.
+        their starting balance. Money doesn't vote.
       </p>
       {% if cohort_ended and not lock %}
         <p><strong>The cohort has ended. Ready to lock in?</strong>
@@ -260,7 +260,8 @@
                         {% endif %}
                         <p class="gk-muted">
                           A sponsor's share is equity only. It carries no vote, and it dilutes
-                          like every other share as members earn.
+                          like every other pie share as members earn. Work does not dilute
+                          investors on the <a href="{% url 'captable:index' org_slug=current_org.slug %}">cap table</a>.
                         </p>
                       {% endif %}
                     </details>

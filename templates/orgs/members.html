@@ -191,7 +191,7 @@
     {% endif %}
   </div>
 
-  <div class="gk-card">
+  <div class="gk-card" id="invite">
     <h2>Invite someone</h2>
 
     <form method="post" action="{% url 'orgs:invite_create' org_slug=current_org.slug %}"

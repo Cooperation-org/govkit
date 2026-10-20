@@ -11,6 +11,8 @@
 //   <govkit-money>      project portfolio + totals         (projects/orgs/<org>/portfolio/)
 //   <govkit-captable>   the company: founders pool, investors, not yet sold
 //                                                          (captable/orgs/<org>/)
+//   <govkit-onboarding> "Set up" button + the step-at-a-time setup dialog
+//                       (accounts/me via window.__gkMe, captable/orgs/<org>/)
 //   <govkit-activity>   the org's attention rail           (commons/orgs/<org>/attention/)
 //   <govkit-ventures>   venture cards + raise-a-hand       (commons/ventures/; data-up only,
 //                       no data-org — it lists every venture for a person in the pool)
@@ -285,6 +287,25 @@
       'govkit-ventures .state { font-size: 12.5px; opacity: 0.75; }',
       'govkit-ventures button { font: inherit; font-size: 12.5px; cursor: pointer; border: 1px solid rgba(127,127,127,0.4); background: none; color: inherit; border-radius: 6px; padding: 3px 10px; }',
       'govkit-ventures button:hover { background: rgba(127,127,127,0.12); }',
+      // Onboarding: same paper and hairline as the task sheet. Nothing moves.
+      'govkit-onboarding[hidden] { display: none; }',
+      'govkit-onboarding .gk-ob-open { font: inherit; font-size: 12px; color: inherit; background: none; border: 1px solid var(--hairline, #e6e1d8); border-radius: 999px; padding: 3px 10px; cursor: pointer; }',
+      'govkit-onboarding .gk-ob-open:hover { border-color: currentColor; }',
+      'dialog.gk-ob { box-sizing: border-box; width: min(520px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; padding: 18px 20px; border: 1px solid var(--hairline, #e6e1d8); border-radius: 10px; background: var(--surface, #fffdf7); color: var(--ink, #26221c); font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.5; }',
+      'dialog.gk-ob::backdrop { background: rgba(23,19,16,0.5); }',
+      'dialog.gk-ob a { color: var(--accent, #0f766e); }',
+      '.gk-ob-top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted, #736b5c); }',
+      '.gk-ob-skip { font: inherit; color: inherit; background: none; border: 0; padding: 4px 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }',
+      '.gk-ob-title { margin: 10px 0 8px; font-family: var(--font-head, Georgia, serif); font-size: 20px; font-weight: 600; }',
+      '.gk-ob-title:focus { outline: none; }',
+      '.gk-ob-body p { margin: 0 0 10px; }',
+      '.gk-ob-fact { font-weight: 600; }',
+      '.gk-ob-row { display: flex; align-items: center; gap: 8px; }',
+      '.gk-ob-row input { width: 7em; font: inherit; color: inherit; background: var(--page, #faf9f6); border: 1px solid var(--hairline, #e6e1d8); border-radius: 6px; padding: 6px 8px; }',
+      '.gk-ob-pool { margin: 0 0 10px; }',
+      '.gk-ob-note { min-height: 1.5em; margin: 0; font-size: 13px; }',
+      '.gk-ob-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }',
+      '.gk-ob-next { font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--surface, #fffdf7); background: var(--accent, #0f766e); border: 1px solid var(--accent, #0f766e); border-radius: 6px; padding: 5px 16px; }',
       'govkit-captable .cap-sub { font-size: 12px; opacity: 0.65; margin-bottom: 8px; }',
       'govkit-captable table { width: 100%; border-collapse: collapse; }',
       'govkit-captable td { padding: 6px 8px; border-bottom: 1px solid rgba(127,127,127,0.2); font-size: 13px; vertical-align: baseline; }',
@@ -1517,6 +1538,293 @@
     host.appendChild(table);
   }
 
+  // --- <govkit-onboarding> ------------------------------------------------
+  // One step at a time, for the person's role in this org: an admin gets the
+  // seven steps that set up the venture, a worker the five about earning.
+  // Renders a small "Set up" button where it is mounted; the steps open in a
+  // native modal <dialog> (WAI-ARIA APG dialog pattern: aria-modal, labelled by
+  // the step heading, Tab wraps inside, Esc closes, focus returns to the button).
+  // Opens by itself once; closing it at any step is remembered in this browser
+  // for this person and org, and the button opens it again at that step.
+  //
+  // Host contract: data-up, data-org, optional data-tasks-app (the board app),
+  // data-what and data-how (the host's own explainer pages). Identity comes from
+  // window.__gkMe like every component; no membership, no button.
+  //
+  // Quoted lines are the team's words from the pages named beside them; lines
+  // marked AI-written are new.
+
+  function onboardingSteps(lead, ctx) {
+    var gk = ctx.up + '/o/' + ctx.org;
+    var cap = ctx.cap || {};
+    if (lead) {
+      return [
+        { title: 'What this is', text: [
+          // workers.vc what.html
+          'A venture studio for ventures that commit to Earned Governance principles of accountability and operational control by team members working actively in the venture.',
+          // govkit base.html
+          'Work, reviewed by peers, becomes ownership you can trace.',
+        ], links: [[ctx.what, 'What Workers.VC is']] },
+        { title: 'How work earns into the founders pool', text: [
+          // workers.vc earnedgov.html
+          'Log work from Slack or the dashboard; the team reviews it and sets its value, and the pie moves. The majority approves the work; nobody can just put hours anywhere.',
+          // AI-written, from the cap table model
+          'Everyone who does reviewed work is a founder. The pie runs inside the founders pool; new work dilutes only inside the pool.',
+        ], links: [[gk + '/drops/', 'Drops']] },
+        { title: 'Set the starting split', text: [
+          // govkit pie/index.html
+          'Record what was already put in before this pie existed — work done, money put at risk, an idea made real. Your share of the winnings should reflect your share of the bets.',
+          'Nothing is final until the team locks it in by majority decision.',
+        ], links: [[gk + '/members/#starting-shares', 'Set starting shares']] },
+        { title: 'Set the founders pool %', text: [
+          // AI-written
+          'The founders pool is the share of the company that work earns. Each person\'s share of the company is their pie share times the pool %.',
+        ], pool: true, links: [[gk + '/captable/#pool', 'Cap table']] },
+        { title: 'First valuation and investor tranche', text: [
+          // workers.vc invest.html
+          'A SAFE conveys no voting power. Money buys a share of the outcome. Governance can only be earned by work.',
+          // AI-written
+          'Investors buy from the rest, round by round, at a stated valuation.',
+        ], valued: cap.latest_post_money != null
+          ? money(cap.latest_post_money, cap.currency) + ' post-money · ' + (cap.latest_round_name || '')
+          : null,
+        links: [[gk + '/captable/#rounds', 'Add a round']] },
+        { title: 'Invite your team', text: [
+          // govkit orgs/members.html
+          'Their link opens the public commitment page: their words go on the wall, then they land in the org.',
+        ], links: [[gk + '/members/#invite', 'Make an invite link']] },
+        { title: 'Where the cap table lives', text: [
+          // govkit exports/index.html
+          'Download the org\'s current equity record. Every share traces back to the work that earned it.',
+          // workers.vc what.html
+          'No venture\'s records are locked in: the full ledger exports at any time, and GovKit is open source and can be self-hosted.',
+        ], links: [[gk + '/captable/', 'Cap table'], [gk + '/exports/', 'Exports']] },
+      ];
+    }
+    var unit = cap.unit_name;
+    return [
+      { title: 'What joining pays', text: [
+        // workers.vc venture.html
+        'Hours you put in become a share of what you build together. Nothing to buy, nothing to sign.',
+      ], links: [[ctx.how, 'How this works']] },
+      { title: 'How it is counted', text: [
+        // workers.vc how_this_works.html, earnedgov.html
+        'Reviewed work is recorded to your name as slices.',
+        'The majority approves the work; nobody can just put hours anywhere.',
+        // AI-written
+        unit ? 'Here it is counted in ' + unit + '.' : null,
+      ] },
+      { title: 'Where work is logged', text: [
+        // AI-written; "What you did" is the task sheet's own field label
+        'Open a task on the board and fill in What you did. The team reviews it.',
+      ], links: [[ctx.tasksApp ? ctx.tasksApp + '/p/' + ctx.org + '/board' : null, 'Open the board']] },
+      { title: 'Your standing', text: [
+        // govkit pie/standing.html
+        'Where you stand in ' + ctx.orgName + (unit ? ', in ' + unit : '') + '. Claiming credit means always being able to see this.',
+      ], links: [[gk + '/pie/me/', 'Your standing']] },
+      { title: 'Leaving and deciding', text: [
+        // workers.vc how_this_works.html
+        'Stop any time. Ask and your card comes off the wall.',
+        'At the end, each team\'s majority decides whether to form the organization for real. If yes, your slices become your share.',
+      ] },
+    ];
+  }
+
+  // Per person: the email never sits in the key in the clear.
+  function personKey(org, email) {
+    var h = 5381;
+    for (var i = 0; i < email.length; i++) h = ((h << 5) + h + email.charCodeAt(i)) | 0;
+    return 'govkit-onboarding:' + org + ':' + (h >>> 0).toString(36);
+  }
+  function readSeen(key) {
+    try { return JSON.parse(window.localStorage.getItem(key) || 'null'); } catch (e) { return null; }
+  }
+  function writeSeen(key, step) {
+    try { window.localStorage.setItem(key, JSON.stringify({ closed: true, step: step })); } catch (e) { /* private window: it opens again next time */ }
+  }
+
+  // A host page's own link, relative or absolute; only http(s) survives.
+  function pageHref(v) {
+    if (!v) return null;
+    try { return safeHref(new URL(v, location.href).href); } catch (e) { return null; }
+  }
+
+  var FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+  function poolField(c, cap, say) {
+    var wrap = el('form', 'gk-ob-pool');
+    var label = el('label', 'gk-flabel', 'Founders pool, % of the company');
+    var input = el('input');
+    input.type = 'number';
+    input.min = '0';
+    input.max = '100';
+    input.step = '0.01';
+    input.id = 'gk-ob-pool-pct';
+    label.htmlFor = input.id;
+    if (cap.founders_pool_pct != null) input.value = String(num(cap.founders_pool_pct));
+    var btn = el('button', 'gk-move', 'Set');
+    btn.type = 'submit';
+    var row = el('div', 'gk-ob-row');
+    row.appendChild(input);
+    row.appendChild(el('span', null, '%'));
+    row.appendChild(btn);
+    wrap.appendChild(label);
+    wrap.appendChild(row);
+    var was = input.value;
+    function save(e) {
+      if (e) e.preventDefault();
+      if (input.value === '' || input.value === was) return;
+      btn.disabled = true;
+      fetch(c.up + '/api/v1/captable/orgs/' + c.org + '/settings/', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'X-Govkit-Embed': '1', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ founders_pool_pct: input.value }),
+      }).then(function (r) {
+        return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+      }).then(function (res) {
+        if (!res.ok) throw new Error(res.d && res.d.detail);
+        was = input.value;
+        cap.founders_pool_pct = res.d.founders_pool_pct;
+        say('Saved.');
+      }).catch(function (err) {
+        say((err && err.message) || 'Not saved. Try again.');
+      }).then(function () { btn.disabled = false; });
+    }
+    wrap.addEventListener('submit', save);
+    input.addEventListener('change', function () { save(); });
+    return wrap;
+  }
+
+  function mountOnboarding(host) {
+    ensureStyles();
+    host.hidden = true;
+    var c = cfg(host);
+    var store = window.__gkMe || {};
+    var me = c && store[c.up];
+    if (!me || !me.then) return;
+    var orgSlug = host.dataset.org;
+    me.then(function (who) {
+      var mine = null;
+      (who.memberships || []).forEach(function (m) { if (m.org_slug === orgSlug) mine = m; });
+      if (!mine || !who.email) return;
+      var lead = mine.role === 'admin';
+      if (!lead && ['mentor', 'funder', 'supporter'].indexOf(mine.audience) !== -1) return;
+      var ctx = {
+        up: c.up, org: c.org, orgName: mine.org_name || orgSlug,
+        tasksApp: safeHref((host.dataset.tasksApp || '').replace(/\/+$/, '')),
+        what: pageHref(host.dataset.what),
+        how: pageHref(host.dataset.how),
+        cap: null,
+      };
+      var key = personKey(orgSlug, who.email);
+      var opener = el('button', 'gk-ob-open', 'Set up');
+      opener.type = 'button';
+      opener.setAttribute('aria-haspopup', 'dialog');
+      host.replaceChildren(opener);
+      host.hidden = false;
+
+      var dlg = null;
+      var at = 0;
+      function close(done) {
+        if (!dlg) return;
+        writeSeen(key, done === true ? 0 : at);
+        var d = dlg;
+        dlg = null;
+        d.close();
+        d.remove();
+        opener.focus();
+      }
+      function open(step) {
+        if (dlg) return;
+        var steps = onboardingSteps(lead, ctx);
+        at = Math.min(Math.max(step || 0, 0), steps.length - 1);
+        dlg = el('dialog', 'gk-ob');
+        dlg.setAttribute('aria-modal', 'true');
+        dlg.setAttribute('aria-labelledby', 'gk-ob-title');
+        var top = el('div', 'gk-ob-top');
+        var count = el('span', 'gk-ob-count');
+        var skip = el('button', 'gk-ob-skip', 'Skip');
+        skip.type = 'button';
+        skip.addEventListener('click', function () { close(); });
+        top.appendChild(count);
+        top.appendChild(skip);
+        var heading = el('h2', 'gk-ob-title');
+        heading.id = 'gk-ob-title';
+        heading.tabIndex = -1;
+        var body = el('div', 'gk-ob-body');
+        var note = el('p', 'gk-ob-note');
+        note.setAttribute('role', 'status');
+        var foot = el('div', 'gk-ob-foot');
+        var back = el('button', 'gk-move', 'Back');
+        back.type = 'button';
+        var next = el('button', 'gk-ob-next');
+        next.type = 'button';
+        foot.appendChild(back);
+        foot.appendChild(next);
+        [top, heading, body, note, foot].forEach(function (n) { dlg.appendChild(n); });
+
+        function say(msg) { note.textContent = msg || ''; }
+        function show(i) {
+          at = i;
+          var s = steps[i];
+          count.textContent = (i + 1) + ' of ' + steps.length;
+          heading.textContent = s.title;
+          say('');
+          body.replaceChildren();
+          s.text.forEach(function (t) { if (t) body.appendChild(el('p', null, t)); });
+          if (s.valued) body.appendChild(el('p', 'gk-ob-fact', s.valued));
+          if (s.pool && ctx.cap) body.appendChild(poolField(c, ctx.cap, say));
+          var links = (s.links || []).filter(function (l) { return l[0]; });
+          if (links.length) {
+            var p = el('p', 'gk-ob-links');
+            links.forEach(function (l, j) {
+              if (j) p.appendChild(document.createTextNode(' · '));
+              var a = el('a', null, l[1]);
+              a.href = l[0];
+              p.appendChild(a);
+            });
+            body.appendChild(p);
+          }
+          back.hidden = i === 0;
+          next.textContent = i === steps.length - 1 ? 'Done' : 'Next';
+          heading.focus();
+        }
+        back.addEventListener('click', function () { show(at - 1); });
+        next.addEventListener('click', function () {
+          if (at === steps.length - 1) close(true); else show(at + 1);
+        });
+        dlg.addEventListener('cancel', function (e) { e.preventDefault(); close(); });
+        dlg.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+          if (e.key !== 'Tab') return;
+          var f = Array.prototype.filter.call(dlg.querySelectorAll(FOCUSABLE), function (n) {
+            return !n.hidden && n.offsetParent !== null;
+          });
+          if (!f.length) return;
+          var first = f[0], last = f[f.length - 1];
+          if (e.shiftKey && (document.activeElement === first || document.activeElement === heading)) {
+            e.preventDefault(); last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault(); first.focus();
+          }
+        });
+        document.body.appendChild(dlg);
+        if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+        show(at);
+      }
+
+      opener.addEventListener('click', function () {
+        var seen = readSeen(key);
+        open(seen ? seen.step : 0);
+      });
+
+      jget(c.up + '/api/v1/captable/orgs/' + c.org + '/')
+        .then(function (d) { ctx.cap = d; }, function () { ctx.cap = null; })
+        .then(function () { if (!readSeen(key)) open(0); });
+    }).catch(function () {});
+  }
+
   // --- element registration ------------------------------------------------
 
   function define(tag, path, render) {
@@ -1539,6 +1847,11 @@
   if (!customElements.get('govkit-ventures')) {
     customElements.define('govkit-ventures', class extends HTMLElement {
       connectedCallback() { if (this.__mounted) return; this.__mounted = true; mountVentures(this); }
+    });
+  }
+  if (!customElements.get('govkit-onboarding')) {
+    customElements.define('govkit-onboarding', class extends HTMLElement {
+      connectedCallback() { if (this.__mounted) return; this.__mounted = true; mountOnboarding(this); }
     });
   }
   if (!customElements.get('govkit-news')) {
