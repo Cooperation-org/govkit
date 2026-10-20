@@ -1314,7 +1314,15 @@ and the Sponsors panel) and inside each trace on the Pie page. Drawn only while 
 pie is adjustable; `equity.py` refuses when LOCKED on its own, so hiding it is not the
 permission. CSV import untouched.
 
-## CAP TABLE, IN PROGRESS (2026-10-20)
-Picking up the Workers.VC cap table (model: projects repo `Internal/10-20-2026-workersvc-cap-table-model.md`).
-New app `apps/captable`: founders pool % per org (pie runs inside it), rounds + investments,
-unsold reserve line, legal stock holdings, OCF export. Page `/o/<org>/captable/`, card `<govkit-captable>`.
+## CAP TABLE SHIPPED (2026-10-20)
+`apps/captable`. `compute_cap_table(org)`: each pie slice × founders pool % (default 55,
+`CapTableSettings`), each `Investment` = amount ÷ its `Round`'s post-money (post = pre + raised
+when only pre is stated), "Not yet sold" = tranche − sold. Sums to 100%. Value = % × latest
+post-money. Writes re-check in a transaction and refuse selling investors more than the tranche.
+`StockHolding` = legal shares of record, listed beside the table, never added in.
+`ExternalHolder.stakeholder_type` (orgs 0028) lets an investor be a person who is not a member.
+Page `/o/<org>/captable/` (tab after Pie), API `/api/v1/captable/orgs/<org>/…`, card
+`<govkit-captable>`, OCF package at `…/ocf/` (JSON) and `…/ocf/?as=zip`, validated against the
+OCF schemas. Founders' lines export as CONVERTIBLE_SECURITY with
+FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION; SAFEs as SAFE_CONVERSION, post-money cap.
+NOT DONE: the card is not mounted on workers.vc's cohort_dash.html (other repo).
