@@ -300,6 +300,7 @@
       '.gk-ob-title:focus { outline: none; }',
       '.gk-ob-body p { margin: 0 0 10px; }',
       '.gk-ob-fact { font-weight: 600; }',
+      '.gk-ob-docs { margin: 0 0 8px; padding-left: 18px; }',
       '.gk-ob-row { display: flex; align-items: center; gap: 8px; }',
       '.gk-ob-row input { width: 7em; font: inherit; color: inherit; background: var(--page, #faf9f6); border: 1px solid var(--hairline, #e6e1d8); border-radius: 6px; padding: 6px 8px; }',
       '.gk-ob-pool { margin: 0 0 10px; }',
@@ -1558,8 +1559,8 @@
   // the list of the five decisions that set up the venture, each with its
   // current answer (GOV.UK "complete multiple tasks" pattern: a task list, each
   // row one link with its status, then one task per page and back to the list);
-  // then one step per decision, then the facts. A worker gets the five steps
-  // about earning. The steps open in a native modal <dialog> (WAI-ARIA APG
+  // then one step per decision, then the facts. A worker gets the three steps
+  // about earning: ownership, options, votes. The steps open in a native modal <dialog> (WAI-ARIA APG
   // dialog pattern: aria-modal, labelled by the step heading, Tab wraps inside,
   // Esc closes, focus returns to the button).
   // Opens by itself once; closing it at any step is remembered in this browser
@@ -1577,12 +1578,21 @@
     return hit ? hit[1] : null;
   }
 
-  // A cap table setting's answer. Until anyone saves a setting, each value is
-  // the default: shown, muted, and not counted as set.
+  // A cap table setting's answer: "not set" until anyone saves the settings,
+  // even where a default value exists.
   var NOT_SET = { text: 'not set', set: false };
   function settingAnswer(cap, text) {
-    if (text == null) return NOT_SET;
-    return { text: text, set: !!cap.settings_saved };
+    if (text == null || !cap.settings_saved) return NOT_SET;
+    return { text: text, set: true };
+  }
+
+  // Money as the cap table page shows it (captable_fmt.money): $2,000,000.
+  var MONEY_SYMBOLS = { USD: '$', EUR: '\u20ac', GBP: '\u00a3' };
+  function capMoney(value, currency) {
+    var sym = MONEY_SYMBOLS[currency || 'USD'];
+    var text = money(value);
+    if (!text) return '';
+    return sym ? sym + text : text + ' ' + currency;
   }
 
   function onboardingSteps(lead, ctx) {
@@ -1609,53 +1619,47 @@
             }).length;
             return n ? { text: n === 1 ? '1 holder' : n + ' holders', set: true } : NOT_SET;
           },
-          links: [[gk + '/members/#starting-shares', 'Starting shares']] },
+          shown: true,
+          links: [[gk + '/members/#starting-shares', 'Starting split']] },
         { decision: true, title: 'Stage', ask: ['stage'], answer: setting('stage') },
-        { decision: true, title: 'Valuation', valued: true,
+        { decision: true, title: 'Valuation', shown: true,
           answer: function () {
             if (cap.latest_post_money == null) return NOT_SET;
-            return { text: money(cap.latest_post_money, cap.currency) + ' post-money', set: true };
+            var text = capMoney(cap.latest_post_money, cap.currency) + ' post-money';
+            if (cap.latest_round_name) text += ', ' + cap.latest_round_name;
+            return { text: text, set: true };
           },
           links: [[gk + '/captable/#rounds', 'Rounds']] },
         { fact: true, title: 'Company', ask: ['incorporated', 'entity_type'],
           answer: function () {
             var t = choiceLabel(choices.entity_type, cap.entity_type);
             return t ? { text: t, set: true } : NOT_SET;
-          } },
+          },
+          links: [[gk + '/captable/#stock', 'Stock of record']] },
         { fact: true, title: 'Documents',
           answer: function () {
             var n = ctx.docs ? ctx.docs.length : 0;
-            return n ? { text: String(n), set: true } : { text: 'none', set: false };
+            return n ? { text: String(n), set: true } : NOT_SET;
           },
+          list: function () { return (ctx.docs || []).map(function (d) { return d.title; }); },
           links: [[gk + '/captable/#documents', 'Documents']] },
       ];
     }
-    var unit = cap.unit_name;
+    // One term for what work earns: options (equity model spec, section 3).
     return [
-      { title: 'What joining pays', text: [
-        // workers.vc venture.html
-        'Hours you put in become a share of what you build together. Nothing to buy, nothing to sign.',
+      { title: 'Ownership', text: [
+        // the project owner's line, equity model spec
+        'Founders earn ownership over time by working.',
       ], links: [[ctx.how, 'How this works']] },
-      { title: 'How it is counted', text: [
-        // workers.vc how_this_works.html, earnedgov.html
-        'Reviewed work is recorded to your name as slices.',
-        'The majority approves the work; nobody can just put hours anywhere.',
-        // AI-written
-        unit ? 'Here it is counted in ' + unit + '.' : null,
-      ] },
-      { title: 'Where work is logged', text: [
-        // AI-written; "What you did" is the task sheet's own field label
-        'Open a task on the board and fill in What you did. The team reviews it.',
-      ], links: [[ctx.tasksApp ? ctx.tasksApp + '/p/' + ctx.org + '/board' : null, 'Open the board']] },
-      { title: 'Your standing', text: [
-        // govkit pie/standing.html
-        'Where you stand in ' + ctx.orgName + (unit ? ', in ' + unit : '') + '. Claiming credit means always being able to see this.',
-      ], links: [[gk + '/pie/me/', 'Your standing']] },
-      { title: 'Leaving and deciding', text: [
-        // workers.vc how_this_works.html
-        'Stop any time. Ask and your card comes off the wall.',
-        'At the end, each team\'s majority decides whether to form the organization for real. If yes, your slices become your share.',
-      ] },
+      { title: 'Options', text: [
+        // AI-written, from equity model spec section 3
+        'Work is valued per task. The team reviews it.',
+        'Each drop turns reviewed work into options.',
+      ], links: [[ctx.tasksApp ? ctx.tasksApp + '/p/' + ctx.org + '/board' : null, 'Board']] },
+      { title: 'Votes', text: [
+        // AI-written; apps/orgs/weighting.py weighs votes by earned value
+        'Workers vote, weighted by options.',
+      ], links: [[gk + '/pie/me/', 'My standing']] },
     ];
   }
 
@@ -1842,13 +1846,13 @@
         dlg.setAttribute('aria-labelledby', 'gk-ob-title');
         var top = el('div', 'gk-ob-top');
         var where = el('span', 'gk-ob-where');
-        var toList = el('button', 'gk-ob-skip gk-ob-tolist', 'List');
+        var toList = el('button', 'gk-ob-skip gk-ob-tolist', 'Set up');
         toList.type = 'button';
         toList.addEventListener('click', function () { show(0); });
         var count = el('span', 'gk-ob-count');
         where.appendChild(toList);
         where.appendChild(count);
-        var skip = el('button', 'gk-ob-skip', 'Skip');
+        var skip = el('button', 'gk-ob-skip', 'Close');
         skip.type = 'button';
         skip.addEventListener('click', function () { close(); });
         top.appendChild(where);
@@ -1892,14 +1896,16 @@
         function show(i) {
           at = i;
           var s = steps[i];
-          if (s.map) count.textContent = '';
-          else if (lead) count.textContent = i + ' of ' + (steps.length - 1);
+          // Decisions are counted against decisions; the map and the facts carry no count.
+          if (s.decision) count.textContent = (decisions.indexOf(s) + 1) + ' of ' + decisions.length;
+          else if (lead) count.textContent = '';
           else count.textContent = (i + 1) + ' of ' + steps.length;
           toList.hidden = !lead || !!s.map;
           heading.textContent = s.title;
           say('');
           body.replaceChildren();
           (s.text || []).forEach(function (t) { if (t) body.appendChild(el('p', null, t)); });
+          var allSet = decisions.every(function (d) { return d.answer().set; });
           if (s.map) {
             var done = decisions.filter(function (d) { return d.answer().set; }).length;
             body.appendChild(el('p', 'gk-ob-progress', done + ' of ' + decisions.length + ' set'));
@@ -1907,7 +1913,17 @@
             body.appendChild(el('h3', 'gk-ob-group', 'Facts'));
             body.appendChild(taskList(facts));
           }
-          if (s.valued) body.appendChild(el('p', 'gk-ob-fact', s.answer().text));
+          if (s.shown) body.appendChild(el('p', 'gk-ob-fact', s.answer().text));
+          if (s.list) {
+            var titles = s.list();
+            if (titles.length) {
+              var ul = el('ul', 'gk-ob-docs');
+              titles.forEach(function (t) { ul.appendChild(el('li', null, t)); });
+              body.appendChild(ul);
+            } else {
+              body.appendChild(el('p', 'gk-ob-fact', NOT_SET.text));
+            }
+          }
           if (s.pool && ctx.cap) body.appendChild(poolField(c, ctx.cap, say));
           if (s.ask && ctx.cap) body.appendChild(settingFields(c, ctx.cap, s.ask, say));
           var links = (s.links || []).filter(function (l) { return l[0]; });
@@ -1922,12 +1938,16 @@
             body.appendChild(p);
           }
           back.hidden = i === 0;
-          next.textContent = s.map ? 'Start' : i === steps.length - 1 ? 'Done' : 'Next';
+          var last = i === steps.length - 1 || (s.map && allSet);
+          next.textContent = s.map && !allSet ? 'Start' : last ? 'Done' : 'Next';
           heading.focus();
         }
         back.addEventListener('click', function () { show(at - 1); });
         next.addEventListener('click', function () {
-          if (at === steps.length - 1) close(true); else show(at + 1);
+          var s = steps[at];
+          var finished = at === steps.length - 1 ||
+            (s.map && decisions.every(function (d) { return d.answer().set; }));
+          if (finished) close(true); else show(at + 1);
         });
         dlg.addEventListener('cancel', function (e) { e.preventDefault(); close(); });
         dlg.addEventListener('keydown', function (e) {

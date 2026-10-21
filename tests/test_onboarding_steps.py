@@ -3,7 +3,7 @@ The setup dialog (<govkit-onboarding> in static/embed/govkit.js) links into GovK
 
 Pinned down here: an admin's dialog opens on the list of the decisions; every GovKit
 path a step links to answers the person that step is for (an admin for the setup steps,
-a member for the five worker steps), and every #anchor a step points at is on that page;
+a member for the three worker steps), and every #anchor a step points at is on that page;
 each decision saves through the endpoint it calls. A renamed page or a dropped id breaks
 a step silently in the browser; it breaks here instead.
 """
@@ -26,7 +26,7 @@ def _steps_source():
     start = src.index("function onboardingSteps(")
     end = src.index("function personKey(")
     body = src[start:end]
-    split = body.index("var unit = cap.unit_name;")
+    split = body.index("// One term for what work earns: options")
     return body[:split], body[split:]
 
 
@@ -100,12 +100,38 @@ def test_admin_dialog_opens_on_the_list_of_decisions(client, venture):
     assert re.findall(r"fact: true, title: '([^']*)'", lead) == ["Company", "Documents"]
     # Every step reaches the list again, and the list shows progress.
     src = JS.read_text()
-    assert "'List'" in src and "'Start'" in src
+    assert "'gk-ob-skip gk-ob-tolist', 'Set up'" in src and "'Start'" in src
+    assert "'gk-ob-skip', 'Close'" in src
+    assert "'List'" not in src and "'Skip'" not in src
+    assert "'Starting split']]" in lead and "Starting shares" not in lead
+    assert "'/captable/#stock', 'Stock of record'" in lead
+    assert "'none'" not in lead
     assert "' of ' + decisions.length + ' set'" in src
     for gone in ("Series A", "first priced round", "Back to the list", "Pool dilution"):
         assert gone not in lead
     # The worker's steps have no list and no decisions.
     assert "map: true" not in worker and "decision: true" not in worker
+
+
+def test_worker_dialog_is_ownership_options_votes():
+    _, worker = _steps_source()
+    assert re.findall(r"\{ title: '([^']*)'", worker) == ["Ownership", "Options", "Votes"]
+    assert "Founders earn ownership over time by working." in worker
+    # One term: options. No 90-day rule until apps/orgs/weighting.py has one.
+    for gone in ("slices", "points", "Hours", "for real", "wall", "90 days", "Your standing"):
+        assert gone not in worker
+    assert "'My standing'" in worker and "'Board'" in worker
+
+
+def test_pie_page_terms_match_the_equity_model(client, venture):
+    org, admin, _ = venture
+    org.pie_phase = PiePhase.LAUNCHED
+    org.save(update_fields=["pie_phase"])
+    client.force_login(admin)
+    html = client.get(f"/o/{org.slug}/pie/").content.decode()
+    assert "issued as options in periodic drops" in html
+    for gone in ("issued as shares", "investors paid before workers"):
+        assert gone not in html
 
 
 def _patch(client, org, body):
