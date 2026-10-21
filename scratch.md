@@ -1357,3 +1357,9 @@ pool_dilutes_at_priced_round stays, unused, as model field `pool_dilution`, out 
 `CompanyDocument` (kind, title, url, uploaded_by, uploaded_at): page #documents, API `documents/`;
 uploads go to GovKit's bucket (apps.commons.storage) when configured, else a pasted link.
 Bucket URLs are public-read with a random key. Open: whether legal documents belong there.
+
+## ONBOARDING WORDING REVIEW APPLIED (2026-10-21, in progress)
+Applying `projects/Internal/10-21-2026-workersvc-review-onboarding.md` to `<govkit-onboarding>`
+(worker flow 3 steps Ownership / Options / Votes; lead flow Set up, Close, counts, Starting split,
+not set until saved, valuation format, documents list, Stock of record link) and pie page terms.
+No 90-day voting rule in apps/orgs/weighting.py, so the Votes step does not state it.
