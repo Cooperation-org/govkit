@@ -52,6 +52,17 @@
           </tr>
         {% endfor %}
 
+        {% if pool_only %}
+          {% if outside %}
+            <tr class="gk-cap-group" id="investors">
+              <td class="gk-muted">{{ outside.label }}</td>
+              <td></td>
+              <td class="gk-num">{{ outside.pct_display }}%</td>
+              <td class="gk-num">{{ outside.value|money:cur }}</td>
+              {% if is_admin %}<td></td>{% endif %}
+            </tr>
+          {% endif %}
+        {% else %}
         <tr class="gk-cap-group" id="investors">
           <td>Investors</td>
           <td></td>
@@ -112,6 +123,7 @@
             </td>
           </tr>
         {% endif %}
+        {% endif %}
         <tr class="gk-cap-total">
           <td>Total</td>
           <td></td>
@@ -168,6 +180,32 @@
                 {% endif %}
               </td>
             </tr>
+            {% with t=terms|get_item:r.round_id %}
+            <tr class="gk-cap-terms">
+              <td colspan="7">
+                <span class="gk-cap-row">
+                {% if r.instrument == "priced" %}
+                  <label>Price per share <input form="round-{{ r.round_id }}" type="number" step="any" min="0" name="price_per_share" value="{{ t.price_per_share|plain }}" class="gk-cap-amt"></label>
+                {% else %}
+                  <label>Cap <input form="round-{{ r.round_id }}" type="number" step="0.01" min="0" name="conversion_valuation_cap" value="{{ t.conversion_valuation_cap|plain }}" class="gk-cap-amt"></label>
+                  <label>Discount <input form="round-{{ r.round_id }}" type="number" step="any" min="0" max="100" name="conversion_discount_pct" value="{{ t.conversion_discount|as_pct }}" size="4" class="gk-cap-pct">%</label>
+                  {% if r.instrument == "note" %}
+                    <label>Interest <input form="round-{{ r.round_id }}" type="number" step="any" min="0" max="100" name="interest_rate_pct" value="{{ t.interest_rate|as_pct }}" size="4" class="gk-cap-pct">%</label>
+                    <label>Matures <input form="round-{{ r.round_id }}" type="date" name="maturity_date" value="{{ t.maturity_date|date:'Y-m-d' }}"></label>
+                  {% else %}
+                    <select form="round-{{ r.round_id }}" name="conversion_timing" aria-label="Pre-money or post-money SAFE">
+                      {% for v, l in conversion_timings %}<option value="{{ v }}"{% if v == t.conversion_timing %} selected{% endif %}>{{ l }}</option>{% endfor %}
+                    </select>
+                  {% endif %}
+                  <input form="round-{{ r.round_id }}" type="hidden" name="conversion_mfn" value="0">
+                  <label><input form="round-{{ r.round_id }}" type="checkbox" name="conversion_mfn" value="1"{% if t.conversion_mfn %} checked{% endif %}> MFN</label>
+                {% endif %}
+                  <input form="round-{{ r.round_id }}" type="hidden" name="pro_rata" value="0">
+                  <label><input form="round-{{ r.round_id }}" type="checkbox" name="pro_rata" value="1"{% if t.pro_rata %} checked{% endif %}> Pro rata</label>
+                </span>
+              </td>
+            </tr>
+            {% endwith %}
           {% else %}
             <tr>
               <td>{{ r.name }}</td>
@@ -177,6 +215,11 @@
               <td class="gk-num">{{ r.post_money|money:cur }}</td>
               <td class="gk-num">{{ r.raised|money:cur }}</td>
             </tr>
+            {% with text=terms_text|get_item:r.round_id %}
+              {% if text %}
+                <tr class="gk-cap-terms"><td colspan="6" class="gk-muted">{{ text }}</td></tr>
+              {% endif %}
+            {% endwith %}
           {% endif %}
         {% endfor %}
         {% if is_admin %}
@@ -222,7 +265,9 @@
                 <td>
                   <form id="stock-{{ h.holding_id }}" method="post"
                         action="{% url 'captable:save_holding' org_slug=current_org.slug pk=h.holding_id %}">{% csrf_token %}</form>
-                  <input form="stock-{{ h.holding_id }}" name="stock_class" value="{{ h.stock_class }}" aria-label="Stock class">
+                  <select form="stock-{{ h.holding_id }}" name="stock_class" aria-label="Stock class">
+                    {% for c in stock_classes %}<option value="{{ c.pk }}"{% if c.pk == h.stock_class_id %} selected{% endif %}>{{ c.name }}</option>{% endfor %}
+                  </select>
                 </td>
                 <td class="gk-num"><input form="stock-{{ h.holding_id }}" type="number" min="1" step="1" name="quantity" value="{{ h.quantity }}" aria-label="Shares" class="gk-cap-amt"></td>
               {% else %}
@@ -246,7 +291,13 @@
                 <form method="post" action="{% url 'captable:add_holding' org_slug=current_org.slug %}" class="gk-cap-row gk-cap-add">
                   {% csrf_token %}
                   {% include "captable/_holder_pick.html" %}
-                  <input name="stock_class" value="Common" aria-label="Stock class">
+                  {% if stock_classes %}
+                    <select name="stock_class" aria-label="Stock class">
+                      {% for c in stock_classes %}<option value="{{ c.pk }}">{{ c.name }}</option>{% endfor %}
+                    </select>
+                  {% else %}
+                    <input name="stock_class" value="Common" aria-label="Stock class">
+                  {% endif %}
                   <input type="number" min="1" step="1" name="quantity" placeholder="Shares" aria-label="Shares" required class="gk-cap-amt">
                   <button type="submit">Add stock</button>
                 </form>
@@ -256,6 +307,238 @@
         </tbody>
       </table>
     </div>
+  {% endif %}
+
+  {% if stock_classes or is_admin %}
+    <h2 id="classes">Stock classes</h2>
+    <div class="gk-card">
+      <table class="gk-cap">
+        <thead>
+          <tr>
+            <th>Class</th>
+            <th>Type</th>
+            <th class="gk-num">Authorized</th>
+            <th class="gk-num">Held</th>
+            <th class="gk-num">Par value</th>
+            <th class="gk-num">Votes per share</th>
+            <th class="gk-num">Seniority</th>
+            <th>Board approved</th>
+            {% if is_admin %}<th>&nbsp;</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in stock_classes %}
+            {% if is_admin %}
+              <tr>
+                <td>
+                  <form id="class-{{ c.pk }}" method="post" action="{% url 'captable:save_stock_class' org_slug=current_org.slug pk=c.pk %}">{% csrf_token %}</form>
+                  <input form="class-{{ c.pk }}" name="name" value="{{ c.name }}" aria-label="Class name" required>
+                </td>
+                <td>
+                  <select form="class-{{ c.pk }}" name="class_type" aria-label="Common or preferred">
+                    {% for v, l in class_types %}<option value="{{ v }}"{% if v == c.class_type %} selected{% endif %}>{{ l }}</option>{% endfor %}
+                  </select>
+                </td>
+                <td class="gk-num"><input form="class-{{ c.pk }}" type="number" min="1" step="1" name="initial_shares_authorized" value="{{ c.initial_shares_authorized|default_if_none:'' }}" aria-label="Authorized shares" class="gk-cap-amt"></td>
+                <td class="gk-num">{{ c.issued|shares }}</td>
+                <td class="gk-num"><input form="class-{{ c.pk }}" type="number" min="0" step="any" name="par_value" value="{{ c.par_value|plain }}" aria-label="Par value per share" class="gk-cap-amt"></td>
+                <td class="gk-num"><input form="class-{{ c.pk }}" type="number" min="0" step="any" name="votes_per_share" value="{{ c.votes_per_share|plain }}" aria-label="Votes per share" class="gk-cap-pct"></td>
+                <td class="gk-num"><input form="class-{{ c.pk }}" type="number" min="1" step="1" name="seniority" value="{{ c.seniority }}" aria-label="Seniority" class="gk-cap-pct"></td>
+                <td><input form="class-{{ c.pk }}" type="date" name="board_approval_date" value="{{ c.board_approval_date|date:'Y-m-d' }}" aria-label="Board approval date"></td>
+                <td>
+                  <button form="class-{{ c.pk }}" type="submit" class="gk-btn-quiet">Save</button>
+                  {% if not c.issued %}
+                    <form method="post" action="{% url 'captable:delete_stock_class' org_slug=current_org.slug pk=c.pk %}" class="gk-inline-form">
+                      {% csrf_token %}<button type="submit" class="gk-btn-quiet" aria-label="Remove class {{ c.name }}">Remove</button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% else %}
+              <tr>
+                <td>{{ c.name }}</td>
+                <td>{{ c.get_class_type_display }}</td>
+                <td class="gk-num">{{ c.initial_shares_authorized|shares }}</td>
+                <td class="gk-num">{{ c.issued|shares }}</td>
+                <td class="gk-num">{{ c.par_value|plain }}</td>
+                <td class="gk-num">{{ c.votes_per_share|plain }}</td>
+                <td class="gk-num">{{ c.seniority }}</td>
+                <td>{{ c.board_approval_date|date:"Y-m-d" }}</td>
+              </tr>
+            {% endif %}
+          {% endfor %}
+          {% if is_admin %}
+            <tr>
+              <td>
+                <form id="class-new" method="post" action="{% url 'captable:add_stock_class' org_slug=current_org.slug %}">{% csrf_token %}</form>
+                <input form="class-new" name="name" placeholder="Class name" aria-label="Class name" required>
+              </td>
+              <td>
+                <select form="class-new" name="class_type" aria-label="Common or preferred">
+                  {% for v, l in class_types %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+                </select>
+              </td>
+              <td class="gk-num"><input form="class-new" type="number" min="1" step="1" name="initial_shares_authorized" placeholder="Authorized" aria-label="Authorized shares" class="gk-cap-amt"></td>
+              <td></td>
+              <td class="gk-num"><input form="class-new" type="number" min="0" step="any" name="par_value" placeholder="Par" aria-label="Par value per share" class="gk-cap-amt"></td>
+              <td colspan="3"></td>
+              <td><button form="class-new" type="submit">Add class</button></td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  {% if valuations or is_admin %}
+    <h2 id="valuations">Valuations</h2>
+    <div class="gk-card">
+      <table class="gk-cap">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Class</th>
+            <th class="gk-num">Per share</th>
+            <th>Kind</th>
+            <th>Provider</th>
+            <th>Board approved</th>
+            <th class="gk-num">Gross assets</th>
+            <th>Report</th>
+            {% if is_admin %}<th>&nbsp;</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in valuations %}
+            {% if is_admin %}
+              <tr>
+                <td>
+                  <form id="val-{{ v.pk }}" method="post" action="{% url 'captable:save_valuation' org_slug=current_org.slug pk=v.pk %}">{% csrf_token %}</form>
+                  <input form="val-{{ v.pk }}" type="date" name="effective_date" value="{{ v.effective_date|date:'Y-m-d' }}" aria-label="Effective date" required>
+                </td>
+                <td>
+                  <select form="val-{{ v.pk }}" name="stock_class" aria-label="Stock class">
+                    {% for c in stock_classes %}<option value="{{ c.pk }}"{% if c.pk == v.stock_class_id %} selected{% endif %}>{{ c.name }}</option>{% endfor %}
+                  </select>
+                </td>
+                <td class="gk-num"><input form="val-{{ v.pk }}" type="number" min="0" step="any" name="price_per_share" value="{{ v.price_per_share|plain }}" aria-label="Price per share" class="gk-cap-amt" required></td>
+                <td>
+                  <select form="val-{{ v.pk }}" name="valuation_type" aria-label="Kind">
+                    {% for k, l in valuation_types %}<option value="{{ k }}"{% if k == v.valuation_type %} selected{% endif %}>{{ l }}</option>{% endfor %}
+                  </select>
+                </td>
+                <td><input form="val-{{ v.pk }}" name="provider" value="{{ v.provider }}" aria-label="Provider" size="12"></td>
+                <td><input form="val-{{ v.pk }}" type="date" name="board_approval_date" value="{{ v.board_approval_date|date:'Y-m-d' }}" aria-label="Board approval date"></td>
+                <td class="gk-num"><input form="val-{{ v.pk }}" type="number" min="0" step="0.01" name="gross_assets" value="{{ v.gross_assets|plain }}" aria-label="Gross assets" class="gk-cap-amt"></td>
+                <td>
+                  <input form="val-{{ v.pk }}" type="url" name="report_url" value="{{ v.report_url }}" placeholder="https://" aria-label="Link to the report" size="14">
+                  {% if v.report_url %}<a href="{{ v.report_url }}" rel="noopener" target="_blank">&nearr;</a>{% endif %}
+                </td>
+                <td>
+                  <button form="val-{{ v.pk }}" type="submit" class="gk-btn-quiet">Save</button>
+                  <form method="post" action="{% url 'captable:delete_valuation' org_slug=current_org.slug pk=v.pk %}" class="gk-inline-form">
+                    {% csrf_token %}<button type="submit" class="gk-btn-quiet">Remove</button>
+                  </form>
+                </td>
+              </tr>
+            {% else %}
+              <tr>
+                <td>{{ v.effective_date|date:"Y-m-d" }}</td>
+                <td>{{ v.stock_class.name }}</td>
+                <td class="gk-num">{{ v.price_per_share|money:cur }}</td>
+                <td>{{ v.get_valuation_type_display }}</td>
+                <td>{{ v.provider }}</td>
+                <td>{{ v.board_approval_date|date:"Y-m-d" }}</td>
+                <td class="gk-num">{{ v.gross_assets|money:cur }}</td>
+                <td>{% if v.report_url %}<a href="{{ v.report_url }}" rel="noopener" target="_blank">Report &nearr;</a>{% endif %}</td>
+              </tr>
+            {% endif %}
+          {% endfor %}
+          {% if is_admin %}
+            <tr>
+              <td>
+                <form id="val-new" method="post" action="{% url 'captable:add_valuation' org_slug=current_org.slug %}">{% csrf_token %}</form>
+                <input form="val-new" type="date" name="effective_date" aria-label="Effective date" required>
+              </td>
+              <td>
+                {% if stock_classes %}
+                  <select form="val-new" name="stock_class" aria-label="Stock class">
+                    {% for c in stock_classes %}<option value="{{ c.pk }}">{{ c.name }}</option>{% endfor %}
+                  </select>
+                {% else %}
+                  <input form="val-new" name="stock_class" value="Common" aria-label="Stock class" size="10">
+                {% endif %}
+              </td>
+              <td class="gk-num"><input form="val-new" type="number" min="0" step="any" name="price_per_share" placeholder="Per share" aria-label="Price per share" class="gk-cap-amt" required></td>
+              <td>
+                <select form="val-new" name="valuation_type" aria-label="Kind">
+                  {% for k, l in valuation_types %}<option value="{{ k }}">{{ l }}</option>{% endfor %}
+                </select>
+              </td>
+              <td><input form="val-new" name="provider" placeholder="Provider" aria-label="Provider" size="12"></td>
+              <td colspan="3"></td>
+              <td><button form="val-new" type="submit">Add valuation</button></td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  {% if franchise %}
+    <h2 id="franchise-tax">Delaware franchise tax</h2>
+    <div class="gk-card">
+      <form method="get" action="#franchise-tax" class="gk-cap-row">
+        <select name="tax_year" aria-label="Tax year" class="gk-cap-year">
+          {% for y in franchise_years %}<option value="{{ y }}"{% if y == franchise.year %} selected{% endif %}>{{ y }}</option>{% endfor %}
+        </select>
+        <noscript><button type="submit" class="gk-btn-quiet">Show</button></noscript>
+        <span class="gk-muted">due {{ franchise.due_date|date:"F j, Y" }}</span>
+      </form>
+      {% if is_admin %}
+        <form method="post" action="{% url 'captable:save_franchise_tax' org_slug=current_org.slug %}" class="gk-cap-row">
+          {% csrf_token %}
+          <input type="hidden" name="year" value="{{ franchise.year }}">
+          <label>Gross assets <input type="number" min="0" step="0.01" name="gross_assets" value="{{ franchise.gross_assets|plain }}" placeholder="Form 1120, Schedule L" class="gk-cap-amt"></label>
+          <label>Issued shares <input type="number" min="1" step="1" name="issued_shares" value="{% if franchise.issued_shares_stated %}{{ franchise.issued_shares }}{% endif %}" placeholder="{{ franchise.issued_shares|default_if_none:'' }}" class="gk-cap-amt"></label>
+          <button type="submit" class="gk-btn-quiet">Save</button>
+        </form>
+      {% endif %}
+      <table class="gk-cap">
+        <tbody>
+          <tr>
+            <td>Authorized shares method</td>
+            <td class="gk-muted">{% if franchise.authorized_shares %}{{ franchise.authorized_shares|shares }} authorized{% else %}<a href="#classes">Authorized shares</a> not recorded{% endif %}</td>
+            <td class="gk-num">{{ franchise.authorized_shares_method|money:"USD" }}</td>
+          </tr>
+          <tr>
+            <td>Assumed par value capital method</td>
+            <td class="gk-muted">
+              {% if franchise.assumed_par is not None %}{{ franchise.assumed_par|plain }} assumed par · {{ franchise.assumed_par_value_capital|money:"USD" }} capital
+              {% elif franchise.gross_assets is None %}Gross assets not stated
+              {% else %}Issued shares not stated{% endif %}
+            </td>
+            <td class="gk-num">{{ franchise.assumed_par_value_capital_method|money:"USD" }}</td>
+          </tr>
+          {% if franchise.lesser is not None %}
+            <tr class="gk-cap-total">
+              <td>Lesser</td>
+              <td></td>
+              <td class="gk-num">{{ franchise.lesser|money:"USD" }}</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+      <p class="gk-muted"><a href="https://corp.delaware.gov/frtaxcalc/" rel="noopener" target="_blank">Delaware Division of Corporations &nearr;</a></p>
+    </div>
+  {% endif %}
+
+  {% if history %}
+    <h2 id="history">History</h2>
+    <ul class="gk-cap-history">
+      {% for e, anchor in history %}
+        <li><span class="gk-muted">{{ e.at|date:"Y-m-d" }}{% if e.actor %} · {{ e.actor }}{% endif %}</span> {% if anchor %}<a href="#{{ anchor }}">{{ e.text }}</a>{% else %}{{ e.text }}{% endif %}</li>
+      {% endfor %}
+    </ul>
   {% endif %}
 
   {% if is_admin %}
@@ -268,6 +551,15 @@
         <input name="country_of_formation" value="{{ settings.country_of_formation }}" placeholder="Country (US)" maxlength="2" size="4" aria-label="Country of formation">
         <input name="country_subdivision_of_formation" value="{{ settings.country_subdivision_of_formation }}" placeholder="State (DE)" maxlength="6" size="6" aria-label="State of formation">
         <input name="currency" value="{{ settings.currency }}" maxlength="3" size="4" aria-label="Currency">
+        <select name="entity_type" aria-label="Entity type">
+          <option value="">Entity type</option>
+          {% for v, l in entity_types %}<option value="{{ v }}"{% if v == settings.entity_type %} selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select>
+        <input type="hidden" name="incorporated" value="0">
+        <label><input type="checkbox" name="incorporated" value="1"{% if settings.incorporated %} checked{% endif %}> Incorporated</label>
+        <select name="scope" aria-label="What this cap table holds">
+          {% for v, l in scopes %}<option value="{{ v }}"{% if v == settings.scope %} selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select>
         <button type="submit" class="gk-btn-quiet">Save</button>
       </form>
     </details>
@@ -282,7 +574,8 @@
     // Save on leaving a field (UX 5): any changed field in a row form submits it.
     document.addEventListener("change", function (e) {
       var f = e.target;
-      if (!f.form || !f.closest(".gk-cap") || f.closest(".gk-cap-add") || f.form.id === "round-new") return;
+      if (f.classList.contains("gk-cap-year")) { f.form.submit(); return; }
+      if (!f.form || !f.closest(".gk-cap") || f.closest(".gk-cap-add") || /-new$/.test(f.form.id)) return;
       if (f.closest(".gk-set-form")) return; // base.html already saves these
       if (f.form.checkValidity()) f.form.requestSubmit();
     });

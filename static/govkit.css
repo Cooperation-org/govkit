@@ -933,3 +933,12 @@ details.gk-unfold fieldset { border: none; padding: 0.25rem 0 0.75rem; margin: 0
 .gk-cap-new[hidden] { display: none; }
 .gk-cap .gk-cap-amt { width: 8.5rem; text-align: right; }
 .gk-cap input[type="date"] { width: 9.5rem; }
+.gk-cap .gk-cap-pct { width: 4.5rem; text-align: right; }
+.gk-card > form.gk-cap-row .gk-cap-amt { width: 8.5rem; text-align: right; }
+/* a round's SAFE or note terms, one line under the round */
+.gk-cap-terms td { padding-top: 0; font-size: 0.9rem; }
+.gk-cap-terms label { display: inline-flex; align-items: center; gap: 0.25rem; margin-right: 0.6rem; }
+.gk-card > form.gk-cap-row { margin-bottom: 0.5rem; display: flex; }
+.gk-cap-row label { display: inline-flex; align-items: center; gap: 0.25rem; }
+.gk-cap-history { list-style: none; padding: 0; margin: 0 0 1rem; }
+.gk-cap-history li { padding: 0.2rem 0; }

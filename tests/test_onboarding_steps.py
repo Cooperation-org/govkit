@@ -2,7 +2,7 @@
 The setup dialog (<govkit-onboarding> in static/embed/govkit.js) links into GovKit pages.
 
 Pinned down here: every GovKit path a step links to answers the person that step is for
-(an admin for the seven setup steps, a member for the five worker steps), and every
+(an admin for the eight setup steps, a member for the five worker steps), and every
 #anchor a step points at is on that page. A renamed page or a dropped id breaks a step
 silently in the browser; it breaks here instead.
 """

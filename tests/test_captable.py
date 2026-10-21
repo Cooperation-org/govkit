@@ -24,7 +24,7 @@ import pytest
 from django.urls import reverse
 
 from apps.captable import services
-from apps.captable.models import Investment, Round
+from apps.captable.models import CapTableEvent, Investment, Round, StockClass
 from apps.captable.ocf import package_bytes
 from apps.orgs.models import (
     ExternalHolder,
@@ -451,3 +451,478 @@ def test_dates_parse(venture):
     org, _, _ = venture
     rnd = services.add_round(org, name="Seed", date="2026-10-01", post_money_valuation="1")
     assert Round.objects.get(pk=rnd.pk).date == date(2026, 10, 1)
+
+
+# --------------------------------------------------------------------------- #
+# Stock classes
+# --------------------------------------------------------------------------- #
+def test_holding_class_name_becomes_a_class(venture):
+    org, admin, member = venture
+    h = services.add_holding(org, membership=admin, quantity=100)
+    assert h.stock_class.name == "Common" and h.stock_class.class_type == "COMMON"
+    services.add_holding(org, membership=member, quantity=50, stock_class="Common")
+    services.add_holding(org, membership=member, quantity=10, stock_class="Series Seed")
+    assert sorted(StockClass.objects.for_org(org).values_list("name", flat=True)) == [
+        "Common",
+        "Series Seed",
+    ]
+    common = StockClass.objects.get(org=org, name="Common")
+    assert {c.name: c.issued for c in services.stock_classes(org)} == {
+        "Common": 150,
+        "Series Seed": 10,
+    }
+    with pytest.raises(services.CapTableError):
+        services.delete_stock_class(common)
+    with pytest.raises(services.CapTableError):
+        services.add_stock_class(org, name="Common")
+
+
+def test_stock_class_api(client, venture, org_factory):
+    org, admin, member = venture
+    client.force_login(admin.user)
+    r = client.post(
+        _api(org, "captable-stock-classes"),
+        {
+            "name": "Common",
+            "class_type": "COMMON",
+            "initial_shares_authorized": 10_000_000,
+            "par_value": "0.00001",
+        },
+        content_type="application/json",
+        **EMBED,
+    )
+    assert r.status_code == 201
+    sc = r.json()["stock_classes"][0]
+    assert sc["initial_shares_authorized"] == 10_000_000 and sc["par_value"] == "0.0000100000"
+    r = client.patch(
+        _api(org, "captable-stock-class", pk=sc["id"]),
+        {"seniority": 2, "votes_per_share": "10"},
+        content_type="application/json",
+        **EMBED,
+    )
+    assert r.status_code == 200 and r.json()["stock_classes"][0]["seniority"] == 2
+    r = client.post(
+        _api(org, "captable-holdings"),
+        {"holder": f"m:{member.pk}", "quantity": 100, "stock_class": sc["id"]},
+        content_type="application/json",
+        **EMBED,
+    )
+    assert r.status_code == 201
+    assert r.json()["holdings"][0]["stock_class"] == "Common"
+    assert r.json()["stock_classes"][0]["issued"] == 100
+    assert client.delete(_api(org, "captable-stock-class", pk=sc["id"]), **EMBED).status_code == 400
+
+    other = org_factory(slug="other")
+    theirs = services.add_stock_class(other, name="Theirs")
+    r = client.patch(
+        _api(org, "captable-stock-class", pk=theirs.pk),
+        {"name": "Mine"},
+        content_type="application/json",
+        **EMBED,
+    )
+    assert r.status_code == 404
+    r = client.post(
+        _api(org, "captable-holdings"),
+        {"holder": f"m:{member.pk}", "quantity": 1, "stock_class": theirs.pk},
+        content_type="application/json",
+        **EMBED,
+    )
+    assert r.status_code == 400
+
+    client.force_login(member.user)
+    assert client.get(_api(org, "captable-stock-classes")).status_code == 200
+    r = client.post(
+        _api(org, "captable-stock-classes"),
+        {"name": "Preferred", "class_type": "PREFERRED"},
+        content_type="application/json",
+        **EMBED,
+    )
+    assert r.status_code == 403
+
+
+# --------------------------------------------------------------------------- #
+# Issuer fields and scope
+# --------------------------------------------------------------------------- #
+def test_issuer_fields_save(client, venture):
+    org, admin, _ = venture
+    client.force_login(admin.user)
+    r = client.patch(
+        _api(org, "captable-settings"),
+        {"entity_type": "PBC", "incorporated": True, "scope": "POOL_ONLY"},
+        content_type="application/json",
+        **EMBED,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["entity_type"] == "PBC" and body["incorporated"] is True
+    assert body["scope"] == "POOL_ONLY"
+    assert ["POOL_ONLY", "The founders pool only"] in body["choices"]["scope"]
+    r = client.patch(
+        _api(org, "captable-settings"),
+        {"entity_type": "S_CORP"},
+        content_type="application/json",
+        **EMBED,
+    )
+    assert r.status_code == 400
+    cfg = services.get_settings(org)
+    assert cfg.entity_type == "PBC" and not hasattr(cfg, "tax_id")
+
+
+def test_pool_only_scope_is_pool_plus_one_outside_line(venture):
+    org, admin, member = venture
+    _seed_pie(org, admin, member)
+    rnd = services.add_round(org, name="Seed", date="2026-10-01", post_money_valuation="1000000")
+    services.add_investment(org, rnd, membership=admin, amount="100000")
+    services.set_settings(org, scope="POOL_ONLY")
+    t = services.compute_cap_table(org)
+    kinds = [ln.kind for ln in t.lines]
+    assert kinds == [services.KIND_FOUNDER, services.KIND_FOUNDER, services.KIND_OUTSIDE]
+    outside = t.lines[-1]
+    assert outside.pct == Decimal("45.00") and outside.label == "Held outside this record"
+    assert t.total_pct == Decimal("100.00")
+    assert Investment.objects.count() == 1  # still recorded
+
+
+# --------------------------------------------------------------------------- #
+# SAFE and note terms
+# --------------------------------------------------------------------------- #
+def test_safe_terms_save_and_reach_ocf(client, venture):
+    org, admin, member = venture
+    client.force_login(admin.user)
+    r = client.post(
+        _api(org, "captable-rounds"),
+        {
+            "name": "Pre-seed",
+            "date": "2026-10-01",
+            "instrument": "safe",
+            "pre_money_valuation": "4000000",
+            "conversion_timing": "PRE_MONEY",
+            "conversion_valuation_cap": "4000000",
+            "conversion_discount_pct": "20",
+            "conversion_mfn": True,
+            "pro_rata": True,
+        },
+        content_type="application/json",
+        **EMBED,
+    )
+    assert r.status_code == 201, r.json()
+    rnd = r.json()["rounds"][0]
+    assert rnd["conversion_discount"] == "0.200000" and rnd["conversion_timing"] == "PRE_MONEY"
+    services.add_investment(
+        org, Round.objects.get(pk=rnd["round_id"]), membership=member, amount="1000000"
+    )
+    # Before conversion: amount ÷ (pre + raised), as if converted at the cap.
+    t = services.compute_cap_table(org)
+    assert next(ln for ln in t.lines if ln.kind == "investor").pct == Decimal("20")
+
+    files = client.get(_api(org, "captable-ocf")).json()
+    safe = next(
+        t for t in files["Transactions.ocf.json"]["items"] if t.get("convertible_type") == "SAFE"
+    )
+    mech = safe["conversion_triggers"][0]["conversion_right"]["conversion_mechanism"]
+    assert mech["conversion_timing"] == "PRE_MONEY" and mech["conversion_mfn"] is True
+    assert mech["conversion_discount"] == "0.2"
+    assert mech["conversion_valuation_cap"] == {"amount": "4000000", "currency": "USD"}
+    assert "Pro rata right in the next round." in safe["comments"]
+
+
+def test_note_terms_export_as_a_note(client, venture):
+    org, admin, member = venture
+    rnd = services.add_round(
+        org,
+        name="Bridge",
+        date="2026-10-01",
+        instrument="note",
+        pre_money_valuation="5000000",
+        interest_rate_pct="8",
+        maturity_date="2028-10-01",
+    )
+    assert rnd.interest_rate == Decimal("0.08")
+    services.add_investment(org, rnd, membership=member, amount="50000")
+    client.force_login(admin.user)
+    files = client.get(_api(org, "captable-ocf")).json()
+    note = next(
+        t for t in files["Transactions.ocf.json"]["items"] if t.get("convertible_type") == "NOTE"
+    )
+    mech = note["conversion_triggers"][0]["conversion_right"]["conversion_mechanism"]
+    assert mech["type"] == "CONVERTIBLE_NOTE_CONVERSION"
+    assert mech["interest_rates"] == [{"rate": "0.08", "accrual_start_date": "2026-10-01"}]
+    assert "Matures 2028-10-01." in note["comments"]
+    with pytest.raises(services.CapTableError):
+        services.update_round(rnd, conversion_discount_pct="150")
+
+
+def test_post_money_safe_math_unchanged_by_terms(venture):
+    org, admin, _ = venture
+    rnd = services.add_round(
+        org,
+        name="Seed",
+        date="2026-10-01",
+        post_money_valuation="1000000",
+        conversion_valuation_cap="1000000",
+    )
+    services.add_investment(org, rnd, membership=admin, amount="100000")
+    t = services.compute_cap_table(org)
+    assert next(ln for ln in t.lines if ln.kind == "investor").pct == Decimal("10")
+
+
+# --------------------------------------------------------------------------- #
+# Delaware franchise tax
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize(
+    "authorized,tax",
+    [
+        (5_000, "175.00"),
+        (5_001, "250.00"),
+        (10_000, "250.00"),
+        (10_005, "335.00"),  # corp.delaware.gov/frtaxcalc example
+        (100_000, "1015.00"),  # corp.delaware.gov/frtaxcalc example
+        (10_000_000, "85165.00"),
+        (1_000_000_000, "200000.00"),
+    ],
+)
+def test_de_authorized_shares_method(authorized, tax):
+    assert services.de_authorized_shares_tax(authorized) == Decimal(tax)
+
+
+def test_de_assumed_par_matches_the_states_example():
+    # corp.delaware.gov/frtaxcalc: $1,000,000 assets, 485,000 issued, 1,000,000 at $1.00
+    # and 250,000 at $5.00 → assumed par 2.061856, capital 3,311,856, tax $1,600.
+    assumed, capital = services.de_assumed_par_value_capital(
+        Decimal("1000000"), 485_000, [(1_000_000, Decimal("1")), (250_000, Decimal("5"))]
+    )
+    assert assumed == Decimal("2.061856")
+    assert capital == Decimal("3311856.000000")
+    assert services.de_assumed_par_value_capital_tax(capital) == Decimal("1600.00")
+    assert services.de_assumed_par_value_capital_tax(Decimal("10")) == Decimal("400.00")
+
+
+def test_franchise_tax_both_methods_and_the_lesser(client, venture):
+    org, admin, member = venture
+    common = services.add_stock_class(
+        org, name="Common", initial_shares_authorized=10_000_000, par_value="0.00001"
+    )
+    services.add_holding(org, membership=admin, quantity=8_000_000, stock_class=common)
+    services.add_holding(org, membership=member, quantity=2_000_000, stock_class=common)
+    ft = services.franchise_tax(org, 2025)
+    assert ft.authorized_shares_method == Decimal("85165.00")
+    assert ft.assumed_par_value_capital_method is None and ft.lesser_method == "authorized_shares"
+    assert ft.issued_shares == 10_000_000 and not ft.issued_shares_stated
+
+    client.force_login(admin.user)
+    r = client.patch(
+        _api(org, "captable-franchise-tax"),
+        {"year": 2025, "gross_assets": "50000"},
+        content_type="application/json",
+        **EMBED,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    # 50,000 / 10,000,000 = 0.005 assumed par > 0.00001 par; capital 50,000 → minimum $400.
+    assert body["assumed_par"] == "0.005000"
+    assert body["assumed_par_value_capital_method"] == "400.00"
+    assert body["lesser"] == "400.00" and body["lesser_method"] == "assumed_par_value_capital"
+    assert body["due_date"] == "2026-03-01"
+    # Stored per year: another year has its own inputs.
+    assert (
+        client.get(_api(org, "captable-franchise-tax") + "?year=2024").json()["gross_assets"]
+        is None
+    )
+    assert (
+        client.get(_api(org, "captable-franchise-tax") + "?year=2025").json()["gross_assets"]
+        == "50000.00"
+    )
+
+    client.force_login(member.user)
+    r = client.patch(
+        _api(org, "captable-franchise-tax"),
+        {"year": 2025, "gross_assets": "1"},
+        content_type="application/json",
+        **EMBED,
+    )
+    assert r.status_code == 403
+
+
+# --------------------------------------------------------------------------- #
+# Audit trail
+# --------------------------------------------------------------------------- #
+def test_every_write_appends_an_event(client, venture):
+    org, admin, member = venture
+    by = admin.user
+    services.set_settings(org, founders_pool_pct="60", by=by)
+    rnd = services.add_round(
+        org, name="Seed", date="2026-10-01", post_money_valuation="1000000", by=by
+    )
+    services.update_round(rnd, post_money_valuation="2000000", by=by)
+    services.update_round(rnd, post_money_valuation="2000000", by=by)  # no change, no event
+    inv = services.add_investment(org, rnd, membership=member, amount="1000", by=by)
+    services.update_investment(inv, amount="2000", by=by)
+    services.delete_investment(inv, by=by)
+    h = services.add_holding(org, membership=admin, quantity=10, by=by)  # also adds "Common"
+    services.update_holding(h, quantity=20, by=by)
+    services.delete_holding(h, by=by)
+    v = services.add_valuation(org, effective_date="2026-10-01", price_per_share="0.01", by=by)
+    services.update_valuation(v, provider="Appraiser", by=by)
+    services.delete_valuation(v, by=by)
+    services.set_franchise_tax_inputs(org, 2025, gross_assets="1", by=by)
+    services.delete_round(rnd, by=by)
+
+    evs = list(CapTableEvent.objects.filter(org=org).order_by("id"))
+    assert [(e.kind, e.object_type) for e in evs] == [
+        ("update", "settings"),
+        ("add", "round"),
+        ("update", "round"),
+        ("add", "investment"),
+        ("update", "investment"),
+        ("delete", "investment"),
+        ("add", "stock_class"),
+        ("add", "holding"),
+        ("update", "holding"),
+        ("delete", "holding"),
+        ("add", "valuation"),
+        ("update", "valuation"),
+        ("delete", "valuation"),
+        ("add", "franchise_tax_year"),
+        ("delete", "round"),
+    ]
+    assert all(e.actor_id == by.pk for e in evs)
+    changed = evs[2]
+    assert changed.before["post_money_valuation"] == "1000000.00"
+    assert changed.after["post_money_valuation"] == "2000000.00"
+    assert evs[5].before["amount"] == "2000.00" and evs[5].after is None
+
+    with pytest.raises(ValueError):
+        changed.save()
+    with pytest.raises(ValueError):
+        changed.delete()
+
+    client.force_login(member.user)
+    body = client.get(_api(org, "captable-events") + "?limit=3").json()
+    assert [e["object_type"] for e in body["events"]] == [
+        "round",
+        "franchise_tax_year",
+        "valuation",
+    ]
+    assert body["events"][0]["text"] == "Removed round Seed"
+
+
+def test_refused_write_leaves_no_event(venture):
+    org, admin, _ = venture
+    rnd = services.add_round(org, name="Seed", date="2026-10-01", post_money_valuation="1000000")
+    n = CapTableEvent.objects.count()
+    with pytest.raises(services.CapTableError):
+        services.add_investment(org, rnd, membership=admin, amount="900000")
+    assert CapTableEvent.objects.count() == n
+
+
+# --------------------------------------------------------------------------- #
+# Valuations
+# --------------------------------------------------------------------------- #
+def test_valuations_feed_ocf(client, venture):
+    org, admin, _ = venture
+    common = services.add_stock_class(org, name="Common")
+    client.force_login(admin.user)
+    r = client.post(
+        _api(org, "captable-valuations"),
+        {
+            "stock_class": common.pk,
+            "effective_date": "2026-09-01",
+            "price_per_share": "0.12",
+            "valuation_type": "409A",
+            "provider": "Appraiser LLC",
+            "report_url": "https://example.com/409a.pdf",
+            "gross_assets": "250000",
+        },
+        content_type="application/json",
+        **EMBED,
+    )
+    assert r.status_code == 201
+    r = client.post(
+        _api(org, "captable-valuations"),
+        {
+            "stock_class": common.pk,
+            "effective_date": "2026-10-01",
+            "price_per_share": "0.5",
+            "valuation_type": "ROUND",
+        },
+        content_type="application/json",
+        **EMBED,
+    )
+    assert r.status_code == 201
+    r = client.post(
+        _api(org, "captable-valuations"),
+        {
+            "stock_class": common.pk,
+            "effective_date": "2026-10-01",
+            "price_per_share": "1",
+            "report_url": "javascript:alert(1)",
+        },
+        content_type="application/json",
+        **EMBED,
+    )
+    assert r.status_code == 400
+
+    files = client.get(_api(org, "captable-ocf")).json()
+    vals = files["Valuations.ocf.json"]["items"]
+    assert len(vals) == 1
+    assert vals[0]["valuation_type"] == "409A" and vals[0]["provider"] == "Appraiser LLC"
+    assert vals[0]["price_per_share"] == {"amount": "0.12", "currency": "USD"}
+    class_ids = {c["id"] for c in files["StockClasses.ocf.json"]["items"]}
+    assert vals[0]["stock_class_id"] in class_ids
+    assert any("Round price 2026-10-01" in c for c in files["Manifest.ocf.json"]["comments"])
+
+
+def test_ocf_stock_class_uses_recorded_values(client, venture):
+    org, admin, _ = venture
+    sc = services.add_stock_class(
+        org, name="Common", initial_shares_authorized=10_000_000, par_value="0.0001", seniority=1
+    )
+    services.add_holding(org, membership=admin, quantity=1000, stock_class=sc)
+    client.force_login(admin.user)
+    files = client.get(_api(org, "captable-ocf")).json()
+    cls = files["StockClasses.ocf.json"]["items"][0]
+    assert cls["initial_shares_authorized"] == "10000000"
+    assert cls["par_value"] == {"amount": "0.0001", "currency": "USD"}
+    assert "comments" not in cls
+
+
+# --------------------------------------------------------------------------- #
+# The page
+# --------------------------------------------------------------------------- #
+def test_page_shows_new_sections_to_admins(client, venture):
+    org, admin, member = venture
+    services.set_settings(org, country_subdivision_of_formation="DE")
+    rnd = services.add_round(org, name="Seed", date="2026-10-01", post_money_valuation="1000000")
+    services.add_holding(org, membership=admin, quantity=10)
+    url = reverse("captable:index", kwargs={"org_slug": org.slug})
+    client.force_login(admin.user)
+    html = client.get(url).content.decode()
+    for anchor in ("classes", "valuations", "franchise-tax", "history", "entity"):
+        assert f'id="{anchor}"' in html, anchor
+    assert 'name="conversion_valuation_cap"' in html and 'name="scope"' in html
+    assert "Authorized shares method" in html and "Added round Seed" in html
+
+    r = client.post(
+        reverse("captable:save_round", kwargs={"org_slug": org.slug, "pk": rnd.pk}),
+        {"conversion_discount_pct": "15", "conversion_mfn": ["0", "1"], "pro_rata": "0"},
+    )
+    assert r.status_code == 302
+    rnd.refresh_from_db()
+    assert rnd.conversion_discount == Decimal("0.15") and rnd.conversion_mfn and not rnd.pro_rata
+
+    r = client.post(
+        reverse("captable:save_franchise_tax", kwargs={"org_slug": org.slug}),
+        {"year": "2025", "gross_assets": "1000"},
+    )
+    assert r.status_code == 302 and r["Location"].endswith("?tax_year=2025#franchise-tax")
+
+    r = client.post(
+        reverse("captable:add_stock_class", kwargs={"org_slug": org.slug}),
+        {"name": "Series Seed Preferred", "class_type": "PREFERRED"},
+    )
+    assert r.status_code == 302
+    assert StockClass.objects.filter(org=org, class_type="PREFERRED").exists()
+
+    client.force_login(member.user)
+    html = client.get(url).content.decode()
+    assert 'name="conversion_valuation_cap"' not in html and 'id="classes"' in html

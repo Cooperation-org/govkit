@@ -26,3 +26,25 @@ def plain(value):
         return ""
     d = Decimal(value).normalize()
     return format(d, "f")
+
+
+@register.filter
+def as_pct(fraction):
+    """An OCF fraction (0.2) as the percent people type (20)."""
+    if fraction is None or fraction == "":
+        return ""
+    d = (Decimal(fraction) * 100).normalize()
+    return format(d, "f")
+
+
+@register.filter
+def shares(value):
+    """A share count with grouped digits."""
+    if value is None or value == "":
+        return ""
+    return f"{int(value):,}"
+
+
+@register.filter
+def get_item(mapping, key):
+    return mapping.get(key) if mapping else None

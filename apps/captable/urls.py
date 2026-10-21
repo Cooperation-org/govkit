@@ -16,4 +16,11 @@ urlpatterns = [
     path("stock/add/", views.add_holding, name="add_holding"),
     path("stock/<int:pk>/", views.save_holding, name="save_holding"),
     path("stock/<int:pk>/delete/", views.delete_holding, name="delete_holding"),
+    path("classes/add/", views.add_stock_class, name="add_stock_class"),
+    path("classes/<int:pk>/", views.save_stock_class, name="save_stock_class"),
+    path("classes/<int:pk>/delete/", views.delete_stock_class, name="delete_stock_class"),
+    path("valuations/add/", views.add_valuation, name="add_valuation"),
+    path("valuations/<int:pk>/", views.save_valuation, name="save_valuation"),
+    path("valuations/<int:pk>/delete/", views.delete_valuation, name="delete_valuation"),
+    path("franchise-tax/", views.save_franchise_tax, name="save_franchise_tax"),
 ]

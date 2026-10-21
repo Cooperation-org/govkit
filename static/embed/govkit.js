@@ -303,6 +303,8 @@
       '.gk-ob-row { display: flex; align-items: center; gap: 8px; }',
       '.gk-ob-row input { width: 7em; font: inherit; color: inherit; background: var(--page, #faf9f6); border: 1px solid var(--hairline, #e6e1d8); border-radius: 6px; padding: 6px 8px; }',
       '.gk-ob-pool { margin: 0 0 10px; }',
+      '.gk-ob-q { display: flex; flex-direction: column; gap: 4px; margin: 0 0 10px; }',
+      '.gk-ob-q select { font: inherit; color: inherit; background: var(--page, #faf9f6); border: 1px solid var(--hairline, #e6e1d8); border-radius: 6px; padding: 6px 8px; max-width: 100%; }',
       '.gk-ob-note { min-height: 1.5em; margin: 0; font-size: 13px; }',
       '.gk-ob-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }',
       '.gk-ob-next { font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--surface, #fffdf7); background: var(--accent, #0f766e); border: 1px solid var(--accent, #0f766e); border-radius: 6px; padding: 5px 16px; }',
@@ -1486,6 +1488,8 @@
     var earned = pool.filter(function (l) { return l.kind !== 'pool_unearned'; });
     var investors = lines.filter(function (l) { return l.kind === 'investor'; });
     var unsold = lines.filter(function (l) { return l.kind === 'unsold'; })[0];
+    // Founders-pool-only scope: the rest of the company is one line kept elsewhere.
+    var outside = lines.filter(function (l) { return l.kind === 'outside'; })[0];
     if (!earned.length && !(d.rounds || []).length) return false;
 
     var valued = d.latest_post_money != null;
@@ -1533,6 +1537,7 @@
       tbody.appendChild(row('', l.label, l.round_name, l.pct, l.value));
     });
     if (unsold) tbody.appendChild(row('unsold', unsold.label, '', unsold.pct, unsold.value));
+    if (outside) tbody.appendChild(row('unsold', outside.label, '', outside.pct, outside.value));
 
     table.appendChild(tbody);
     host.appendChild(table);
@@ -1540,7 +1545,7 @@
 
   // --- <govkit-onboarding> ------------------------------------------------
   // One step at a time, for the person's role in this org: an admin gets the
-  // seven steps that set up the venture, a worker the five about earning.
+  // eight steps that set up the venture, a worker the five about earning.
   // Renders a small "Set up" button where it is mounted; the steps open in a
   // native modal <dialog> (WAI-ARIA APG dialog pattern: aria-modal, labelled by
   // the step heading, Tab wraps inside, Esc closes, focus returns to the button).
@@ -1580,6 +1585,9 @@
           // AI-written
           'The founders pool is the share of the company that work earns. Each person\'s share of the company is their pie share times the pool %.',
         ], pool: true, links: [[gk + '/captable/#pool', 'Cap table']] },
+        // AI-written labels; each answer saves to the cap table settings.
+        { title: 'The company', text: [], company: true,
+          links: [[gk + '/captable/#entity', 'Legal entity']] },
         { title: 'First valuation and investor tranche', text: [
           // workers.vc invest.html
           'A SAFE conveys no voting power. Money buys a share of the outcome. Governance can only be earned by work.',
@@ -1696,6 +1704,65 @@
     return wrap;
   }
 
+  // One question, one select, saved to the cap table settings when it changes.
+  var COMPANY_QUESTIONS = [
+    { name: 'incorporated', label: 'Is the company incorporated?',
+      options: function () { return [['true', 'Yes'], ['false', 'No']]; },
+      value: function (cap) { return cap.incorporated ? 'true' : 'false'; } },
+    { name: 'entity_type', label: 'Entity type',
+      options: function (cap) { return [['', 'Not set']].concat((cap.choices || {}).entity_type || []); },
+      value: function (cap) { return cap.entity_type || ''; } },
+    { name: 'scope', label: 'This cap table holds',
+      options: function (cap) { return (cap.choices || {}).scope || []; },
+      value: function (cap) { return cap.scope || ''; } },
+  ];
+
+  function companyFields(c, cap, say) {
+    var wrap = el('div', 'gk-ob-company');
+    COMPANY_QUESTIONS.forEach(function (q) {
+      var opts = q.options(cap);
+      if (!opts.length) return;
+      var id = 'gk-ob-' + q.name;
+      var label = el('label', 'gk-flabel', q.label);
+      label.htmlFor = id;
+      var sel = el('select');
+      sel.id = id;
+      opts.forEach(function (o) {
+        var opt = el('option', null, o[1]);
+        opt.value = o[0];
+        sel.appendChild(opt);
+      });
+      sel.value = q.value(cap);
+      var was = sel.value;
+      sel.addEventListener('change', function () {
+        var body = {};
+        body[q.name] = q.name === 'incorporated' ? sel.value === 'true' : sel.value;
+        sel.disabled = true;
+        fetch(c.up + '/api/v1/captable/orgs/' + c.org + '/settings/', {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'X-Govkit-Embed': '1', 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }).then(function (r) {
+          return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+        }).then(function (res) {
+          if (!res.ok) throw new Error(res.d && res.d.detail);
+          was = sel.value;
+          cap[q.name] = res.d[q.name];
+          say('Saved.');
+        }).catch(function (err) {
+          sel.value = was;
+          say((err && err.message) || 'Not saved. Try again.');
+        }).then(function () { sel.disabled = false; });
+      });
+      var row = el('div', 'gk-ob-q');
+      row.appendChild(label);
+      row.appendChild(sel);
+      wrap.appendChild(row);
+    });
+    return wrap;
+  }
+
   function mountOnboarding(host) {
     ensureStyles();
     host.hidden = true;
@@ -1775,6 +1842,7 @@
           s.text.forEach(function (t) { if (t) body.appendChild(el('p', null, t)); });
           if (s.valued) body.appendChild(el('p', 'gk-ob-fact', s.valued));
           if (s.pool && ctx.cap) body.appendChild(poolField(c, ctx.cap, say));
+          if (s.company && ctx.cap) body.appendChild(companyFields(c, ctx.cap, say));
           var links = (s.links || []).filter(function (l) { return l[0]; });
           if (links.length) {
             var p = el('p', 'gk-ob-links');
