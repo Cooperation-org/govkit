@@ -3,7 +3,8 @@ DRF endpoints for the cap table. Every UI action has one; all are org-scoped by 
 OrgContextMiddleware resolves ``request.org`` and answers non-members 403.
 
     GET    /api/v1/captable/orgs/<slug>/                     the computed table (members)
-    PATCH  /api/v1/captable/orgs/<slug>/settings/            pool %, currency, issuer (admin)
+    PATCH  /api/v1/captable/orgs/<slug>/settings/            pool %, currency, issuer, scope,
+                                                             pool_dilutes_at_priced_round (admin)
     GET    /api/v1/captable/orgs/<slug>/holders/             who can hold a line (members)
     POST   /api/v1/captable/orgs/<slug>/rounds/              add a round (admin)
     PATCH  /api/v1/captable/orgs/<slug>/rounds/<id>/         edit a round (admin)
@@ -50,7 +51,17 @@ from apps.orgs.embed_auth import EmbedSessionAuthentication
 from apps.orgs.models import MembershipRole
 
 from . import ocf, services
-from .models import EntityType, Investment, Round, Scope, StockClass, StockHolding, Valuation
+from .models import (
+    POOL_DILUTION_CHOICES,
+    EntityType,
+    Instrument,
+    Investment,
+    Round,
+    Scope,
+    StockClass,
+    StockHolding,
+    Valuation,
+)
 
 
 def is_cap_admin(request) -> bool:
@@ -211,10 +222,15 @@ def table_dict(table, org=None):
     if cfg is not None:
         out["entity_type"] = cfg.entity_type
         out["incorporated"] = cfg.incorporated
+        out["pool_dilutes_at_priced_round"] = cfg.pool_dilutes_at_priced_round
+        # False until anyone has saved a setting: every value shown is still the default.
+        out["settings_saved"] = cfg.pk is not None
         out["stock_classes"] = [stock_class_dict(c) for c in services.stock_classes(org)]
         out["choices"] = {
             "entity_type": EntityType.choices,
             "scope": Scope.choices,
+            "pool_dilutes_at_priced_round": POOL_DILUTION_CHOICES,
+            "instrument": Instrument.choices,
         }
     return out
 
@@ -277,6 +293,7 @@ class SettingsView(_CapView):
         "entity_type",
         "incorporated",
         "scope",
+        "pool_dilutes_at_priced_round",
     )
 
     def patch(self, request, org_slug):

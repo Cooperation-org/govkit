@@ -560,6 +560,12 @@
         <select name="scope" aria-label="What this cap table holds">
           {% for v, l in scopes %}<option value="{{ v }}"{% if v == settings.scope %} selected{% endif %}>{{ l }}</option>{% endfor %}
         </select>
+        {# AI-written label. Records the choice; the table's math does not read it. #}
+        <label>The first priced round dilutes
+          <select name="pool_dilutes_at_priced_round">
+            {% for v, l in pool_dilutions %}<option value="{{ v }}"{% if v == "true" and settings.pool_dilutes_at_priced_round or v == "false" and not settings.pool_dilutes_at_priced_round %} selected{% endif %}>{{ l }}</option>{% endfor %}
+          </select>
+        </label>
         <button type="submit" class="gk-btn-quiet">Save</button>
       </form>
     </details>

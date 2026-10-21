@@ -306,6 +306,16 @@
       '.gk-ob-q { display: flex; flex-direction: column; gap: 4px; margin: 0 0 10px; }',
       '.gk-ob-q select { font: inherit; color: inherit; background: var(--page, #faf9f6); border: 1px solid var(--hairline, #e6e1d8); border-radius: 6px; padding: 6px 8px; max-width: 100%; }',
       '.gk-ob-note { min-height: 1.5em; margin: 0; font-size: 13px; }',
+      '.gk-ob-where { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }',
+      '.gk-ob-tasks + .gk-ob-links { margin-top: 14px; }',
+      '.gk-ob-progress { color: var(--muted, #736b5c); font-size: 13px; }',
+      '.gk-ob-group { margin: 14px 0 4px; font-size: 13px; font-weight: 600; color: var(--muted, #736b5c); }',
+      '.gk-ob-tasks { list-style: none; margin: 0 0 6px; padding: 0; border-top: 1px solid var(--hairline, #e6e1d8); }',
+      '.gk-ob-tasks li { border-bottom: 1px solid var(--hairline, #e6e1d8); }',
+      '.gk-ob-task { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; width: 100%; padding: 9px 2px; font: inherit; color: var(--accent, #0f766e); background: none; border: 0; text-align: left; cursor: pointer; }',
+      '.gk-ob-task:hover .gk-ob-task-name, .gk-ob-task:focus-visible .gk-ob-task-name { text-decoration: underline; text-underline-offset: 2px; }',
+      '.gk-ob-status { color: var(--ink, #26221c); font-size: 13px; text-align: right; }',
+      '.gk-ob-status.gk-ob-unset { color: var(--muted, #736b5c); }',
       '.gk-ob-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }',
       '.gk-ob-next { font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--surface, #fffdf7); background: var(--accent, #0f766e); border: 1px solid var(--accent, #0f766e); border-radius: 6px; padding: 5px 16px; }',
       'govkit-captable .cap-sub { font-size: 12px; opacity: 0.65; margin-bottom: 8px; }',
@@ -1544,11 +1554,14 @@
   }
 
   // --- <govkit-onboarding> ------------------------------------------------
-  // One step at a time, for the person's role in this org: an admin gets the
-  // eight steps that set up the venture, a worker the five about earning.
-  // Renders a small "Set up" button where it is mounted; the steps open in a
-  // native modal <dialog> (WAI-ARIA APG dialog pattern: aria-modal, labelled by
-  // the step heading, Tab wraps inside, Esc closes, focus returns to the button).
+  // One step at a time, for the person's role in this org. An admin first sees
+  // the list of the five decisions that set up the venture, each with its
+  // current answer (GOV.UK "complete multiple tasks" pattern: a task list, each
+  // row one link with its status, then one task per page and back to the list);
+  // then one step per decision, then the facts. A worker gets the five steps
+  // about earning. The steps open in a native modal <dialog> (WAI-ARIA APG
+  // dialog pattern: aria-modal, labelled by the step heading, Tab wraps inside,
+  // Esc closes, focus returns to the button).
   // Opens by itself once; closing it at any step is remembered in this browser
   // for this person and org, and the button opens it again at that step.
   //
@@ -1559,49 +1572,93 @@
   // Quoted lines are the team's words from the pages named beside them; lines
   // marked AI-written are new.
 
+  function choiceLabel(list, value) {
+    var hit = (list || []).filter(function (o) { return o[0] === value; })[0];
+    return hit ? hit[1] : null;
+  }
+
+  // A cap table setting's answer. Until anyone saves a setting, each value is
+  // still the default, and the list says so.
+  function settingAnswer(cap, text) {
+    if (text == null) return { text: 'Not set', set: false };
+    return cap.settings_saved ? { text: text, set: true } : { text: text + ' (default)', set: false };
+  }
+
+  function latestRound(cap) {
+    var rounds = cap.rounds || [];
+    var named = rounds.filter(function (r) { return r.name === cap.latest_round_name; });
+    return named[named.length - 1] || rounds[rounds.length - 1] || null;
+  }
+
   function onboardingSteps(lead, ctx) {
     var gk = ctx.up + '/o/' + ctx.org;
     var cap = ctx.cap || {};
     if (lead) {
+      var choices = cap.choices || {};
       return [
-        { title: 'What this is', text: [
-          // workers.vc what.html
-          'A venture studio for ventures that commit to Earned Governance principles of accountability and operational control by team members working actively in the venture.',
-          // govkit base.html
-          'Work, reviewed by peers, becomes ownership you can trace.',
-        ], links: [[ctx.what, 'What Workers.VC is']] },
-        { title: 'How work earns into the founders pool', text: [
+        // AI-written heading.
+        { map: true, title: 'Five decisions', links: [[ctx.what, 'What Workers.VC is']] },
+        // AI-written: name, title and text.
+        { decision: true, name: 'What this cap table holds', title: 'What this cap table holds', text: [
+          'All of the company\'s equity, or only the founders pool. With only the pool, the rest is kept somewhere else and shows here as one line.',
+        ], ask: ['scope'],
+        answer: function () { return settingAnswer(cap, choiceLabel(choices.scope, cap.scope)); },
+        links: [[gk + '/captable/#entity', 'Cap table settings']] },
+        { decision: true, name: 'Founders pool', title: 'The founders pool %', text: [
+          // AI-written
+          'The founders pool is the share of the company that work earns. Each person\'s share of the company is their pie share times the pool %.',
           // workers.vc earnedgov.html
-          'Log work from Slack or the dashboard; the team reviews it and sets its value, and the pie moves. The majority approves the work; nobody can just put hours anywhere.',
-          // AI-written, from the cap table model
-          'Everyone who does reviewed work is a founder. The pie runs inside the founders pool; new work dilutes only inside the pool.',
-        ], links: [[gk + '/drops/', 'Drops']] },
-        { title: 'Set the starting split', text: [
+          'Log work from Slack or the dashboard; the team reviews it and sets its value, and the pie moves.',
+        ], pool: true,
+        answer: function () {
+          var n = num(cap.founders_pool_pct);
+          return settingAnswer(cap, n == null ? null : n + '%');
+        },
+        links: [[gk + '/captable/#pool', 'Cap table'], [gk + '/drops/', 'Drops']] },
+        { decision: true, name: 'Starting split', title: 'Set the starting split', text: [
           // govkit pie/index.html
           'Record what was already put in before this pie existed — work done, money put at risk, an idea made real. Your share of the winnings should reflect your share of the bets.',
           'Nothing is final until the team locks it in by majority decision.',
-        ], links: [[gk + '/members/#starting-shares', 'Set starting shares']] },
-        { title: 'Set the founders pool %', text: [
+        ],
+        answer: function () {
+          var n = ((ctx.pie || {}).slices || []).filter(function (sl) {
+            return num(sl.opening_total) > 0 || (sl.stakes || []).length;
+          }).length;
           // AI-written
-          'The founders pool is the share of the company that work earns. Each person\'s share of the company is their pie share times the pool %.',
-        ], pool: true, links: [[gk + '/captable/#pool', 'Cap table']] },
-        // AI-written labels; each answer saves to the cap table settings.
-        { title: 'The company', text: [], company: true,
-          links: [[gk + '/captable/#entity', 'Legal entity']] },
-        { title: 'First valuation and investor tranche', text: [
+          return n ? { text: n === 1 ? '1 holder' : n + ' holders', set: true } : { text: 'Not set', set: false };
+        },
+        links: [[gk + '/members/#starting-shares', 'Set starting shares']] },
+        { decision: true, name: 'First valuation', title: 'First valuation and instrument', text: [
+          // AI-written
+          'A SAFE with a cap and a discount, or a priced round. Investors buy from the investor side at that valuation.',
           // workers.vc invest.html
           'A SAFE conveys no voting power. Money buys a share of the outcome. Governance can only be earned by work.',
-          // AI-written
-          'Investors buy from the rest, round by round, at a stated valuation.',
-        ], valued: cap.latest_post_money != null
-          ? money(cap.latest_post_money, cap.currency) + ' post-money · ' + (cap.latest_round_name || '')
-          : null,
+        ],
+        answer: function () {
+          if (cap.latest_post_money == null) return { text: 'Not set', set: false };
+          var r = latestRound(cap);
+          var kind = r ? choiceLabel(choices.instrument, r.instrument) : null;
+          return { text: money(cap.latest_post_money, cap.currency) + ' post-money' + (kind ? ' · ' + kind : ''), set: true };
+        },
+        valued: true,
         links: [[gk + '/captable/#rounds', 'Add a round']] },
-        { title: 'Invite your team', text: [
+        // AI-written: name, title and text.
+        { decision: true, name: 'The first priced round', title: 'The first priced round', text: [
+          'When the first priced round comes, at any stage: does it dilute the founders pool, or only the investor side?',
+          'This records the team\'s answer. The cap table numbers do not change with it.',
+        ], ask: ['pool_dilutes_at_priced_round'],
+        answer: function () {
+          return settingAnswer(cap, choiceLabel(choices.pool_dilutes_at_priced_round, cap.pool_dilutes_at_priced_round ? 'true' : 'false'));
+        },
+        links: [[gk + '/captable/#entity', 'Cap table settings']] },
+        // AI-written labels; each answer saves to the cap table settings.
+        { fact: true, name: 'The company', title: 'The company', text: [], ask: ['incorporated', 'entity_type'],
+          links: [[gk + '/captable/#entity', 'Legal entity']] },
+        { fact: true, name: 'Invite your team', title: 'Invite your team', text: [
           // govkit orgs/members.html
           'Their link opens the public commitment page: their words go on the wall, then they land in the org.',
         ], links: [[gk + '/members/#invite', 'Make an invite link']] },
-        { title: 'Where the cap table lives', text: [
+        { fact: true, name: 'Where the cap table lives', title: 'Where the cap table lives', text: [
           // govkit exports/index.html
           'Download the org\'s current equity record. Every share traces back to the work that earned it.',
           // workers.vc what.html
@@ -1694,6 +1751,7 @@
         if (!res.ok) throw new Error(res.d && res.d.detail);
         was = input.value;
         cap.founders_pool_pct = res.d.founders_pool_pct;
+        cap.settings_saved = true;
         say('Saved.');
       }).catch(function (err) {
         say((err && err.message) || 'Not saved. Try again.');
@@ -1705,24 +1763,29 @@
   }
 
   // One question, one select, saved to the cap table settings when it changes.
-  var COMPANY_QUESTIONS = [
-    { name: 'incorporated', label: 'Is the company incorporated?',
+  // AI-written labels.
+  var SETTING_QUESTIONS = {
+    incorporated: { label: 'Is the company incorporated?', bool: true,
       options: function () { return [['true', 'Yes'], ['false', 'No']]; },
       value: function (cap) { return cap.incorporated ? 'true' : 'false'; } },
-    { name: 'entity_type', label: 'Entity type',
+    entity_type: { label: 'Entity type',
       options: function (cap) { return [['', 'Not set']].concat((cap.choices || {}).entity_type || []); },
       value: function (cap) { return cap.entity_type || ''; } },
-    { name: 'scope', label: 'This cap table holds',
+    scope: { label: 'This cap table holds',
       options: function (cap) { return (cap.choices || {}).scope || []; },
       value: function (cap) { return cap.scope || ''; } },
-  ];
+    pool_dilutes_at_priced_round: { label: 'The first priced round dilutes', bool: true,
+      options: function (cap) { return (cap.choices || {}).pool_dilutes_at_priced_round || []; },
+      value: function (cap) { return cap.pool_dilutes_at_priced_round ? 'true' : 'false'; } },
+  };
 
-  function companyFields(c, cap, say) {
+  function settingFields(c, cap, names, say) {
     var wrap = el('div', 'gk-ob-company');
-    COMPANY_QUESTIONS.forEach(function (q) {
+    names.forEach(function (name) {
+      var q = SETTING_QUESTIONS[name];
       var opts = q.options(cap);
       if (!opts.length) return;
-      var id = 'gk-ob-' + q.name;
+      var id = 'gk-ob-' + name;
       var label = el('label', 'gk-flabel', q.label);
       label.htmlFor = id;
       var sel = el('select');
@@ -1736,7 +1799,7 @@
       var was = sel.value;
       sel.addEventListener('change', function () {
         var body = {};
-        body[q.name] = q.name === 'incorporated' ? sel.value === 'true' : sel.value;
+        body[name] = q.bool ? sel.value === 'true' : sel.value;
         sel.disabled = true;
         fetch(c.up + '/api/v1/captable/orgs/' + c.org + '/settings/', {
           method: 'PATCH',
@@ -1748,7 +1811,8 @@
         }).then(function (res) {
           if (!res.ok) throw new Error(res.d && res.d.detail);
           was = sel.value;
-          cap[q.name] = res.d[q.name];
+          cap[name] = res.d[name];
+          cap.settings_saved = true;
           say('Saved.');
         }).catch(function (err) {
           sel.value = was;
@@ -1783,6 +1847,7 @@
         what: pageHref(host.dataset.what),
         how: pageHref(host.dataset.how),
         cap: null,
+        pie: null,
       };
       var key = personKey(orgSlug, who.email);
       var opener = el('button', 'gk-ob-open', 'Set up');
@@ -1810,11 +1875,18 @@
         dlg.setAttribute('aria-modal', 'true');
         dlg.setAttribute('aria-labelledby', 'gk-ob-title');
         var top = el('div', 'gk-ob-top');
+        var where = el('span', 'gk-ob-where');
+        // AI-written
+        var toList = el('button', 'gk-ob-skip gk-ob-tolist', 'Back to the list');
+        toList.type = 'button';
+        toList.addEventListener('click', function () { show(0); });
         var count = el('span', 'gk-ob-count');
+        where.appendChild(toList);
+        where.appendChild(count);
         var skip = el('button', 'gk-ob-skip', 'Skip');
         skip.type = 'button';
         skip.addEventListener('click', function () { close(); });
-        top.appendChild(count);
+        top.appendChild(where);
         top.appendChild(skip);
         var heading = el('h2', 'gk-ob-title');
         heading.id = 'gk-ob-title';
@@ -1831,18 +1903,53 @@
         foot.appendChild(next);
         [top, heading, body, note, foot].forEach(function (n) { dlg.appendChild(n); });
 
+        var decisions = steps.filter(function (s) { return s.decision; });
+        var facts = steps.filter(function (s) { return s.fact; });
         function say(msg) { note.textContent = msg || ''; }
+        // The list of decisions: each row is one button to its step, with its answer.
+        function taskList(group) {
+          var ol = el('ol', 'gk-ob-tasks');
+          group.forEach(function (s) {
+            var li = el('li');
+            var b = el('button', 'gk-ob-task');
+            b.type = 'button';
+            b.appendChild(el('span', 'gk-ob-task-name', s.name));
+            if (s.answer) {
+              var a = s.answer();
+              b.appendChild(el('span', 'gk-ob-status' + (a.set ? '' : ' gk-ob-unset'), a.text));
+            }
+            b.addEventListener('click', function () { show(steps.indexOf(s)); });
+            li.appendChild(b);
+            ol.appendChild(li);
+          });
+          return ol;
+        }
         function show(i) {
           at = i;
           var s = steps[i];
-          count.textContent = (i + 1) + ' of ' + steps.length;
+          if (s.map) count.textContent = '';
+          else if (s.decision) count.textContent = 'Decision ' + (decisions.indexOf(s) + 1) + ' of ' + decisions.length;
+          else if (s.fact) count.textContent = 'Fact ' + (facts.indexOf(s) + 1) + ' of ' + facts.length;
+          else count.textContent = (i + 1) + ' of ' + steps.length;
+          toList.hidden = !lead || !!s.map;
           heading.textContent = s.title;
           say('');
           body.replaceChildren();
-          s.text.forEach(function (t) { if (t) body.appendChild(el('p', null, t)); });
-          if (s.valued) body.appendChild(el('p', 'gk-ob-fact', s.valued));
+          (s.text || []).forEach(function (t) { if (t) body.appendChild(el('p', null, t)); });
+          if (s.map) {
+            var done = decisions.filter(function (d) { return d.answer().set; }).length;
+            // AI-written
+            body.appendChild(el('p', 'gk-ob-progress', done + ' of ' + decisions.length + ' decided'));
+            body.appendChild(taskList(decisions));
+            body.appendChild(el('h3', 'gk-ob-group', 'Facts'));
+            body.appendChild(taskList(facts));
+          }
+          if (s.valued) {
+            var v = s.answer();
+            if (v.set) body.appendChild(el('p', 'gk-ob-fact', v.text));
+          }
           if (s.pool && ctx.cap) body.appendChild(poolField(c, ctx.cap, say));
-          if (s.company && ctx.cap) body.appendChild(companyFields(c, ctx.cap, say));
+          if (s.ask && ctx.cap) body.appendChild(settingFields(c, ctx.cap, s.ask, say));
           var links = (s.links || []).filter(function (l) { return l[0]; });
           if (links.length) {
             var p = el('p', 'gk-ob-links');
@@ -1855,7 +1962,7 @@
             body.appendChild(p);
           }
           back.hidden = i === 0;
-          next.textContent = i === steps.length - 1 ? 'Done' : 'Next';
+          next.textContent = s.map ? 'Start' : i === steps.length - 1 ? 'Done' : 'Next';
           heading.focus();
         }
         back.addEventListener('click', function () { show(at - 1); });
@@ -1887,9 +1994,13 @@
         open(seen ? seen.step : 0);
       });
 
-      jget(c.up + '/api/v1/captable/orgs/' + c.org + '/')
-        .then(function (d) { ctx.cap = d; }, function () { ctx.cap = null; })
-        .then(function () { if (!readSeen(key)) open(0); });
+      Promise.all([
+        jget(c.up + '/api/v1/captable/orgs/' + c.org + '/')
+          .then(function (d) { ctx.cap = d; }, function () { ctx.cap = null; }),
+        // The starting split's answer on the list; only the lead's list shows it.
+        lead ? jget(c.up + '/api/v1/pie/orgs/' + c.org + '/summary/')
+          .then(function (d) { ctx.pie = d; }, function () { ctx.pie = null; }) : null,
+      ]).then(function () { if (!readSeen(key)) open(0); });
     }).catch(function () {});
   }
 

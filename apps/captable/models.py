@@ -45,6 +45,14 @@ class Scope(models.TextChoices):
     POOL_ONLY = "POOL_ONLY", "The founders pool only"
 
 
+# What the first priced round (pre-seed, seed or later) dilutes. Recorded only: compute_cap_table does not read it yet.
+# AI-written labels.
+POOL_DILUTION_CHOICES = [
+    ("false", "Only the investor side"),
+    ("true", "The founders pool too"),
+]
+
+
 class CapTableSettings(models.Model):
     """The one number that frames the table: how much of the company the pool is."""
 
@@ -66,6 +74,9 @@ class CapTableSettings(models.Model):
     entity_type = models.CharField(max_length=8, choices=EntityType.choices, blank=True)
     incorporated = models.BooleanField(default=False)
     scope = models.CharField(max_length=16, choices=Scope.choices, default=Scope.WHOLE_COMPANY)
+    # The team's answer to "when the first priced round comes, at any stage, does it
+    # dilute the founders pool, or only the investor side?". False = only the investor side.
+    pool_dilutes_at_priced_round = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
