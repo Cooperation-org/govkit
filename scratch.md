@@ -1335,7 +1335,14 @@ Shipped: `<govkit-onboarding>` (govkit f308993), mounted with `<govkit-captable>
 views (workers.vc ee85643). Closing is remembered in localStorage per person+org, not as a genesis
 event. Not done: worker step 2 shows the unit but not the rate; no first-task prefill.
 
-## CAP TABLE CARTA PARITY (2026-10-21, in progress)
+## CAP TABLE CARTA PARITY (2026-10-21, shipped 87b606e)
 Building items 1-5 and 9 of `projects/Internal/10-21-2026-workersvc-carta-parity.md` s.4 in
 `apps/captable`: StockClass (holding class text → FK), issuer entity_type/incorporated/scope,
 SAFE and note terms on Round, Delaware franchise tax, CapTableEvent history, Valuation.
+Shipped. Migrations 0002-0004 applied on the cohort VM. New API under
+`/api/v1/captable/orgs/<org>/`: `stock-classes/`, `valuations/`, `franchise-tax/?year=`,
+`events/`; `settings/` takes entity_type, incorporated, scope; `rounds/` takes the OCF SAFE/note
+terms (`conversion_discount_pct`, `interest_rate_pct` as percents). Page sections #classes,
+#valuations, #franchise-tax (only when the state is DE), #history. Onboarding step 5 "The company".
+Not done: franchise tax reminder before March 1; Large Corporate Filer ($250,000 max) not modelled;
+signed-in check on the live site not run (no shell on the cohort VM from VM 200).
