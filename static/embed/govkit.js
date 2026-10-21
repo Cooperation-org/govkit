@@ -1555,7 +1555,7 @@
 
   // --- <govkit-onboarding> ------------------------------------------------
   // One step at a time, for the person's role in this org. An admin first sees
-  // the list of the six decisions that set up the venture, each with its
+  // the list of the five decisions that set up the venture, each with its
   // current answer (GOV.UK "complete multiple tasks" pattern: a task list, each
   // row one link with its status, then one task per page and back to the list);
   // then one step per decision, then the facts. A worker gets the five steps
@@ -1617,7 +1617,6 @@
             return { text: money(cap.latest_post_money, cap.currency) + ' post-money', set: true };
           },
           links: [[gk + '/captable/#rounds', 'Rounds']] },
-        { decision: true, title: 'Pool dilution', ask: ['pool_dilution'], answer: setting('pool_dilution') },
         { fact: true, title: 'Company', ask: ['incorporated', 'entity_type'],
           answer: function () {
             var t = choiceLabel(choices.entity_type, cap.entity_type);
@@ -1738,8 +1737,6 @@
       value: function (cap) { return cap.scope || ''; } },
     stage: { options: function (cap) { return (cap.choices || {}).stage || []; },
       value: function (cap) { return cap.stage || ''; } },
-    pool_dilution: { options: function (cap) { return (cap.choices || {}).pool_dilution || []; },
-      value: function (cap) { return cap.pool_dilution || ''; } },
   };
 
   function settingFields(c, cap, names, say) {

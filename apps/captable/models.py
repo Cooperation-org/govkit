@@ -55,13 +55,6 @@ class Stage(models.TextChoices):
     LATER = "LATER", "Later"
 
 
-class PoolDilution(models.TextChoices):
-    """Who a priced round dilutes. Recorded only: compute_cap_table does not read it."""
-
-    INVESTORS = "INVESTORS", "Investors only"
-    EVERYONE = "EVERYONE", "Everyone"
-
-
 class CapTableSettings(models.Model):
     """The one number that frames the table: how much of the company the pool is."""
 
@@ -84,7 +77,9 @@ class CapTableSettings(models.Model):
     incorporated = models.BooleanField(default=False)
     scope = models.CharField(max_length=16, choices=Scope.choices, default=Scope.WHOLE_COMPANY)
     stage = models.CharField(max_length=10, choices=Stage.choices, default=Stage.PRE_SEED)
-    # PoolDilution as a flag: True = EVERYONE, False = INVESTORS (the default).
+    # UNUSED. Kept only because the column exists (additive migrations only). Investors
+    # never dilute other investors: each buys into the investor tranche at the current
+    # valuation and owns exactly what it bought. Not a setting; nothing reads or writes it.
     pool_dilution = models.BooleanField(default=False, db_column="pool_dilutes_at_priced_round")
     updated_at = models.DateTimeField(auto_now=True)
 

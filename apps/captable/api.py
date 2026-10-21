@@ -4,7 +4,7 @@ OrgContextMiddleware resolves ``request.org`` and answers non-members 403.
 
     GET    /api/v1/captable/orgs/<slug>/                     the computed table (members)
     PATCH  /api/v1/captable/orgs/<slug>/settings/            pool %, currency, issuer, scope,
-                                                             stage, pool_dilution (admin)
+                                                             stage (admin)
     GET    /api/v1/captable/orgs/<slug>/holders/             who can hold a line (members)
     POST   /api/v1/captable/orgs/<slug>/rounds/              add a round (admin)
     PATCH  /api/v1/captable/orgs/<slug>/rounds/<id>/         edit a round (admin)
@@ -60,7 +60,6 @@ from .models import (
     EntityType,
     Instrument,
     Investment,
-    PoolDilution,
     Round,
     Scope,
     Stage,
@@ -229,9 +228,6 @@ def table_dict(table, org=None):
         out["entity_type"] = cfg.entity_type
         out["incorporated"] = cfg.incorporated
         out["stage"] = cfg.stage
-        out["pool_dilution"] = (
-            PoolDilution.EVERYONE if cfg.pool_dilution else PoolDilution.INVESTORS
-        ).value
         # False until anyone has saved a setting: every value shown is still the default.
         out["settings_saved"] = cfg.pk is not None
         out["stock_classes"] = [stock_class_dict(c) for c in services.stock_classes(org)]
@@ -239,7 +235,6 @@ def table_dict(table, org=None):
             "entity_type": EntityType.choices,
             "scope": Scope.choices,
             "stage": Stage.choices,
-            "pool_dilution": PoolDilution.choices,
             "instrument": Instrument.choices,
         }
     return out
@@ -304,7 +299,6 @@ class SettingsView(_CapView):
         "incorporated",
         "scope",
         "stage",
-        "pool_dilution",
     )
 
     def patch(self, request, org_slug):

@@ -38,7 +38,6 @@ DECISIONS = [
     "Starting split",
     "Stage",
     "Valuation",
-    "Pool dilution",
 ]
 
 
@@ -103,7 +102,7 @@ def test_admin_dialog_opens_on_the_list_of_decisions(client, venture):
     src = JS.read_text()
     assert "'List'" in src and "'Start'" in src
     assert "' of ' + decisions.length + ' set'" in src
-    for gone in ("Series A", "first priced round", "Back to the list"):
+    for gone in ("Series A", "first priced round", "Back to the list", "Pool dilution"):
         assert gone not in lead
     # The worker's steps have no list and no decisions.
     assert "map: true" not in worker and "decision: true" not in worker
@@ -125,12 +124,8 @@ def test_each_decision_the_dialog_saves_saves_as_admin(client, venture):
     # Nothing saved yet: the list marks each value as the default.
     assert summary["settings_saved"] is False
     assert summary["founders_pool_pct"] == "55.00"
-    assert summary["pool_dilution"] == "INVESTORS"
+    assert "pool_dilution" not in summary and "pool_dilution" not in summary["choices"]
     assert summary["stage"] == "PRE_SEED"
-    assert summary["choices"]["pool_dilution"] == [
-        ["INVESTORS", "Investors only"],
-        ["EVERYONE", "Everyone"],
-    ]
     assert [c[1] for c in summary["choices"]["stage"]] == ["Pre-seed", "Seed", "Series A", "Later"]
     assert [c[1] for c in summary["choices"]["scope"]] == ["Whole company", "Founders pool only"]
     assert "scope" in summary["choices"] and "instrument" in summary["choices"]
@@ -141,38 +136,36 @@ def test_each_decision_the_dialog_saves_saves_as_admin(client, venture):
         ({"scope": "POOL_ONLY"}, "scope", "POOL_ONLY"),
         ({"founders_pool_pct": "60"}, "founders_pool_pct", "60.00"),
         ({"stage": "SEED"}, "stage", "SEED"),
-        ({"pool_dilution": "EVERYONE"}, "pool_dilution", "EVERYONE"),
     ]:
         r = _patch(client, org, body)
         assert r.status_code == 200, r.content
         assert r.json()[field] == want
         assert r.json()["settings_saved"] is True
     cfg = CapTableSettings.objects.get(org=org)
-    assert cfg.pool_dilution is True and cfg.stage == "SEED"
+    assert cfg.stage == "SEED"
     assert _patch(client, org, {"stage": "IPO"}).status_code == 400
-    assert _patch(client, org, {"pool_dilution": "true"}).status_code == 400
 
 
-def test_pool_dilution_is_recorded_only(client, venture):
+def test_stage_on_the_cap_table_page_and_no_dilution_setting(client, venture):
     org, admin, member = venture
     client.force_login(admin)
     before = client.get(reverse("captable-summary", kwargs={"org_slug": org.slug})).json()
-    _patch(client, org, {"pool_dilution": "EVERYONE"})
+    # Investors never dilute other investors: there is nothing to set, and a stray
+    # field changes nothing.
+    _patch(client, org, {"pool_dilution": "EVERYONE", "stage": "SEED"})
+    assert CapTableSettings.objects.get(org=org).pool_dilution is False
     after = client.get(reverse("captable-summary", kwargs={"org_slug": org.slug})).json()
     for k in ("founders_pool_pct", "investor_pool_pct", "lines", "total_pct"):
         assert before[k] == after[k]
-    # Shown, and saved, on the cap table page's settings.
     html = client.get(f"/o/{org.slug}/captable/").content.decode()
-    assert '<option value="EVERYONE" selected>Everyone</option>' in html
-    assert 'name="stage"' in html and 'placeholder="Pre-seed"' in html
-    r = client.post(
-        f"/o/{org.slug}/captable/settings/", {"pool_dilution": "INVESTORS"}
-    )
+    assert "pool_dilution" not in html and "Pool dilution" not in html
+    assert '<option value="SEED" selected>Seed</option>' in html
+    assert 'placeholder="Seed"' in html
+    r = client.post(f"/o/{org.slug}/captable/settings/", {"stage": "LATER"})
     assert r.status_code == 302
-    assert CapTableSettings.objects.get(org=org).pool_dilution is False
-    # A member cannot change it.
+    assert CapTableSettings.objects.get(org=org).stage == "LATER"
     client.force_login(member)
-    assert _patch(client, org, {"pool_dilution": "EVERYONE"}).status_code == 403
+    assert _patch(client, org, {"stage": "SEED"}).status_code == 403
 
 
 def _docs(org):

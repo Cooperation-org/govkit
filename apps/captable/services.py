@@ -68,7 +68,6 @@ from .models import (
     FranchiseTaxYear,
     Instrument,
     Investment,
-    PoolDilution,
     Round,
     Scope,
     Stage,
@@ -582,10 +581,6 @@ def set_settings(org, founders_pool_pct=None, currency=None, by=None, **issuer) 
         if issuer["stage"] not in Stage.values:
             raise CapTableError("A stage is pre-seed, seed, Series A or later.")
         cfg.stage = issuer["stage"]
-    if "pool_dilution" in issuer:
-        if issuer["pool_dilution"] not in PoolDilution.values:
-            raise CapTableError("Pool dilution is investors only or everyone.")
-        cfg.pool_dilution = issuer["pool_dilution"] == PoolDilution.EVERYONE
     cfg.save()
     _record(org, by, EventKind.UPDATE, cfg, before, _snap(cfg))
     _check(org)

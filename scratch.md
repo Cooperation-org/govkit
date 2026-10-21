@@ -1348,12 +1348,12 @@ Not done: franchise tax reminder before March 1; Large Corporate Filer ($250,000
 signed-in check on the live site not run (no shell on the cohort VM from VM 200).
 
 ## ONBOARDING: "SET UP" LIST FIRST + COMPANY DOCUMENTS (2026-10-21, shipped)
-Admin setup dialog opens on "Set up": Cap table, Founders pool, Starting split, Stage, Valuation,
-Pool dilution (each with its value, "N of 6 set"), then facts Company, Documents. Buttons Start,
+Admin setup dialog opens on "Set up": Cap table, Founders pool, Starting split, Stage, Valuation
+(each with its value, "N of 5 set"), then facts Company, Documents. Buttons Start,
 Next, Back, List. Each step: label, control. Worker flow untouched.
-CapTableSettings: `stage` (Pre-seed default, Seed, Series A, Later; label reused as the new-round
-name placeholder) and `pool_dilution` (API "INVESTORS" default / "EVERYONE"; stored in the existing
-column pool_dilutes_at_priced_round, state-only rename). Recorded only; compute_cap_table ignores it.
+CapTableSettings.stage (Pre-seed default, Seed, Series A, Later; label reused as the new-round name
+placeholder). Pool dilution is NOT a setting (investors never dilute other investors); its column
+pool_dilutes_at_priced_round stays, unused, as model field `pool_dilution`, out of UI and API.
 `CompanyDocument` (kind, title, url, uploaded_by, uploaded_at): page #documents, API `documents/`;
 uploads go to GovKit's bucket (apps.commons.storage) when configured, else a pasted link.
 Bucket URLs are public-read with a random key. Open: whether legal documents belong there.
