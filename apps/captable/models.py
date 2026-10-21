@@ -41,16 +41,25 @@ class Scope(models.TextChoices):
     """What the cap table here covers: the whole company, or only the founders pool of a
     cap table kept somewhere else (then the rest is one "held outside" line)."""
 
-    WHOLE_COMPANY = "WHOLE_COMPANY", "The whole company"
-    POOL_ONLY = "POOL_ONLY", "The founders pool only"
+    WHOLE_COMPANY = "WHOLE_COMPANY", "Whole company"
+    POOL_ONLY = "POOL_ONLY", "Founders pool only"
 
 
-# What the first priced round (pre-seed, seed or later) dilutes. Recorded only: compute_cap_table does not read it yet.
-# AI-written labels.
-POOL_DILUTION_CHOICES = [
-    ("false", "Only the investor side"),
-    ("true", "The founders pool too"),
-]
+class Stage(models.TextChoices):
+    """Where the company is in raising money. The stage's label is reused wherever a stage
+    is named (the settings, the setup dialog, a new round's name)."""
+
+    PRE_SEED = "PRE_SEED", "Pre-seed"
+    SEED = "SEED", "Seed"
+    SERIES_A = "SERIES_A", "Series A"
+    LATER = "LATER", "Later"
+
+
+class PoolDilution(models.TextChoices):
+    """Who a priced round dilutes. Recorded only: compute_cap_table does not read it."""
+
+    INVESTORS = "INVESTORS", "Investors only"
+    EVERYONE = "EVERYONE", "Everyone"
 
 
 class CapTableSettings(models.Model):
@@ -74,9 +83,9 @@ class CapTableSettings(models.Model):
     entity_type = models.CharField(max_length=8, choices=EntityType.choices, blank=True)
     incorporated = models.BooleanField(default=False)
     scope = models.CharField(max_length=16, choices=Scope.choices, default=Scope.WHOLE_COMPANY)
-    # The team's answer to "when the first priced round comes, at any stage, does it
-    # dilute the founders pool, or only the investor side?". False = only the investor side.
-    pool_dilutes_at_priced_round = models.BooleanField(default=False)
+    stage = models.CharField(max_length=10, choices=Stage.choices, default=Stage.PRE_SEED)
+    # PoolDilution as a flag: True = EVERYONE, False = INVESTORS (the default).
+    pool_dilution = models.BooleanField(default=False, db_column="pool_dilutes_at_priced_round")
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):

@@ -4,7 +4,7 @@ OrgContextMiddleware resolves ``request.org`` and answers non-members 403.
 
     GET    /api/v1/captable/orgs/<slug>/                     the computed table (members)
     PATCH  /api/v1/captable/orgs/<slug>/settings/            pool %, currency, issuer, scope,
-                                                             pool_dilutes_at_priced_round (admin)
+                                                             stage, pool_dilution (admin)
     GET    /api/v1/captable/orgs/<slug>/holders/             who can hold a line (members)
     POST   /api/v1/captable/orgs/<slug>/rounds/              add a round (admin)
     PATCH  /api/v1/captable/orgs/<slug>/rounds/<id>/         edit a round (admin)
@@ -55,14 +55,15 @@ from apps.orgs.models import MembershipRole
 
 from . import ocf, services
 from .models import (
-    POOL_DILUTION_CHOICES,
     CompanyDocument,
     DocumentKind,
     EntityType,
     Instrument,
     Investment,
+    PoolDilution,
     Round,
     Scope,
+    Stage,
     StockClass,
     StockHolding,
     Valuation,
@@ -227,14 +228,18 @@ def table_dict(table, org=None):
     if cfg is not None:
         out["entity_type"] = cfg.entity_type
         out["incorporated"] = cfg.incorporated
-        out["pool_dilutes_at_priced_round"] = cfg.pool_dilutes_at_priced_round
+        out["stage"] = cfg.stage
+        out["pool_dilution"] = (
+            PoolDilution.EVERYONE if cfg.pool_dilution else PoolDilution.INVESTORS
+        ).value
         # False until anyone has saved a setting: every value shown is still the default.
         out["settings_saved"] = cfg.pk is not None
         out["stock_classes"] = [stock_class_dict(c) for c in services.stock_classes(org)]
         out["choices"] = {
             "entity_type": EntityType.choices,
             "scope": Scope.choices,
-            "pool_dilutes_at_priced_round": POOL_DILUTION_CHOICES,
+            "stage": Stage.choices,
+            "pool_dilution": PoolDilution.choices,
             "instrument": Instrument.choices,
         }
     return out
@@ -298,7 +303,8 @@ class SettingsView(_CapView):
         "entity_type",
         "incorporated",
         "scope",
-        "pool_dilutes_at_priced_round",
+        "stage",
+        "pool_dilution",
     )
 
     def patch(self, request, org_slug):

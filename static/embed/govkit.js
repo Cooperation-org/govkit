@@ -1555,7 +1555,7 @@
 
   // --- <govkit-onboarding> ------------------------------------------------
   // One step at a time, for the person's role in this org. An admin first sees
-  // the list of the five decisions that set up the venture, each with its
+  // the list of the six decisions that set up the venture, each with its
   // current answer (GOV.UK "complete multiple tasks" pattern: a task list, each
   // row one link with its status, then one task per page and back to the list);
   // then one step per decision, then the facts. A worker gets the five steps
@@ -1566,7 +1566,7 @@
   // for this person and org, and the button opens it again at that step.
   //
   // Host contract: data-up, data-org, optional data-tasks-app (the board app),
-  // data-what and data-how (the host's own explainer pages). Identity comes from
+  // data-how (the host's own explainer page). Identity comes from
   // window.__gkMe like every component; no membership, no button.
   //
   // Quoted lines are the team's words from the pages named beside them; lines
@@ -1578,16 +1578,11 @@
   }
 
   // A cap table setting's answer. Until anyone saves a setting, each value is
-  // still the default, and the list says so.
+  // the default: shown, muted, and not counted as set.
+  var NOT_SET = { text: 'not set', set: false };
   function settingAnswer(cap, text) {
-    if (text == null) return { text: 'Not set', set: false };
-    return cap.settings_saved ? { text: text, set: true } : { text: text + ' (default)', set: false };
-  }
-
-  function latestRound(cap) {
-    var rounds = cap.rounds || [];
-    var named = rounds.filter(function (r) { return r.name === cap.latest_round_name; });
-    return named[named.length - 1] || rounds[rounds.length - 1] || null;
+    if (text == null) return NOT_SET;
+    return { text: text, set: !!cap.settings_saved };
   }
 
   function onboardingSteps(lead, ctx) {
@@ -1595,79 +1590,45 @@
     var cap = ctx.cap || {};
     if (lead) {
       var choices = cap.choices || {};
+      function setting(name) {
+        return function () { return settingAnswer(cap, choiceLabel(choices[name], cap[name])); };
+      }
+      // Labels are the project owner's; one term per thing, the same on the cap table page.
       return [
-        // AI-written heading.
-        { map: true, title: 'Five decisions', links: [[ctx.what, 'What Workers.VC is']] },
-        // AI-written: name, title and text.
-        { decision: true, name: 'What this cap table holds', title: 'What this cap table holds', text: [
-          'All of the company\'s equity, or only the founders pool. With only the pool, the rest is kept somewhere else and shows here as one line.',
-        ], ask: ['scope'],
-        answer: function () { return settingAnswer(cap, choiceLabel(choices.scope, cap.scope)); },
-        links: [[gk + '/captable/#entity', 'Cap table settings']] },
-        { decision: true, name: 'Founders pool', title: 'The founders pool %', text: [
-          // AI-written
-          'The founders pool is the share of the company that work earns. Each person\'s share of the company is their pie share times the pool %.',
-          // workers.vc earnedgov.html
-          'Log work from Slack or the dashboard; the team reviews it and sets its value, and the pie moves.',
-        ], pool: true,
-        answer: function () {
-          var n = num(cap.founders_pool_pct);
-          return settingAnswer(cap, n == null ? null : n + '%');
-        },
-        links: [[gk + '/captable/#pool', 'Cap table'], [gk + '/drops/', 'Drops']] },
-        { decision: true, name: 'Starting split', title: 'Set the starting split', text: [
-          // govkit pie/index.html
-          'Record what was already put in before this pie existed — work done, money put at risk, an idea made real. Your share of the winnings should reflect your share of the bets.',
-          'Nothing is final until the team locks it in by majority decision.',
-        ],
-        answer: function () {
-          var n = ((ctx.pie || {}).slices || []).filter(function (sl) {
-            return num(sl.opening_total) > 0 || (sl.stakes || []).length;
-          }).length;
-          // AI-written
-          return n ? { text: n === 1 ? '1 holder' : n + ' holders', set: true } : { text: 'Not set', set: false };
-        },
-        links: [[gk + '/members/#starting-shares', 'Set starting shares']] },
-        { decision: true, name: 'First valuation', title: 'First valuation and instrument', text: [
-          // AI-written
-          'A SAFE with a cap and a discount, or a priced round. Investors buy from the investor side at that valuation.',
-          // workers.vc invest.html
-          'A SAFE conveys no voting power. Money buys a share of the outcome. Governance can only be earned by work.',
-        ],
-        answer: function () {
-          if (cap.latest_post_money == null) return { text: 'Not set', set: false };
-          var r = latestRound(cap);
-          var kind = r ? choiceLabel(choices.instrument, r.instrument) : null;
-          return { text: money(cap.latest_post_money, cap.currency) + ' post-money' + (kind ? ' · ' + kind : ''), set: true };
-        },
-        valued: true,
-        links: [[gk + '/captable/#rounds', 'Add a round']] },
-        // AI-written: name, title and text.
-        { decision: true, name: 'The first priced round', title: 'The first priced round', text: [
-          'When the first priced round comes, at any stage: does it dilute the founders pool, or only the investor side?',
-          'This records the team\'s answer. The cap table numbers do not change with it.',
-        ], ask: ['pool_dilutes_at_priced_round'],
-        answer: function () {
-          return settingAnswer(cap, choiceLabel(choices.pool_dilutes_at_priced_round, cap.pool_dilutes_at_priced_round ? 'true' : 'false'));
-        },
-        links: [[gk + '/captable/#entity', 'Cap table settings']] },
-        // AI-written labels; each answer saves to the cap table settings.
-        { fact: true, name: 'The company', title: 'The company', text: [], ask: ['incorporated', 'entity_type'],
-          links: [[gk + '/captable/#entity', 'Legal entity']] },
-        // AI-written
-        { fact: true, name: 'Your documents', title: 'Your documents', text: [
-          'The SAFE agreement, the bylaws, the certificate of incorporation: upload them where the cap table is, for the team to see.',
-        ], links: [[gk + '/captable/#documents', 'Documents']] },
-        { fact: true, name: 'Invite your team', title: 'Invite your team', text: [
-          // govkit orgs/members.html
-          'Their link opens the public commitment page: their words go on the wall, then they land in the org.',
-        ], links: [[gk + '/members/#invite', 'Make an invite link']] },
-        { fact: true, name: 'Where the cap table lives', title: 'Where the cap table lives', text: [
-          // govkit exports/index.html
-          'Download the org\'s current equity record. Every share traces back to the work that earned it.',
-          // workers.vc what.html
-          'No venture\'s records are locked in: the full ledger exports at any time, and GovKit is open source and can be self-hosted.',
-        ], links: [[gk + '/captable/', 'Cap table'], [gk + '/exports/', 'Exports']] },
+        { map: true, title: 'Set up' },
+        { decision: true, title: 'Cap table', ask: ['scope'], answer: setting('scope') },
+        { decision: true, title: 'Founders pool', pool: true,
+          answer: function () {
+            var n = num(cap.founders_pool_pct);
+            return settingAnswer(cap, n == null ? null : n + '%');
+          } },
+        { decision: true, title: 'Starting split',
+          answer: function () {
+            var n = ((ctx.pie || {}).slices || []).filter(function (sl) {
+              return num(sl.opening_total) > 0 || (sl.stakes || []).length;
+            }).length;
+            return n ? { text: n === 1 ? '1 holder' : n + ' holders', set: true } : NOT_SET;
+          },
+          links: [[gk + '/members/#starting-shares', 'Starting shares']] },
+        { decision: true, title: 'Stage', ask: ['stage'], answer: setting('stage') },
+        { decision: true, title: 'Valuation', valued: true,
+          answer: function () {
+            if (cap.latest_post_money == null) return NOT_SET;
+            return { text: money(cap.latest_post_money, cap.currency) + ' post-money', set: true };
+          },
+          links: [[gk + '/captable/#rounds', 'Rounds']] },
+        { decision: true, title: 'Pool dilution', ask: ['pool_dilution'], answer: setting('pool_dilution') },
+        { fact: true, title: 'Company', ask: ['incorporated', 'entity_type'],
+          answer: function () {
+            var t = choiceLabel(choices.entity_type, cap.entity_type);
+            return t ? { text: t, set: true } : NOT_SET;
+          } },
+        { fact: true, title: 'Documents',
+          answer: function () {
+            var n = ctx.docs ? ctx.docs.length : 0;
+            return n ? { text: String(n), set: true } : { text: 'none', set: false };
+          },
+          links: [[gk + '/captable/#documents', 'Documents']] },
       ];
     }
     var unit = cap.unit_name;
@@ -1722,14 +1683,13 @@
 
   function poolField(c, cap, say) {
     var wrap = el('form', 'gk-ob-pool');
-    var label = el('label', 'gk-flabel', 'Founders pool, % of the company');
     var input = el('input');
     input.type = 'number';
     input.min = '0';
     input.max = '100';
     input.step = '0.01';
     input.id = 'gk-ob-pool-pct';
-    label.htmlFor = input.id;
+    input.setAttribute('aria-labelledby', 'gk-ob-title');
     if (cap.founders_pool_pct != null) input.value = String(num(cap.founders_pool_pct));
     var btn = el('button', 'gk-move', 'Set');
     btn.type = 'submit';
@@ -1737,7 +1697,6 @@
     row.appendChild(input);
     row.appendChild(el('span', null, '%'));
     row.appendChild(btn);
-    wrap.appendChild(label);
     wrap.appendChild(row);
     var was = input.value;
     function save(e) {
@@ -1769,18 +1728,18 @@
   // One question, one select, saved to the cap table settings when it changes.
   // AI-written labels.
   var SETTING_QUESTIONS = {
-    incorporated: { label: 'Is the company incorporated?', bool: true,
+    incorporated: { label: 'Incorporated', bool: true,
       options: function () { return [['true', 'Yes'], ['false', 'No']]; },
       value: function (cap) { return cap.incorporated ? 'true' : 'false'; } },
     entity_type: { label: 'Entity type',
-      options: function (cap) { return [['', 'Not set']].concat((cap.choices || {}).entity_type || []); },
+      options: function (cap) { return [['', 'not set']].concat((cap.choices || {}).entity_type || []); },
       value: function (cap) { return cap.entity_type || ''; } },
-    scope: { label: 'This cap table holds',
-      options: function (cap) { return (cap.choices || {}).scope || []; },
+    scope: { options: function (cap) { return (cap.choices || {}).scope || []; },
       value: function (cap) { return cap.scope || ''; } },
-    pool_dilutes_at_priced_round: { label: 'The first priced round dilutes', bool: true,
-      options: function (cap) { return (cap.choices || {}).pool_dilutes_at_priced_round || []; },
-      value: function (cap) { return cap.pool_dilutes_at_priced_round ? 'true' : 'false'; } },
+    stage: { options: function (cap) { return (cap.choices || {}).stage || []; },
+      value: function (cap) { return cap.stage || ''; } },
+    pool_dilution: { options: function (cap) { return (cap.choices || {}).pool_dilution || []; },
+      value: function (cap) { return cap.pool_dilution || ''; } },
   };
 
   function settingFields(c, cap, names, say) {
@@ -1790,10 +1749,16 @@
       var opts = q.options(cap);
       if (!opts.length) return;
       var id = 'gk-ob-' + name;
-      var label = el('label', 'gk-flabel', q.label);
-      label.htmlFor = id;
       var sel = el('select');
       sel.id = id;
+      // A question without its own label is the step's one control: the heading names it.
+      var label = null;
+      if (q.label) {
+        label = el('label', 'gk-flabel', q.label);
+        label.htmlFor = id;
+      } else {
+        sel.setAttribute('aria-labelledby', 'gk-ob-title');
+      }
       opts.forEach(function (o) {
         var opt = el('option', null, o[1]);
         opt.value = o[0];
@@ -1824,7 +1789,7 @@
         }).then(function () { sel.disabled = false; });
       });
       var row = el('div', 'gk-ob-q');
-      row.appendChild(label);
+      if (label) row.appendChild(label);
       row.appendChild(sel);
       wrap.appendChild(row);
     });
@@ -1848,10 +1813,10 @@
       var ctx = {
         up: c.up, org: c.org, orgName: mine.org_name || orgSlug,
         tasksApp: safeHref((host.dataset.tasksApp || '').replace(/\/+$/, '')),
-        what: pageHref(host.dataset.what),
         how: pageHref(host.dataset.how),
         cap: null,
         pie: null,
+        docs: null,
       };
       var key = personKey(orgSlug, who.email);
       var opener = el('button', 'gk-ob-open', 'Set up');
@@ -1880,8 +1845,7 @@
         dlg.setAttribute('aria-labelledby', 'gk-ob-title');
         var top = el('div', 'gk-ob-top');
         var where = el('span', 'gk-ob-where');
-        // AI-written
-        var toList = el('button', 'gk-ob-skip gk-ob-tolist', 'Back to the list');
+        var toList = el('button', 'gk-ob-skip gk-ob-tolist', 'List');
         toList.type = 'button';
         toList.addEventListener('click', function () { show(0); });
         var count = el('span', 'gk-ob-count');
@@ -1917,7 +1881,7 @@
             var li = el('li');
             var b = el('button', 'gk-ob-task');
             b.type = 'button';
-            b.appendChild(el('span', 'gk-ob-task-name', s.name));
+            b.appendChild(el('span', 'gk-ob-task-name', s.title));
             if (s.answer) {
               var a = s.answer();
               b.appendChild(el('span', 'gk-ob-status' + (a.set ? '' : ' gk-ob-unset'), a.text));
@@ -1932,8 +1896,7 @@
           at = i;
           var s = steps[i];
           if (s.map) count.textContent = '';
-          else if (s.decision) count.textContent = 'Decision ' + (decisions.indexOf(s) + 1) + ' of ' + decisions.length;
-          else if (s.fact) count.textContent = 'Fact ' + (facts.indexOf(s) + 1) + ' of ' + facts.length;
+          else if (lead) count.textContent = i + ' of ' + (steps.length - 1);
           else count.textContent = (i + 1) + ' of ' + steps.length;
           toList.hidden = !lead || !!s.map;
           heading.textContent = s.title;
@@ -1942,16 +1905,12 @@
           (s.text || []).forEach(function (t) { if (t) body.appendChild(el('p', null, t)); });
           if (s.map) {
             var done = decisions.filter(function (d) { return d.answer().set; }).length;
-            // AI-written
-            body.appendChild(el('p', 'gk-ob-progress', done + ' of ' + decisions.length + ' decided'));
+            body.appendChild(el('p', 'gk-ob-progress', done + ' of ' + decisions.length + ' set'));
             body.appendChild(taskList(decisions));
             body.appendChild(el('h3', 'gk-ob-group', 'Facts'));
             body.appendChild(taskList(facts));
           }
-          if (s.valued) {
-            var v = s.answer();
-            if (v.set) body.appendChild(el('p', 'gk-ob-fact', v.text));
-          }
+          if (s.valued) body.appendChild(el('p', 'gk-ob-fact', s.answer().text));
           if (s.pool && ctx.cap) body.appendChild(poolField(c, ctx.cap, say));
           if (s.ask && ctx.cap) body.appendChild(settingFields(c, ctx.cap, s.ask, say));
           var links = (s.links || []).filter(function (l) { return l[0]; });
@@ -2001,9 +1960,11 @@
       Promise.all([
         jget(c.up + '/api/v1/captable/orgs/' + c.org + '/')
           .then(function (d) { ctx.cap = d; }, function () { ctx.cap = null; }),
-        // The starting split's answer on the list; only the lead's list shows it.
+        // The starting split's and the documents' answers; only the lead's list shows them.
         lead ? jget(c.up + '/api/v1/pie/orgs/' + c.org + '/summary/')
           .then(function (d) { ctx.pie = d; }, function () { ctx.pie = null; }) : null,
+        lead ? jget(c.up + '/api/v1/captable/orgs/' + c.org + '/documents/')
+          .then(function (d) { ctx.docs = d.documents; }, function () { ctx.docs = null; }) : null,
       ]).then(function () { if (!readSeen(key)) open(0); });
     }).catch(function () {});
   }

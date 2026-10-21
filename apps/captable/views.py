@@ -20,15 +20,16 @@ from .api import is_cap_admin
 from django.utils import timezone
 
 from .models import (
-    POOL_DILUTION_CHOICES,
     CompanyDocument,
     DocumentKind,
     ConversionTiming,
     EntityType,
     Instrument,
     Investment,
+    PoolDilution,
     Round,
     Scope,
+    Stage,
     StockClass,
     StockClassType,
     StockHolding,
@@ -100,7 +101,10 @@ def index(request, org_slug):
         "class_types": StockClassType.choices,
         "entity_types": EntityType.choices,
         "scopes": Scope.choices,
-        "pool_dilutions": POOL_DILUTION_CHOICES,
+        "stages": Stage.choices,
+        "stage_label": Stage(cfg.stage).label,
+        "pool_dilutions": PoolDilution.choices,
+        "pool_dilution": PoolDilution.EVERYONE if cfg.pool_dilution else PoolDilution.INVESTORS,
         "pool_only": table.scope == Scope.POOL_ONLY,
         "outside": next((ln for ln in lines if ln.kind == services.KIND_OUTSIDE), None),
         "valuations": list(Valuation.objects.for_org(org).select_related("stock_class")),
@@ -192,7 +196,8 @@ def save_settings(request):
         "entity_type",
         "incorporated",
         "scope",
-        "pool_dilutes_at_priced_round",
+        "stage",
+        "pool_dilution",
     )
     services.set_settings(request.org, by=request.user, **{k: p[k] for k in fields if k in p})
     return "pool" if "founders_pool_pct" in p or "scope" in p else "entity"

@@ -1347,12 +1347,13 @@ terms (`conversion_discount_pct`, `interest_rate_pct` as percents). Page section
 Not done: franchise tax reminder before March 1; Large Corporate Filer ($250,000 max) not modelled;
 signed-in check on the live site not run (no shell on the cohort VM from VM 200).
 
-## ONBOARDING: MAP OF DECISIONS FIRST + COMPANY DOCUMENTS (2026-10-21, shipped)
-Admin setup dialog opens on "Five decisions" (what the cap table holds, founders pool, starting
-split, first valuation, the first priced round) with each current answer, then one step each,
-then facts (the company, your documents, invite, where the cap table lives). Worker flow untouched.
-`CapTableSettings.pool_dilutes_at_priced_round` (default false = only the investor side) records
-the choice; compute_cap_table does not read it. `CompanyDocument` (kind, title, url, uploaded_by,
-uploaded_at): page section #documents, API `documents/`; uploads go to GovKit's bucket
-(apps.commons.storage) when configured, else a pasted link. Bucket URLs are public-read with a
-random key. Open: whether legal documents belong in a public-read bucket.
+## ONBOARDING: "SET UP" LIST FIRST + COMPANY DOCUMENTS (2026-10-21, shipped)
+Admin setup dialog opens on "Set up": Cap table, Founders pool, Starting split, Stage, Valuation,
+Pool dilution (each with its value, "N of 6 set"), then facts Company, Documents. Buttons Start,
+Next, Back, List. Each step: label, control. Worker flow untouched.
+CapTableSettings: `stage` (Pre-seed default, Seed, Series A, Later; label reused as the new-round
+name placeholder) and `pool_dilution` (API "INVESTORS" default / "EVERYONE"; stored in the existing
+column pool_dilutes_at_priced_round, state-only rename). Recorded only; compute_cap_table ignores it.
+`CompanyDocument` (kind, title, url, uploaded_by, uploaded_at): page #documents, API `documents/`;
+uploads go to GovKit's bucket (apps.commons.storage) when configured, else a pasted link.
+Bucket URLs are public-read with a random key. Open: whether legal documents belong there.

@@ -556,7 +556,7 @@ def test_issuer_fields_save(client, venture):
     body = r.json()
     assert body["entity_type"] == "PBC" and body["incorporated"] is True
     assert body["scope"] == "POOL_ONLY"
-    assert ["POOL_ONLY", "The founders pool only"] in body["choices"]["scope"]
+    assert ["POOL_ONLY", "Founders pool only"] in body["choices"]["scope"]
     r = client.patch(
         _api(org, "captable-settings"),
         {"entity_type": "S_CORP"},
