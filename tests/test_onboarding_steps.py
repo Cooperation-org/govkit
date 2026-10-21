@@ -101,6 +101,7 @@ def test_admin_dialog_opens_on_the_list_of_five_decisions(client, venture):
     assert lead.rindex("decision: true") < lead.index("fact: true")
     assert re.findall(r"fact: true, name: '([^']*)'", lead) == [
         "The company",
+        "Your documents",
         "Invite your team",
         "Where the cap table lives",
     ]
@@ -166,3 +167,66 @@ def test_first_priced_round_choice_is_recorded_only(client, venture):
     # A member cannot change it.
     client.force_login(member)
     assert _patch(client, org, {"pool_dilutes_at_priced_round": True}).status_code == 403
+
+
+def _docs(org):
+    return reverse("captable-documents", kwargs={"org_slug": org.slug})
+
+
+def test_documents_admins_add_members_view(client, venture, monkeypatch):
+    from apps.commons import storage
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    org, admin, member = venture
+    client.force_login(admin)
+    r = client.post(
+        _docs(org),
+        {"kind": "BYLAWS", "url": "https://files.example.org/bylaws.pdf"},
+        content_type="application/json",
+        **EMBED,
+    )
+    assert r.status_code == 201, r.content
+    doc = r.json()["documents"][0]
+    assert doc["title"] == "Bylaws" and doc["kind_label"] == "Bylaws"
+
+    # No bucket on this server: the upload is refused in words, nothing saved.
+    pdf = SimpleUploadedFile("safe.pdf", b"%PDF-1.4 x", content_type="application/pdf")
+    r = client.post(_docs(org), {"kind": "SAFE", "file": pdf}, **EMBED)
+    assert r.status_code == 400 and "Paste a link" in r.json()["detail"]
+
+    # With a bucket, the file goes there and its URL is the row's.
+    monkeypatch.setattr(storage, "configured", lambda: True)
+    monkeypatch.setattr(
+        storage, "store_file", lambda upload, prefix: f"https://bucket.example/{prefix}/x.pdf"
+    )
+    pdf = SimpleUploadedFile("safe.pdf", b"%PDF-1.4 x", content_type="application/pdf")
+    r = client.post(_docs(org), {"kind": "SAFE", "title": "Rolling SAFE", "file": pdf}, **EMBED)
+    assert r.status_code == 201, r.content
+    safe = next(d for d in r.json()["documents"] if d["kind"] == "SAFE")
+    assert safe["url"] == "https://bucket.example/cap-documents/venture/x.pdf"
+    assert safe["uploaded_by"]
+
+    html = client.get(f"/o/{org.slug}/captable/").content.decode()
+    assert 'id="documents"' in html and 'type="file" name="file"' in html
+
+    client.force_login(member)
+    assert [d["title"] for d in client.get(_docs(org)).json()["documents"]] == [
+        "Bylaws",
+        "Rolling SAFE",
+    ]
+    html = client.get(f"/o/{org.slug}/captable/").content.decode()
+    assert "Rolling SAFE" in html and "captable/documents/add/" not in html
+    r = client.post(
+        _docs(org), {"url": "https://x.example/a.pdf"}, content_type="application/json", **EMBED
+    )
+    assert r.status_code == 403
+    r = client.delete(
+        reverse("captable-document", kwargs={"org_slug": org.slug, "pk": safe["document_id"]}),
+        **EMBED,
+    )
+    assert r.status_code == 403
+
+    client.force_login(admin)
+    r = client.post(f"/o/{org.slug}/captable/documents/{safe['document_id']}/delete/")
+    assert r.status_code == 302
+    assert [d["title"] for d in client.get(_docs(org)).json()["documents"]] == ["Bylaws"]

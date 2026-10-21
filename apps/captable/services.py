@@ -38,6 +38,7 @@ Every add, change and removal below writes one CapTableEvent in its own transact
 from __future__ import annotations
 
 import json
+import logging
 import math
 from dataclasses import dataclass, field
 from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
@@ -51,6 +52,7 @@ from django.forms.models import model_to_dict
 from django.utils.dateparse import parse_date
 from django.utils.text import slugify
 
+from apps.commons import storage
 from apps.orgs.models import ExternalHolder, Membership, StakeholderType
 from apps.pie.services import HOLDER_SPONSOR, compute_pie
 
@@ -58,7 +60,9 @@ from .models import (
     DEFAULT_FOUNDERS_POOL_PCT,
     CapTableEvent,
     CapTableSettings,
+    CompanyDocument,
     ConversionTiming,
+    DocumentKind,
     EntityType,
     EventKind,
     FranchiseTaxYear,
@@ -72,6 +76,8 @@ from .models import (
     Valuation,
     ValuationType,
 )
+
+logger = logging.getLogger(__name__)
 
 ZERO = Decimal("0")
 HUNDRED = Decimal("100")
@@ -430,8 +436,9 @@ OBJECT_TYPES = {
     StockClass: "stock_class",
     Valuation: "valuation",
     FranchiseTaxYear: "franchise_tax_year",
+    CompanyDocument: "document",
 }
-_SNAP_SKIP = ("org", "created_by")
+_SNAP_SKIP = ("org", "created_by", "uploaded_by")
 
 
 def _snap(obj) -> dict:
@@ -453,6 +460,8 @@ def _label(obj) -> str:
         return f"{obj.stock_class.name} {obj.effective_date}"
     if isinstance(obj, FranchiseTaxYear):
         return str(obj.year)
+    if isinstance(obj, CompanyDocument):
+        return obj.title
     return getattr(obj, "name", "") or ""
 
 
@@ -1058,6 +1067,58 @@ def update_valuation(v: Valuation, by=None, **data) -> Valuation:
 @transaction.atomic
 def delete_valuation(v: Valuation, by=None):
     _deleted(v.org, by, v)
+
+
+# --------------------------------------------------------------------------- #
+# The company's documents: SAFE agreement, bylaws, certificate of incorporation, other.
+# --------------------------------------------------------------------------- #
+def documents(org):
+    return list(CompanyDocument.objects.for_org(org).select_related("uploaded_by"))
+
+
+@transaction.atomic
+def add_document(org, kind="", title="", url="", upload=None, by=None) -> CompanyDocument:
+    """A document from an uploaded file (stored in GovKit's bucket) or a pasted link."""
+    kind = kind or DocumentKind.OTHER
+    if kind not in DocumentKind.values:
+        raise CapTableError(
+            "A document is a SAFE agreement, bylaws, a certificate of incorporation or other."
+        )
+    url = (url or "").strip()
+    if upload:
+        problem = storage.check_file(upload)
+        if problem:
+            raise CapTableError(problem)
+        if not storage.configured():
+            raise CapTableError("Uploads are not set up on this server yet. Paste a link instead.")
+        try:
+            url = storage.store_file(upload, prefix=f"cap-documents/{org.slug}")
+        except Exception:
+            logger.exception("document upload failed for %s", org.slug)
+            raise CapTableError("The file did not upload. Try again, or paste a link.")
+    if not url:
+        raise CapTableError("Choose a file or paste a link.")
+    try:
+        _url(url)
+    except ValidationError:
+        raise CapTableError("That link is not a web address.")
+    title = (title or "").strip()[:200] or (
+        (upload.name if upload else "") or DocumentKind(kind).label
+    )[:200]
+    doc = CompanyDocument.objects.create(
+        org=org,
+        kind=kind,
+        title=title,
+        url=url,
+        uploaded_by=by if getattr(by, "is_authenticated", False) else None,
+    )
+    _added(org, by, doc)
+    return doc
+
+
+@transaction.atomic
+def delete_document(doc: CompanyDocument, by=None):
+    _deleted(doc.org, by, doc)
 
 
 # --------------------------------------------------------------------------- #

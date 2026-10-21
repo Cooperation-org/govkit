@@ -330,6 +330,36 @@ class EventKind(models.TextChoices):
     DELETE = "delete", "Removed"
 
 
+class DocumentKind(models.TextChoices):
+    SAFE = "SAFE", "SAFE agreement"
+    BYLAWS = "BYLAWS", "Bylaws"
+    CERTIFICATE = "CERTIFICATE", "Certificate of incorporation"
+    OTHER = "OTHER", "Other"
+
+
+class CompanyDocument(OrgScoped):
+    """One of the company's legal documents: the SAFE agreement (one rolling SAFE serves
+    every investor in it), the bylaws, the certificate of incorporation, anything else.
+
+    ``url`` is where the file is: an upload lands in GovKit's bucket
+    (apps.commons.storage) and its URL is stored here, or an admin pastes a link to the
+    team's own copy."""
+
+    kind = models.CharField(max_length=12, choices=DocumentKind.choices, default=DocumentKind.OTHER)
+    title = models.CharField(max_length=200)
+    url = models.URLField(max_length=500)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["kind", "-uploaded_at", "-id"]
+
+    def __str__(self):
+        return f"CompanyDocument({self.org.slug}, {self.title})"
+
+
 class CapTableEvent(models.Model):
     """
     One change to the cap table. APPEND-ONLY, like apps.orgs.models.ChecklistEvent:

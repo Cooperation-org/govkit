@@ -23,4 +23,6 @@ urlpatterns = [
     path("valuations/<int:pk>/", views.save_valuation, name="save_valuation"),
     path("valuations/<int:pk>/delete/", views.delete_valuation, name="delete_valuation"),
     path("franchise-tax/", views.save_franchise_tax, name="save_franchise_tax"),
+    path("documents/add/", views.add_document, name="add_document"),
+    path("documents/<int:pk>/delete/", views.delete_document, name="delete_document"),
 ]

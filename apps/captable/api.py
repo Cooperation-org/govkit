@@ -19,6 +19,9 @@ OrgContextMiddleware resolves ``request.org`` and answers non-members 403.
     POST   /api/v1/captable/orgs/<slug>/stock-classes/       add a class (admin)
     PATCH  /api/v1/captable/orgs/<slug>/stock-classes/<id>/  edit (admin)
     DELETE /api/v1/captable/orgs/<slug>/stock-classes/<id>/  remove an unused class (admin)
+    GET    /api/v1/captable/orgs/<slug>/documents/           the company's documents (members)
+    POST   /api/v1/captable/orgs/<slug>/documents/           add one: kind, title, file or url (admin)
+    DELETE /api/v1/captable/orgs/<slug>/documents/<id>/      remove one (admin)
     GET    /api/v1/captable/orgs/<slug>/valuations/          409A and round prices (members)
     POST   /api/v1/captable/orgs/<slug>/valuations/          add (admin)
     PATCH  /api/v1/captable/orgs/<slug>/valuations/<id>/     edit (admin)
@@ -53,6 +56,8 @@ from apps.orgs.models import MembershipRole
 from . import ocf, services
 from .models import (
     POOL_DILUTION_CHOICES,
+    CompanyDocument,
+    DocumentKind,
     EntityType,
     Instrument,
     Investment,
@@ -518,6 +523,52 @@ def ocf_zip(org) -> bytes:
     return buf.getvalue()
 
 
+def document_dict(d):
+    return {
+        "document_id": d.pk,
+        "kind": d.kind,
+        "kind_label": d.get_kind_display(),
+        "title": d.title,
+        "url": d.url,
+        "uploaded_by": str(d.uploaded_by) if d.uploaded_by else None,
+        "uploaded_at": d.uploaded_at.isoformat(),
+    }
+
+
+class DocumentsView(_CapView):
+    def answer(self, request, status=200):
+        return Response(
+            {
+                "documents": [document_dict(d) for d in services.documents(request.org)],
+                "kinds": DocumentKind.choices,
+            },
+            status=status,
+        )
+
+    def get(self, request, org_slug):
+        return self.answer(request)
+
+    def post(self, request, org_slug):
+        data = _pick(request.data, ("kind", "title", "url"))
+        return self.run(
+            request,
+            lambda: services.add_document(
+                request.org, upload=request.FILES.get("file"), by=request.user, **data
+            ),
+            answer=lambda: self.answer(request, 201),
+        )
+
+
+class DocumentView(DocumentsView):
+    def delete(self, request, org_slug, pk):
+        doc = get_object_or_404(CompanyDocument.objects.for_org(request.org), pk=pk)
+        return self.run(
+            request,
+            lambda: services.delete_document(doc, by=request.user),
+            answer=lambda: self.answer(request),
+        )
+
+
 class OcfView(_CapView):
     def get(self, request, org_slug):
         # ``format`` is DRF's own suffix parameter, so the zip is asked for as ?as=zip.
@@ -545,6 +596,8 @@ urlpatterns = [
     path(ORG + "valuations/", ValuationsView.as_view(), name="captable-valuations"),
     path(ORG + "valuations/<int:pk>/", ValuationView.as_view(), name="captable-valuation"),
     path(ORG + "franchise-tax/", FranchiseTaxView.as_view(), name="captable-franchise-tax"),
+    path(ORG + "documents/", DocumentsView.as_view(), name="captable-documents"),
+    path(ORG + "documents/<int:pk>/", DocumentView.as_view(), name="captable-document"),
     path(ORG + "events/", EventsView.as_view(), name="captable-events"),
     path(ORG + "ocf/", OcfView.as_view(), name="captable-ocf"),
 ]

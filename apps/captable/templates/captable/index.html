@@ -484,6 +484,43 @@
     </div>
   {% endif %}
 
+  {% if documents or is_admin %}
+    <h2 id="documents">Documents</h2>
+    <div class="gk-card">
+      <table class="gk-cap">
+        <tbody>
+          {% for d in documents %}
+            <tr>
+              <td class="gk-muted">{{ d.get_kind_display }}</td>
+              <td><a href="{{ d.url }}" rel="noopener" target="_blank">{{ d.title }} &nearr;</a></td>
+              <td class="gk-muted">{{ d.uploaded_at|date:"Y-m-d" }}{% if d.uploaded_by %} · {{ d.uploaded_by }}{% endif %}</td>
+              {% if is_admin %}
+                <td>
+                  <form method="post" action="{% url 'captable:delete_document' org_slug=current_org.slug pk=d.pk %}" class="gk-inline-form">
+                    {% csrf_token %}<button type="submit" class="gk-btn-quiet">Remove</button>
+                  </form>
+                </td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if is_admin %}
+        {# AI-written placeholders. #}
+        <form method="post" enctype="multipart/form-data" action="{% url 'captable:add_document' org_slug=current_org.slug %}" class="gk-cap-row">
+          {% csrf_token %}
+          <select name="kind" aria-label="Kind of document">
+            {% for v, l in document_kinds %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+          </select>
+          <input name="title" placeholder="Title" aria-label="Title" size="18">
+          {% if uploads_on %}<input type="file" name="file" accept="application/pdf,image/*" aria-label="File">{% endif %}
+          <input type="url" name="url" placeholder="{% if uploads_on %}or a link{% else %}Link to the document{% endif %}" aria-label="Link to the document" size="18">
+          <button type="submit" class="gk-btn-quiet">Add</button>
+        </form>
+      {% endif %}
+    </div>
+  {% endif %}
+
   {% if franchise %}
     <h2 id="franchise-tax">Delaware franchise tax</h2>
     <div class="gk-card">

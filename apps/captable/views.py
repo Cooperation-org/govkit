@@ -12,6 +12,8 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from apps.commons import storage
+
 from . import services
 from .templatetags.captable_fmt import as_pct, money, plain
 from .api import is_cap_admin
@@ -19,6 +21,8 @@ from django.utils import timezone
 
 from .models import (
     POOL_DILUTION_CHOICES,
+    CompanyDocument,
+    DocumentKind,
     ConversionTiming,
     EntityType,
     Instrument,
@@ -42,6 +46,7 @@ HISTORY_ANCHORS = {
     "stock_class": "classes",
     "valuation": "valuations",
     "franchise_tax_year": "franchise-tax",
+    "document": "documents",
 }
 
 
@@ -100,6 +105,9 @@ def index(request, org_slug):
         "outside": next((ln for ln in lines if ln.kind == services.KIND_OUTSIDE), None),
         "valuations": list(Valuation.objects.for_org(org).select_related("stock_class")),
         "valuation_types": ValuationType.choices,
+        "documents": services.documents(org),
+        "document_kinds": DocumentKind.choices,
+        "uploads_on": storage.configured(),
         "franchise": franchise,
         "franchise_years": franchise_years,
         "history": [
@@ -341,6 +349,28 @@ def delete_valuation(request, pk):
         get_object_or_404(Valuation.objects.for_org(request.org), pk=pk), by=request.user
     )
     return "valuations"
+
+
+@_admin_action
+def add_document(request):
+    p = request.POST
+    services.add_document(
+        request.org,
+        kind=p.get("kind", ""),
+        title=p.get("title", ""),
+        url=p.get("url", ""),
+        upload=request.FILES.get("file"),
+        by=request.user,
+    )
+    return "documents"
+
+
+@_admin_action
+def delete_document(request, pk):
+    services.delete_document(
+        get_object_or_404(CompanyDocument.objects.for_org(request.org), pk=pk), by=request.user
+    )
+    return "documents"
 
 
 @_admin_action

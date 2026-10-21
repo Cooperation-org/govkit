@@ -1654,6 +1654,10 @@
         // AI-written labels; each answer saves to the cap table settings.
         { fact: true, name: 'The company', title: 'The company', text: [], ask: ['incorporated', 'entity_type'],
           links: [[gk + '/captable/#entity', 'Legal entity']] },
+        // AI-written
+        { fact: true, name: 'Your documents', title: 'Your documents', text: [
+          'The SAFE agreement, the bylaws, the certificate of incorporation: upload them where the cap table is, for the team to see.',
+        ], links: [[gk + '/captable/#documents', 'Documents']] },
         { fact: true, name: 'Invite your team', title: 'Invite your team', text: [
           // govkit orgs/members.html
           'Their link opens the public commitment page: their words go on the wall, then they land in the org.',
