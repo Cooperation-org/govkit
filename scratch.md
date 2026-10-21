@@ -1346,3 +1346,9 @@ terms (`conversion_discount_pct`, `interest_rate_pct` as percents). Page section
 #valuations, #franchise-tax (only when the state is DE), #history. Onboarding step 5 "The company".
 Not done: franchise tax reminder before March 1; Large Corporate Filer ($250,000 max) not modelled;
 signed-in check on the live site not run (no shell on the cohort VM from VM 200).
+
+## ONBOARDING: MAP OF DECISIONS FIRST (2026-10-21, in progress)
+Admin setup dialog opens on a list of the five decisions (scope, pool %, starting split,
+first valuation, pool at a priced round) with each current answer, then one step each.
+New setting `CapTableSettings.pool_dilutes_at_priced_round` (records the choice; math unchanged).
+Worker flow untouched.
