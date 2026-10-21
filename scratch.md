@@ -1334,3 +1334,8 @@ workers.vc's dash with `<govkit-captable>`. Pie page wording: sponsor dilution l
 Shipped: `<govkit-onboarding>` (govkit f308993), mounted with `<govkit-captable>` on both dash
 views (workers.vc ee85643). Closing is remembered in localStorage per person+org, not as a genesis
 event. Not done: worker step 2 shows the unit but not the rate; no first-task prefill.
+
+## CAP TABLE CARTA PARITY (2026-10-21, in progress)
+Building items 1-5 and 9 of `projects/Internal/10-21-2026-workersvc-carta-parity.md` s.4 in
+`apps/captable`: StockClass (holding class text → FK), issuer entity_type/incorporated/scope,
+SAFE and note terms on Round, Delaware franchise tax, CapTableEvent history, Valuation.
