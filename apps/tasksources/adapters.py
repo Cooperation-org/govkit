@@ -459,9 +459,11 @@ class TaigaAdapter(TaskSourceAdapter):
                         due_date=story.get("due_date") or None,
                         created_date=story.get("created_date") or None,
                         modified_date=story.get("modified_date") or None,
-                        order=story.get("backlog_order")
-                        if isinstance(story.get("backlog_order"), int)
-                        else None,
+                        order=(
+                            story.get("backlog_order")
+                            if isinstance(story.get("backlog_order"), int)
+                            else None
+                        ),
                     )
                 )
         return results

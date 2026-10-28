@@ -51,8 +51,14 @@ MODULES = [
                 "Find your team's channel in the LinkedTrust Discord and ensure all team members have access",
             ),
             ("exist.goals", "Create your first goals (example: find first customers)"),
-            ("exist.tasks", "Create your first tasks on the task board (example: define customer archetype, reach out to friendlies, get feedback)"),
-            ("exist.crm", "Create at least 3 initial contact targets on the CRM, maybe people you already know"),
+            (
+                "exist.tasks",
+                "Create your first tasks on the task board (example: define customer archetype, reach out to friendlies, get feedback)",
+            ),
+            (
+                "exist.crm",
+                "Create at least 3 initial contact targets on the CRM, maybe people you already know",
+            ),
         ],
     ),
     (
@@ -60,15 +66,27 @@ MODULES = [
         "Who's it for",
         1,
         [
-            ("who.team-kickoff", "Hold your team kickoff meeting, and invite all your team members"),
+            (
+                "who.team-kickoff",
+                "Hold your team kickoff meeting, and invite all your team members",
+            ),
             ("who.calendar-standup", "Create your team calendar and set your standup schedule"),
             ("who.what-problem", "Write down what problem you are trying to solve, for who"),
             ("who.set-goal", "Set a goal"),
             ("who.tasks", "Create tasks on your task board, and do one drop"),
-            ("who.expand-crm", "Try to add 10 contacts; try to talk to at least 3 people who have the problem you are trying to solve"),
-            ("who.forwardable-email", "If you have not written a forwardable intro email before, read how"),
+            (
+                "who.expand-crm",
+                "Try to add 10 contacts; try to talk to at least 3 people who have the problem you are trying to solve",
+            ),
+            (
+                "who.forwardable-email",
+                "If you have not written a forwardable intro email before, read how",
+            ),
             ("who.ask", "Ask for what you need"),
-            ("who.report-prep", "Prepare your team's 5 minute slot at the Monday workers.vc meeting: what you can share from last week, what you will do this week, what you need"),
+            (
+                "who.report-prep",
+                "Prepare your team's 5 minute slot at the Monday workers.vc meeting: what you can share from last week, what you will do this week, what you need",
+            ),
         ],
     ),
     (
@@ -76,12 +94,24 @@ MODULES = [
         "Build",
         2,
         [
-            ("build.meeting", "Hold your own team standup.  What can you build and share this week?"),
+            (
+                "build.meeting",
+                "Hold your own team standup.  What can you build and share this week?",
+            ),
             ("build.smallest", "Define the smallest thing someone can try, or that you can show"),
             ("build.in-front-of-user", "Put it in front of one or more users"),
-            ("build.research", "Research channels and potential targets.  How will you reach your customers?"),
-            ("build.present", "Share your results at the Monday workers.vc meeting, in your team's 5 minute slot"),
-            ("build.update-goals-tasks", "Update your goals and tasks.  Approve completed work.  Has your archetype or core problem changed?"),
+            (
+                "build.research",
+                "Research channels and potential targets.  How will you reach your customers?",
+            ),
+            (
+                "build.present",
+                "Share your results at the Monday workers.vc meeting, in your team's 5 minute slot",
+            ),
+            (
+                "build.update-goals-tasks",
+                "Update your goals and tasks.  Approve completed work.  Has your archetype or core problem changed?",
+            ),
         ],
     ),
     (
@@ -89,12 +119,21 @@ MODULES = [
         "Iterate",
         3,
         [
-            ("iterate.meeting", "Hold your own team standup.  What do you want to iterate on based on feedback?"),
+            (
+                "iterate.meeting",
+                "Hold your own team standup.  What do you want to iterate on based on feedback?",
+            ),
             ("iterate.smallest", "What is something you can actually try out this week"),
             ("iterate.in-front-of-user", "Put it in front of one or more users"),
             ("iterate.partners", "Talk to one or more potential partners, channels, or allies"),
-            ("iterate.present", "Share your results at the Monday workers.vc meeting, in your team's 5 minute slot"),
-            ("iterate.update-goals-tasks", "Update your goals and tasks. Approve completed work. Will you seek direct customers, sales channels, and/or funding?"),
+            (
+                "iterate.present",
+                "Share your results at the Monday workers.vc meeting, in your team's 5 minute slot",
+            ),
+            (
+                "iterate.update-goals-tasks",
+                "Update your goals and tasks. Approve completed work. Will you seek direct customers, sales channels, and/or funding?",
+            ),
         ],
     ),
     (
@@ -113,15 +152,36 @@ MODULES = [
         5,
         [
             ("agreements.meeting", "At your team standup, reflect on progress and team"),
-            ("agreements.agreements", "Decide if you want to formalize an agreement through Slicing Pie or on the dashboard"),
-            ("agreements.customize", "Review the standard agreements and decide if you want to customize them"),
-            ("agreements.mutual", "Provide LinkedIn reviews, certificates and other mutual assistance to teammates"),
-            ("agreements.plan", "Plan if and how to continue after the accelerator, what entity to form, and sign the customized agreements"),
+            (
+                "agreements.agreements",
+                "Decide if you want to formalize an agreement through Slicing Pie or on the dashboard",
+            ),
+            (
+                "agreements.customize",
+                "Review the standard agreements and decide if you want to customize them",
+            ),
+            (
+                "agreements.mutual",
+                "Provide LinkedIn reviews, certificates and other mutual assistance to teammates",
+            ),
+            (
+                "agreements.plan",
+                "Plan if and how to continue after the accelerator, what entity to form, and sign the customized agreements",
+            ),
             # Graduation requirements, golda's graduation email, 2026-09-28.
             ("agreements.pie", "Graduation: have a pie in the dashboard with more than one member"),
-            ("agreements.vc-slice", "Grant Workers.VC itself a slice, in proportion to its value to you"),
-            ("agreements.demo", "Come to ONE of the final two sessions, Monday at 7am OR Tuesday at 7am PT, and we will record your latest demo to share"),
-            ("agreements.artifact", "Upload an artifact: a demo video, screenshots, pitch deck or real world photo"),
+            (
+                "agreements.vc-slice",
+                "Grant Workers.VC itself a slice, in proportion to its value to you",
+            ),
+            (
+                "agreements.demo",
+                "Come to ONE of the final two sessions, Monday at 7am OR Tuesday at 7am PT, and we will record your latest demo to share",
+            ),
+            (
+                "agreements.artifact",
+                "Upload an artifact: a demo video, screenshots, pitch deck or real world photo",
+            ),
             ("agreements.recommend-vc", "Write a recommendation for Workers.VC"),
         ],
     ),
@@ -226,12 +286,8 @@ ITEM_LINKS = {
     "money.one-page": [("Money", "/projects/")],
     "agreements.pie": [("Your pie", "/pie/")],
     "agreements.vc-slice": [("Your pie", "/pie/")],
-    "agreements.artifact": [
-        ("Upload to Qrati", "https://qrati.com/event/workersvc-cohort-4e89e2")
-    ],
-    "agreements.recommend-vc": [
-        ("Recommend Workers.VC", "https://live.linkedtrust.us/e/124858")
-    ],
+    "agreements.artifact": [("Upload to Qrati", "https://qrati.com/event/workersvc-cohort-4e89e2")],
+    "agreements.recommend-vc": [("Recommend Workers.VC", "https://live.linkedtrust.us/e/124858")],
 }
 
 MODULE_LABELS = {key: label for key, label, _week, _items in MODULES}
@@ -424,9 +480,7 @@ def _written_keys(org):
         return frozenset()
     from .models import ChecklistTask
 
-    return frozenset(
-        ChecklistTask.objects.filter(org=org).values_list("item_key", flat=True)
-    )
+    return frozenset(ChecklistTask.objects.filter(org=org).values_list("item_key", flat=True))
 
 
 def _item_links(item, org):

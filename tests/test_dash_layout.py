@@ -46,7 +46,10 @@ def test_rejects_non_object_and_oversize(client, person):
     bad = client.put(URL, {"layout": [1]}, content_type="application/json", **EMBED)
     assert bad.status_code == 400
     big = {"x": "a" * 40_000}
-    assert client.put(URL, {"layout": big}, content_type="application/json", **EMBED).status_code == 400
+    assert (
+        client.put(URL, {"layout": big}, content_type="application/json", **EMBED).status_code
+        == 400
+    )
 
 
 @pytest.mark.django_db

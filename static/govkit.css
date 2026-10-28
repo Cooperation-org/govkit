@@ -942,3 +942,6 @@ details.gk-unfold fieldset { border: none; padding: 0.25rem 0 0.75rem; margin: 0
 .gk-cap-row label { display: inline-flex; align-items: center; gap: 0.25rem; }
 .gk-cap-history { list-style: none; padding: 0; margin: 0 0 1rem; }
 .gk-cap-history li { padding: 0.2rem 0; }
+
+/* pie page: Governance / Equity switch under the h1 */
+.gk-view-switch { margin: 0.25rem 0 0.5rem; }

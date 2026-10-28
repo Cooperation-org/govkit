@@ -286,9 +286,7 @@ def delete_resume(claim_id):
     url, token = _resume_url(claim_id)
     if not url:
         return "CVs are not wired up here."
-    req = urllib.request.Request(
-        url, headers={"Authorization": f"Bearer {token}"}, method="DELETE"
-    )
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"}, method="DELETE")
     try:
         with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:  # nosec B310
             resp.read()

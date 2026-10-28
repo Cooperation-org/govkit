@@ -317,3 +317,88 @@ def test_api_summary_forbidden_for_non_member(client, org_factory, user_factory)
     client.force_login(outsider)
     resp = client.get(f"/api/v1/pie/orgs/{org.slug}/summary/")
     assert resp.status_code == 403
+
+
+# --------------------------------------------------------------------------- #
+# Pie page: Governance (default) and Equity views, drop history under the pie.
+# --------------------------------------------------------------------------- #
+def _equity_org(org_factory, user_factory, membership_factory, make_run, make_line):
+    from apps.captable import services as captable
+    from apps.orgs.models import ExternalHolder, StakeholderType
+
+    org = org_factory()
+    admin = membership_factory(org, user_factory(), role=MembershipRole.ADMIN)
+    worker = membership_factory(org, user_factory())
+    run = make_run(org)
+    make_line(org, run, admin, Decimal("600"))
+    make_line(org, run, worker, Decimal("400"))
+    rnd = captable.add_round(
+        org, name="Seed", date="2026-10-01", instrument="safe", post_money_valuation="1000000"
+    )
+    angel = ExternalHolder.objects.create(
+        slug="angel-co", display_name="Angel Co", stakeholder_type=StakeholderType.INSTITUTION
+    )
+    captable.add_investment(org, rnd, holder=angel, amount="100000")
+    return org, admin, worker, run
+
+
+def test_pie_page_defaults_to_governance(
+    client, org_factory, user_factory, membership_factory, make_run, make_line
+):
+    org, admin, worker, run = _equity_org(
+        org_factory, user_factory, membership_factory, make_run, make_line
+    )
+    client.force_login(worker.user)
+    body = client.get(f"/o/{org.slug}/pie/").content.decode()
+    assert 'href="?view=governance" aria-current="page"' in body
+    assert "Investor side" not in body and "Angel Co" not in body
+    # The pie comes before the drop history, which comes before the explanation.
+    assert body.index("gk-pie-svg") < body.index("Drop history") < body.index("gk-about")
+    assert f"/o/{org.slug}/drops/{run.pk}/" in body
+    assert "Run a drop" not in body  # members see the history, not the button
+
+
+def test_pie_page_equity_view_is_the_whole_company(
+    client, org_factory, user_factory, membership_factory, make_run, make_line
+):
+    org, admin, worker, _ = _equity_org(
+        org_factory, user_factory, membership_factory, make_run, make_line
+    )
+    client.force_login(admin.user)
+    resp = client.get(f"/o/{org.slug}/pie/?view=equity")
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert 'href="?view=equity" aria-current="page"' in body
+    assert "Founders pool" in body and "Investor side" in body
+    assert "Angel Co" in body and "10.00%" in body  # 100,000 / 1,000,000 post-money
+    assert "Not yet sold" in body and "35.00%" in body  # 45 - 10
+    assert "33.00%" in body  # 600 of 1,000 x 55% pool
+    assert body.count('<path class="gk-cat-') == 4  # two founders, one investor, not yet sold
+    assert "Run a drop" in body  # admin
+    assert f"/o/{org.slug}/drops/open/" in body
+
+
+def test_pie_page_equity_view_pool_only_scope(
+    client, org_factory, user_factory, membership_factory, make_run, make_line
+):
+    from apps.captable import services as captable
+
+    org, admin, worker, _ = _equity_org(
+        org_factory, user_factory, membership_factory, make_run, make_line
+    )
+    captable.set_settings(org, scope="POOL_ONLY")
+    client.force_login(worker.user)
+    body = client.get(f"/o/{org.slug}/pie/?view=equity").content.decode()
+    assert "Investor side" not in body and "Angel Co" not in body
+    assert "Held outside this record" in body and "45.00%" in body
+
+
+def test_pie_page_equity_view_with_no_cap_table(
+    client, org_factory, user_factory, membership_factory
+):
+    org = org_factory()
+    m = membership_factory(org, user_factory())
+    client.force_login(m.user)
+    body = client.get(f"/o/{org.slug}/pie/?view=equity").content.decode()
+    assert "Founders pool" in body and "Not yet sold" in body
+    assert "No runs yet." in body

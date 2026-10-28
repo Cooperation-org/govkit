@@ -142,9 +142,7 @@ def _catch_up(edition: Edition, end: date) -> None:
         return
     edition.items += fresh
     _sort_calendar(edition)
-    edition.save(
-        update_fields=["sections", "items", "window_end", "tz_name", "updated_at"]
-    )
+    edition.save(update_fields=["sections", "items", "window_end", "tz_name", "updated_at"])
 
 
 GOALS_SECTION = "goals"

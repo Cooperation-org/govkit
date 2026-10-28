@@ -123,9 +123,9 @@ def _card_context(user):
     return {
         "card_invite": invite if settings.COHORT_VIDEO_SRC else None,
         "cv_invite": invite,
-        "cv_filename": (card.get(invite.committed_claim_id) or {}).get("resume_filename", "")
-        if invite
-        else "",
+        "cv_filename": (
+            (card.get(invite.committed_claim_id) or {}).get("resume_filename", "") if invite else ""
+        ),
         "card_video_src": settings.COHORT_VIDEO_SRC,
         "linkedtrust_url": settings.LINKEDTRUST_URL.rstrip("/"),
     }

@@ -227,9 +227,7 @@ class TaskDetailView(APIView):
             adapter, source, detail = self._find(request, external_id)
             # A status has to be one the tracker itself offered for this task.
             # Anything else is a caller guessing at another board's ids.
-            if status_id is not None and str(status_id) not in {
-                s["id"] for s in detail.statuses
-            }:
+            if status_id is not None and str(status_id) not in {s["id"] for s in detail.statuses}:
                 return Response(
                     {"detail": "That is not a status this task can move to."},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -421,9 +419,7 @@ class ChecklistItemTaskView(TaskDetailView):
             )
         source = sources[0]
         try:
-            detail = get_adapter(source).create_task(
-                subject=known[1], description=str(description)
-            )
+            detail = get_adapter(source).create_task(subject=known[1], description=str(description))
         except NotImplementedError:
             return Response(
                 {"detail": "This tracker is read-only."},

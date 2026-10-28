@@ -29,8 +29,17 @@ class VentureInterestAdmin(admin.ModelAdmin):
 
 @admin.register(SponsorPledge)
 class SponsorPledgeAdmin(admin.ModelAdmin):
-    list_display = ("name", "org_name", "email", "kind", "tier", "amount", "org", "created_at",
-                    "responded_at")
+    list_display = (
+        "name",
+        "org_name",
+        "email",
+        "kind",
+        "tier",
+        "amount",
+        "org",
+        "created_at",
+        "responded_at",
+    )
     list_filter = ("kind", "tier", "org", "list_publicly")
     search_fields = ("name", "email", "org_name", "offer", "note")
     readonly_fields = ("created_at",)

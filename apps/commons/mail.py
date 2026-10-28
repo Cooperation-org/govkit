@@ -107,7 +107,8 @@ def notify_sponsor_pledge(pledge) -> None:
     if pledge.note:
         lines.append(f"In their words:\n{pledge.note}")
     lines.append(
-        "Listing: " + (f"as “{pledge.public_name}”" if pledge.public_name else "asked not to be listed")
+        "Listing: "
+        + (f"as “{pledge.public_name}”" if pledge.public_name else "asked not to be listed")
     )
     lines.append(
         f"Write back to {pledge.email}, then mark it answered on the dashboard so it"

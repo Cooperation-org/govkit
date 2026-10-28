@@ -8,15 +8,207 @@
       <a href="{% url 'pie:standing' org_slug=current_org.slug %}">My standing &rarr;</a>
     {% endif %}
   </div>
-  <p class="gk-muted">
-    Live shares of <strong>{{ pie.total }} {{ pie.unit_name }}</strong> of issued equity
-    across {{ pie.member_count }} member{{ pie.member_count|pluralize }}{% if pie.sponsor_count %}
-    and {{ pie.sponsor_count }} sponsor{{ pie.sponsor_count|pluralize }}{% endif %}. Every slice
-    traces back to the work that earned it — expand a row to see the exact drops, tasks and
-    opening balances.
-  </p>
+  <nav class="gk-tabs gk-view-switch" aria-label="Pie view">
+    <a class="gk-tab" href="?view=governance"{% if view == "governance" %} aria-current="page"{% endif %}>Governance</a>
+    <a class="gk-tab" href="?view=equity"{% if view == "equity" %} aria-current="page"{% endif %}>Equity</a>
+  </nav>
+
+  {% if view == "equity" %}
+    {% include "pie/_equity.html" %}
+  {% else %}
+    {% if pie.total > 0 %}
+      <div class="gk-card">
+        {% include "pie/_pie_svg.html" %}
+
+        <table>
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>Role</th>
+              <th class="gk-num">Issued ({{ pie.unit_name }})</th>
+              <th class="gk-num">Share</th>
+              <th>&nbsp;</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              {% with s=row.slice %}
+                <tr>
+                  <td>
+                    <span class="gk-leaf gk-cat-{{ row.cat }}"></span>
+                    {% if s.holder_url %}
+                      <a href="{{ s.holder_url }}" target="_blank" rel="noopener">{{ s.member_label }}</a>
+                    {% else %}{{ s.member_label }}{% endif %}
+                  </td>
+                  <td class="gk-muted">{{ s.role }}</td>
+                  <td class="gk-num">{{ s.issued_total }}</td>
+                  <td class="gk-num">{{ s.share_pct }}%</td>
+                  <td>
+                    <div class="gk-rowbar-track">
+                      <div class="gk-rowbar gk-cat-{{ row.cat }}" style="width: {{ s.share_pct }}%"></div>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="5">
+                    {% if s.lines or s.opening_balances or s.stakes or can_set_starting %}
+                      <details class="gk-trace">
+                        <summary>Trace {{ s.member_label }}'s {{ s.issued_total }} {{ pie.unit_name }}</summary>
+                        {% if s.lines %}
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Drop line</th>
+                                <th>Tasks</th>
+                                <th class="gk-num">Computed</th>
+                                <th class="gk-num">Adjustment</th>
+                                <th class="gk-num">Final</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {% for line in s.lines %}
+                                <tr>
+                                  <td>Run #{{ line.run_id }} · line #{{ line.line_id }}</td>
+                                  <td>
+                                    {% for t in line.tasks %}
+                                      {% if t.external_url %}
+                                        <a href="{{ t.external_url }}" target="_blank" rel="noopener">{{ t.external_id }}</a>
+                                      {% else %}{{ t.external_id }}{% endif %}
+                                      {% if t.subject %}<span class="gk-muted">— {{ t.subject }}</span>{% endif %}
+                                      <br>
+                                    {% empty %}<span class="gk-muted">—</span>{% endfor %}
+                                  </td>
+                                  <td class="gk-num">{{ line.computed_value }}</td>
+                                  <td class="gk-num">
+                                    {{ line.adjustment }}
+                                    {% if line.adjustment_reason %}
+                                      <br><span class="gk-muted">{{ line.adjustment_reason }}</span>
+                                    {% endif %}
+                                  </td>
+                                  <td class="gk-num">{{ line.final_value }}</td>
+                                </tr>
+                              {% endfor %}
+                            </tbody>
+                          </table>
+                        {% endif %}
+                        {% if s.opening_balances %}
+                          <table>
+                            <thead>
+                              <tr><th>Opening balance</th><th>Source</th><th class="gk-num">Value</th></tr>
+                            </thead>
+                            <tbody>
+                              {% for ob in s.opening_balances %}
+                                <tr{% if ob.is_adjustment %} class="gk-trace-adjustment"{% endif %}>
+                                  <td>#{{ ob.opening_balance_id }}</td>
+                                  <td class="gk-muted">{{ ob.source_note|default:"—" }}</td>
+                                  <td class="gk-num">{{ ob.value }}</td>
+                                </tr>
+                              {% endfor %}
+                            </tbody>
+                          </table>
+                        {% endif %}
+                        {% if can_set_starting and not s.is_sponsor %}
+                          {% url 'orgs:member_set_starting' org_slug=current_org.slug membership_id=s.membership_id as set_url %}
+                          <p class="gk-set-line">Starting value
+                            {% include "orgs/_starting_edit.html" with action=set_url field="value" current=s.opening_total suffix=pie.unit_name label="Starting value for "|add:s.member_label back="pie" %}
+                          </p>
+                        {% endif %}
+                        {% if s.stakes %}
+
+                          <table>
+                            <thead>
+                              <tr><th>Sponsor stake</th><th>Source</th><th class="gk-num">Value</th></tr>
+                            </thead>
+                            <tbody>
+                              {% for st in s.stakes %}
+                                <tr{% if st.is_adjustment %} class="gk-trace-adjustment"{% endif %}>
+                                  <td>#{{ st.stake_id }}</td>
+                                  <td class="gk-muted">
+                                    {{ st.source_note|default:"—" }}
+                                    {% if st.target_pct %}<br>{{ st.target_pct }}% of the starting split{% endif %}
+                                  </td>
+                                  <td class="gk-num">{{ st.value }}</td>
+                                </tr>
+                              {% endfor %}
+                            </tbody>
+                          </table>
+                          {% if can_set_starting %}
+                            {% url 'orgs:sponsor_set_starting' org_slug=current_org.slug holder_slug=s.holder_slug as sponsor_set_url %}
+                            {% if s.stake_pct_total is not None %}
+                              <p class="gk-set-line">Share of the starting split
+                                {% include "orgs/_starting_edit.html" with action=sponsor_set_url field="target_pct" current=s.stake_pct_total suffix="%" label="Share of the starting split held by "|add:s.member_label back="pie" %}
+                              </p>
+                            {% endif %}
+                            {% if s.stake_fixed_total or s.stake_pct_total is None %}
+                              <p class="gk-set-line">Amount held
+                                {% include "orgs/_starting_edit.html" with action=sponsor_set_url field="value" current=s.stake_fixed_total suffix=pie.unit_name label="Amount held by "|add:s.member_label back="pie" %}
+                              </p>
+                            {% endif %}
+                          {% endif %}
+                          <p class="gk-muted">
+                            A sponsor's share is equity only. It carries no vote, and it dilutes
+                            like every other pie share as members earn. Work does not dilute
+                            investors on the <a href="{% url 'captable:index' org_slug=current_org.slug %}">cap table</a>.
+                          </p>
+                        {% endif %}
+                      </details>
+                    {% else %}
+                      <span class="gk-muted">No issued equity yet.</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endwith %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="gk-muted">No issued equity yet — approve a drop run and the pie appears here.</p>
+    {% endif %}
+  {% endif %}
+
+  <div class="gk-card" id="drops">
+    <div class="gk-pagehead">
+      <h2>Drop history</h2>
+      {% if can_steward %}
+        <form method="post" action="{% url 'drops:open_run' org_slug=current_org.slug %}">
+          {% csrf_token %}
+          <button type="submit" class="gk-btn gk-btn-primary">Run a drop</button>
+        </form>
+      {% endif %}
+    </div>
+    {% if runs %}
+      <table class="gk-table">
+        <thead>
+          <tr><th>Run</th><th>State</th><th>Lines</th><th>Opened</th><th>Approved</th></tr>
+        </thead>
+        <tbody>
+          {% for run in runs %}
+            <tr>
+              <td><a href="{% url 'drops:review' org_slug=current_org.slug run_id=run.pk %}">#{{ run.pk }}</a></td>
+              <td>{{ run.get_state_display }}</td>
+              <td>{{ run.lines.count }}</td>
+              <td>{{ run.opened_at|date:"Y-m-d H:i" }}</td>
+              <td>{% if run.approved_at %}{{ run.approved_at|date:"Y-m-d H:i" }}{% else %}&mdash;{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p><a href="{% url 'drops:index' org_slug=current_org.slug %}">All drops &rarr;</a></p>
+    {% else %}
+      <p class="gk-muted">No runs yet.</p>
+    {% endif %}
+  </div>
+
   <details class="gk-about">
     <summary>The slices in this pie show who has a say in the venture, based on work actually done.</summary>
+    <p>
+      Live shares of <strong>{{ pie.total }} {{ pie.unit_name }}</strong> of issued equity
+      across {{ pie.member_count }} member{{ pie.member_count|pluralize }}{% if pie.sponsor_count %}
+      and {{ pie.sponsor_count }} sponsor{{ pie.sponsor_count|pluralize }}{% endif %}. Every slice
+      traces back to the work that earned it — expand a row to see the exact drops, tasks and
+      opening balances.
+    </p>
     <p>
       Peer reviewed tasks drop into equity: work is valued on the task, reviewed by the
       team, and issued as options in periodic drops. Any adjustment during a drop is
@@ -129,153 +321,4 @@
     </p>
   {% endif %}
 
-  {% if pie.total > 0 %}
-    <div class="gk-card">
-      {% include "pie/_pie_svg.html" %}
-
-      <table>
-        <thead>
-          <tr>
-            <th>Member</th>
-            <th>Role</th>
-            <th class="gk-num">Issued ({{ pie.unit_name }})</th>
-            <th class="gk-num">Share</th>
-            <th>&nbsp;</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in rows %}
-            {% with s=row.slice %}
-              <tr>
-                <td>
-                  <span class="gk-leaf gk-cat-{{ row.cat }}"></span>
-                  {% if s.holder_url %}
-                    <a href="{{ s.holder_url }}" target="_blank" rel="noopener">{{ s.member_label }}</a>
-                  {% else %}{{ s.member_label }}{% endif %}
-                </td>
-                <td class="gk-muted">{{ s.role }}</td>
-                <td class="gk-num">{{ s.issued_total }}</td>
-                <td class="gk-num">{{ s.share_pct }}%</td>
-                <td>
-                  <div class="gk-rowbar-track">
-                    <div class="gk-rowbar gk-cat-{{ row.cat }}" style="width: {{ s.share_pct }}%"></div>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td colspan="5">
-                  {% if s.lines or s.opening_balances or s.stakes or can_set_starting %}
-                    <details class="gk-trace">
-                      <summary>Trace {{ s.member_label }}'s {{ s.issued_total }} {{ pie.unit_name }}</summary>
-                      {% if s.lines %}
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Drop line</th>
-                              <th>Tasks</th>
-                              <th class="gk-num">Computed</th>
-                              <th class="gk-num">Adjustment</th>
-                              <th class="gk-num">Final</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {% for line in s.lines %}
-                              <tr>
-                                <td>Run #{{ line.run_id }} · line #{{ line.line_id }}</td>
-                                <td>
-                                  {% for t in line.tasks %}
-                                    {% if t.external_url %}
-                                      <a href="{{ t.external_url }}" target="_blank" rel="noopener">{{ t.external_id }}</a>
-                                    {% else %}{{ t.external_id }}{% endif %}
-                                    {% if t.subject %}<span class="gk-muted">— {{ t.subject }}</span>{% endif %}
-                                    <br>
-                                  {% empty %}<span class="gk-muted">—</span>{% endfor %}
-                                </td>
-                                <td class="gk-num">{{ line.computed_value }}</td>
-                                <td class="gk-num">
-                                  {{ line.adjustment }}
-                                  {% if line.adjustment_reason %}
-                                    <br><span class="gk-muted">{{ line.adjustment_reason }}</span>
-                                  {% endif %}
-                                </td>
-                                <td class="gk-num">{{ line.final_value }}</td>
-                              </tr>
-                            {% endfor %}
-                          </tbody>
-                        </table>
-                      {% endif %}
-                      {% if s.opening_balances %}
-                        <table>
-                          <thead>
-                            <tr><th>Opening balance</th><th>Source</th><th class="gk-num">Value</th></tr>
-                          </thead>
-                          <tbody>
-                            {% for ob in s.opening_balances %}
-                              <tr{% if ob.is_adjustment %} class="gk-trace-adjustment"{% endif %}>
-                                <td>#{{ ob.opening_balance_id }}</td>
-                                <td class="gk-muted">{{ ob.source_note|default:"—" }}</td>
-                                <td class="gk-num">{{ ob.value }}</td>
-                              </tr>
-                            {% endfor %}
-                          </tbody>
-                        </table>
-                      {% endif %}
-                      {% if can_set_starting and not s.is_sponsor %}
-                        {% url 'orgs:member_set_starting' org_slug=current_org.slug membership_id=s.membership_id as set_url %}
-                        <p class="gk-set-line">Starting value
-                          {% include "orgs/_starting_edit.html" with action=set_url field="value" current=s.opening_total suffix=pie.unit_name label="Starting value for "|add:s.member_label back="pie" %}
-                        </p>
-                      {% endif %}
-                      {% if s.stakes %}
-
-                        <table>
-                          <thead>
-                            <tr><th>Sponsor stake</th><th>Source</th><th class="gk-num">Value</th></tr>
-                          </thead>
-                          <tbody>
-                            {% for st in s.stakes %}
-                              <tr{% if st.is_adjustment %} class="gk-trace-adjustment"{% endif %}>
-                                <td>#{{ st.stake_id }}</td>
-                                <td class="gk-muted">
-                                  {{ st.source_note|default:"—" }}
-                                  {% if st.target_pct %}<br>{{ st.target_pct }}% of the starting split{% endif %}
-                                </td>
-                                <td class="gk-num">{{ st.value }}</td>
-                              </tr>
-                            {% endfor %}
-                          </tbody>
-                        </table>
-                        {% if can_set_starting %}
-                          {% url 'orgs:sponsor_set_starting' org_slug=current_org.slug holder_slug=s.holder_slug as sponsor_set_url %}
-                          {% if s.stake_pct_total is not None %}
-                            <p class="gk-set-line">Share of the starting split
-                              {% include "orgs/_starting_edit.html" with action=sponsor_set_url field="target_pct" current=s.stake_pct_total suffix="%" label="Share of the starting split held by "|add:s.member_label back="pie" %}
-                            </p>
-                          {% endif %}
-                          {% if s.stake_fixed_total or s.stake_pct_total is None %}
-                            <p class="gk-set-line">Amount held
-                              {% include "orgs/_starting_edit.html" with action=sponsor_set_url field="value" current=s.stake_fixed_total suffix=pie.unit_name label="Amount held by "|add:s.member_label back="pie" %}
-                            </p>
-                          {% endif %}
-                        {% endif %}
-                        <p class="gk-muted">
-                          A sponsor's share is equity only. It carries no vote, and it dilutes
-                          like every other pie share as members earn. Work does not dilute
-                          investors on the <a href="{% url 'captable:index' org_slug=current_org.slug %}">cap table</a>.
-                        </p>
-                      {% endif %}
-                    </details>
-                  {% else %}
-                    <span class="gk-muted">No issued equity yet.</span>
-                  {% endif %}
-                </td>
-              </tr>
-            {% endwith %}
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% else %}
-    <p class="gk-muted">No issued equity yet — approve a drop run and the pie appears here.</p>
-  {% endif %}
 {% endblock %}

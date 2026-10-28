@@ -14,6 +14,9 @@ from django.http import Http404
 from django.shortcuts import redirect, render
 from django.utils import timezone
 
+from apps.captable import services as captable
+from apps.drops.models import DropRun
+from apps.drops.views import _is_steward
 from apps.orgs.models import MembershipRole, PiePhase
 
 from .services import (
@@ -51,22 +54,22 @@ def _pie_point(angle_deg):
     return (PIE_CX + PIE_R * math.cos(rad), PIE_CY + PIE_R * math.sin(rad))
 
 
-def _svg_segments(pie):
+def _wedges(items):
     """
-    Turn the pie into circular wedges (SVG path data + leaf-class index), one per
-    member with a positive share. A lone ~100% slice gets is_full_circle instead of a
+    Turn (label, pct, leaf-class index) items into circular wedges (SVG path data), one
+    per item with a positive share. A lone ~100% item gets is_full_circle instead of a
     path (a wedge whose two edges coincide would not render).
     """
     segments = []
     angle = 0.0
-    for i, s in enumerate(pie.slices):
-        if s.share_pct <= 0:
+    for label, pct, cat in items:
+        if pct <= 0:
             continue
-        sweep = float(s.share_pct) * 3.6
+        sweep = float(pct) * 3.6
         seg = {
-            "label": s.member_label,
-            "cat": _cat_for(i),
-            "share_pct": s.share_pct,
+            "label": label,
+            "cat": cat,
+            "share_pct": pct,
             "is_full_circle": sweep >= 359.99,
             "path": "",
         }
@@ -81,6 +84,31 @@ def _svg_segments(pie):
         segments.append(seg)
         angle += sweep
     return segments
+
+
+def _svg_segments(pie):
+    """The governance pie as wedges: one per member or sponsor slice, in ledger order."""
+    return _wedges((s.member_label, s.share_pct, _cat_for(i)) for i, s in enumerate(pie.slices))
+
+
+POOL_KINDS = (captable.KIND_FOUNDER, captable.KIND_SPONSOR, captable.KIND_POOL_UNEARNED)
+VIEW_GOVERNANCE = "governance"
+VIEW_EQUITY = "equity"
+RECENT_RUNS = 5
+
+
+def _equity(org):
+    """The whole company from the cap table service: founders pool lines, then the
+    investor side (each investor, then "Not yet sold" or the outside line)."""
+    table = captable.compute_cap_table(org)
+    rows = [{"line": ln, "cat": _cat_for(i)} for i, ln in enumerate(table.lines)]
+    return {
+        "table": table,
+        "pool_rows": [r for r in rows if r["line"].kind in POOL_KINDS],
+        "investor_rows": [r for r in rows if r["line"].kind not in POOL_KINDS],
+        "pool_only": table.scope == captable.Scope.POOL_ONLY,
+        "segments": _wedges((r["line"].label, r["line"].pct_display, r["cat"]) for r in rows),
+    }
 
 
 def _rows_with_cat(pie):
@@ -106,6 +134,7 @@ def index(request, org_slug):
     org = request.org
     pie = compute_pie(org)
     membership = request.membership
+    view = VIEW_EQUITY if request.GET.get("view") == VIEW_EQUITY else VIEW_GOVERNANCE
 
     lock = current_lock_vote(org) if org.pie_phase == PiePhase.LAUNCHED else None
     progress = lock_progress(lock.vote) if lock else None
@@ -122,7 +151,12 @@ def index(request, org_slug):
         "org_slug": org_slug,
         "pie": pie,
         "rows": _rows_with_cat(pie),
-        "segments": _svg_segments(pie),
+        "view": view,
+        "segments": _svg_segments(pie) if view == VIEW_GOVERNANCE else [],
+        "equity": _equity(org) if view == VIEW_EQUITY else None,
+        # Drop history under the pie; the run itself is the Drops page's open_run.
+        "runs": DropRun.objects.for_org(org).order_by("-opened_at")[:RECENT_RUNS],
+        "can_steward": _is_steward(request),
         "pie_phase": org.pie_phase,
         "is_pie_admin": _is_pie_admin(request),
         # The starting split is adjustable in place until the team locks it in. After

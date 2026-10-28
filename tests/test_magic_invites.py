@@ -562,9 +562,7 @@ def test_signed_in_founder_accept_creates_the_venture(client, admin_org, user_fa
     ).exists()
 
 
-def test_member_of_the_inviting_org_still_gets_their_own_venture(
-    client, admin_org, user_factory
-):
+def test_member_of_the_inviting_org_still_gets_their_own_venture(client, admin_org, user_factory):
     """An accelerator member bringing their own venture is the ordinary case.
 
     BYOV never joins the inviting org, so already belonging to it decides nothing.
@@ -592,18 +590,14 @@ def test_member_of_the_inviting_org_still_gets_their_own_venture(
     venture = Org.objects.get(display_name="Wayfern")
     assert venture.id != org.id
     assert resp["Location"] == reverse("orgs:dashboard", kwargs={"org_slug": venture.slug})
-    assert Membership.objects.filter(
-        org=venture, user=founder, role=MembershipRole.ADMIN
-    ).exists()
+    assert Membership.objects.filter(org=venture, user=founder, role=MembershipRole.ADMIN).exists()
     # Both memberships stand: the accelerator one they had, and the venture they brought.
     assert Membership.objects.filter(user=founder).count() == 2
     invite.refresh_from_db()
     assert invite.status == InviteStatus.ACCEPTED
 
 
-def test_admin_reading_someone_elses_venture_mint_leaves_it_live(
-    client, admin_org, user_factory
-):
+def test_admin_reading_someone_elses_venture_mint_leaves_it_live(client, admin_org, user_factory):
     """A member opening a BYOV link addressed to someone else is previewing it.
 
     No venture is minted under the wrong founder and the single-use code survives

@@ -1363,3 +1363,12 @@ Applying `projects/Internal/10-21-2026-workersvc-review-onboarding.md` to `<govk
 (worker flow 3 steps Ownership / Options / Votes; lead flow Set up, Close, counts, Starting split,
 not set until saved, valuation format, documents list, Stock of record link) and pie page terms.
 No 90-day voting rule in apps/orgs/weighting.py, so the Votes step does not state it.
+
+## PIE PAGE: PIE FIRST, GOVERNANCE / EQUITY, DROP HISTORY (2026-10-28, shipped)
+Pie page order: h1 + My standing, Governance/Equity switch (`?view=equity`), the pie, Drop history
+(latest 5 runs, "Run a drop" for stewards/admins posting to drops:open_run, "All drops"), then the
+explanation (closed `details.gk-about`, the "Live shares" paragraph moved inside it), then the
+starting-split / lock-in cards. Equity = compute_cap_table lines: "Founders pool" group (pool %),
+worker lines inside; "Investor side" group with each investor and "Not yet sold"; POOL_ONLY scope
+shows the pool plus "Held outside this record". Math unchanged (pie share x pool %; the spec's
+work value / valuation at the drop is open, govkit-vs-spec rule 2). Partial `templates/pie/_equity.html`.

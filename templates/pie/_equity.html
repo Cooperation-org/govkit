@@ -1,0 +1,52 @@
+{% load captable_fmt %}
+{% with t=equity.table cur=equity.table.currency %}
+  <div class="gk-card" id="equity">
+    {% include "pie/_pie_svg.html" with segments=equity.segments %}
+    <table class="gk-cap">
+      <thead>
+        <tr>
+          <th>Holder</th>
+          <th class="gk-num">Of the company</th>
+          {% if t.latest_post_money %}<th class="gk-num">Value</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="gk-cap-group">
+          <td>Founders pool</td>
+          <td class="gk-num">{{ t.founders_pool_pct }}%</td>
+          {% if t.latest_post_money %}<td></td>{% endif %}
+        </tr>
+        {% for r in equity.pool_rows %}
+          <tr>
+            <td class="gk-cap-in"><span class="gk-leaf gk-cat-{{ r.cat }}"></span> {{ r.line.label }}</td>
+            <td class="gk-num">{{ r.line.pct_display }}%</td>
+            {% if t.latest_post_money %}<td class="gk-num">{{ r.line.value|money:cur }}</td>{% endif %}
+          </tr>
+        {% endfor %}
+        {% if equity.pool_only %}
+          {% for r in equity.investor_rows %}
+            <tr class="gk-cap-group">
+              <td><span class="gk-leaf gk-cat-{{ r.cat }}"></span> {{ r.line.label }}</td>
+              <td class="gk-num">{{ r.line.pct_display }}%</td>
+              {% if t.latest_post_money %}<td class="gk-num">{{ r.line.value|money:cur }}</td>{% endif %}
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr class="gk-cap-group">
+            <td>Investor side</td>
+            <td class="gk-num">{{ t.investor_pool_pct }}%</td>
+            {% if t.latest_post_money %}<td></td>{% endif %}
+          </tr>
+          {% for r in equity.investor_rows %}
+            <tr>
+              <td class="gk-cap-in"><span class="gk-leaf gk-cat-{{ r.cat }}"></span> {{ r.line.label }}{% if r.line.amount %} <span class="gk-muted">{{ r.line.amount|money:cur }} · {{ r.line.round_name }}</span>{% endif %}</td>
+              <td class="gk-num">{{ r.line.pct_display }}%</td>
+              {% if t.latest_post_money %}<td class="gk-num">{{ r.line.value|money:cur }}</td>{% endif %}
+            </tr>
+          {% endfor %}
+        {% endif %}
+      </tbody>
+    </table>
+    <p><a href="{% url 'captable:index' org_slug=current_org.slug %}">Cap table &rarr;</a></p>
+  </div>
+{% endwith %}

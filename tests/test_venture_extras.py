@@ -349,7 +349,7 @@ def test_an_agent_adds_a_quote(client, admin_org, s2s):
 
 @pytest.mark.django_db
 def test_where_they_said_it_has_to_be_a_link(client, admin_org, s2s):
-    """"one of the meetings" is an answer, not a URL. Storing it made the public
+    """ "one of the meetings" is an answer, not a URL. Storing it made the public
     page show a "see the record" link to https://one%20of%20the%20meetings/."""
     r = client.post(
         api(admin_org.slug, "quotes"),

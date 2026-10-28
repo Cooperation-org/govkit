@@ -89,9 +89,7 @@ class TestIntake:
         assert p.offer == "Six months of hosting."
 
     def test_a_dollar_sign_and_commas_are_not_a_rejection(self, client, accel_org):
-        resp = _post(
-            client, ACCEL, {"name": "Ren", "email": "ren@example.com", "amount": "$1,000"}
-        )
+        resp = _post(client, ACCEL, {"name": "Ren", "email": "ren@example.com", "amount": "$1,000"})
 
         assert resp.status_code == 201
         assert str(SponsorPledge.objects.get(pk=resp.json()["id"]).amount) == "1000.00"
@@ -140,8 +138,14 @@ class TestIntake:
         assert not SponsorPledge.objects.exists()
 
     def test_without_the_shared_secret_nothing_is_written(self, client, accel_org):
-        assert _post(client, ACCEL, {"name": "X", "email": "x@example.com"}, token="wrong").status_code == 401
-        assert _post(client, ACCEL, {"name": "X", "email": "x@example.com"}, token=None).status_code == 401
+        assert (
+            _post(client, ACCEL, {"name": "X", "email": "x@example.com"}, token="wrong").status_code
+            == 401
+        )
+        assert (
+            _post(client, ACCEL, {"name": "X", "email": "x@example.com"}, token=None).status_code
+            == 401
+        )
         assert not SponsorPledge.objects.exists()
 
     def test_an_unknown_org_is_a_404_not_a_stray_row(self, client, accel_org):
@@ -201,12 +205,19 @@ class TestTheRail:
     ):
         _sign_in(client, accel_org, user_factory, membership_factory, role=MembershipRole.MEMBER)
 
-        assert client.post(f"/api/v1/commons/sponsor-pledges/{pledge.id}/respond/", **EMBED).status_code == 403
+        assert (
+            client.post(
+                f"/api/v1/commons/sponsor-pledges/{pledge.id}/respond/", **EMBED
+            ).status_code
+            == 403
+        )
         pledge.refresh_from_db()
         assert pledge.responded_at is None
 
     def test_a_stranger_cannot_mark_it_answered(self, client, accel_org, pledge):
-        assert client.post(f"/api/v1/commons/sponsor-pledges/{pledge.id}/respond/", **EMBED).status_code in (
+        assert client.post(
+            f"/api/v1/commons/sponsor-pledges/{pledge.id}/respond/", **EMBED
+        ).status_code in (
             401,
             403,
         )
