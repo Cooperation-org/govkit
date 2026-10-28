@@ -4,6 +4,8 @@
 
 **[team-agreement.md](team-agreement.md)** · one page, six clauses, adopt or strike each.
 
+**[safe.md](safe.md)** · the investor SAFE: investor side and founders pool, converts at the next priced round.
+
 ## Components
 
 1. [Work becomes ownership](components/1-work-becomes-ownership.md)
