@@ -2086,7 +2086,9 @@
     wrap.appendChild(legend);
     host.appendChild(wrap);
 
-    var docs = (d.documents || []).filter(function (x) { return safeHref(x.url); });
+    // The SAFE first: it is the agreement; the rest go with it.
+    var docs = (d.documents || []).filter(function (x) { return safeHref(x.url); })
+      .sort(function (a, b) { return (b.kind === 'SAFE') - (a.kind === 'SAFE'); });
     if (docs.length) {
       var ul = el('ul', 'off-docs');
       docs.forEach(function (x) {
