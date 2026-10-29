@@ -14,7 +14,7 @@
 {% if cohort_nav_src %}
 
   <script src="{{ cohort_nav_src }}" defer></script>
-  <cohort-nav{% if current_org %} data-org="{{ current_org.slug }}"{% if current_org.calendar_url %} data-calendar-url="{{ current_org.calendar_url }}"{% endif %}{% if current_org.chat_url %} data-chat-url="{{ current_org.chat_url }}"{% endif %}{% endif %}{% if accelerator_org_slug %} data-vc-org="{{ accelerator_org_slug }}"{% endif %} data-current="org"></cohort-nav>
+  <cohort-nav{% if current_org %} data-org="{{ current_org.slug }}"{% if current_org.calendar_url %} data-calendar-url="{{ current_org.calendar_url }}"{% endif %}{% if current_org.chat_url %} data-chat-url="{{ current_org.chat_url }}"{% endif %}{% endif %}{% if accelerator_org_slug %} data-vc-org="{{ accelerator_org_slug }}"{% endif %} data-layout="side"{% if current_org %} data-org-name="{{ current_org.display_name }}"{% endif %} data-current="org"></cohort-nav>
 {% endif %}
 
 <header class="gk-header">
@@ -36,10 +36,10 @@
   {% endif %}
   {% if current_org %}
     <nav class="gk-tabs">
-      {% for tab in nav_tabs %}
+      {% for tab in nav_tabs %}{% if not cohort_nav_src or not tab.in_side %}
         <a class="gk-tab" href="{% url tab.url_name org_slug=current_org.slug %}"
            {% if tab.active %}aria-current="page"{% endif %}>{{ tab.label }}</a>
-      {% endfor %}
+      {% endif %}{% endfor %}
     </nav>
     <span class="gk-org">{{ current_org.display_name }}</span>
   {% endif %}

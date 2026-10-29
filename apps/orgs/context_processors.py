@@ -22,7 +22,7 @@ def nav(request):
     view_name = getattr(rm, "view_name", "")
 
     tabs = [
-        {"label": label, "url_name": url_name, "active": namespace == ns}
+        {"label": label, "url_name": url_name, "active": namespace == ns, "in_side": True}
         for label, url_name, ns in (
             ("Drops", "drops:index", "drops"),
             ("Pie", "pie:index", "pie"),
@@ -41,6 +41,8 @@ def nav(request):
                     "label": "Projects",
                     "url_name": "projects:index",
                     "active": namespace == "projects",
+                    # Not in the cohort sidebar, so it keeps its tab beside it.
+                    "in_side": False,
                 }
             )
     membership = getattr(request, "membership", None)
