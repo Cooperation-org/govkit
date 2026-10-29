@@ -603,3 +603,24 @@ def test_something_we_will_not_serve_is_still_refused_by_either_name():
 
     assert storage.kind_of(Script()) == ""
     assert "JPEG" in storage.check_file(Script())
+
+
+def test_directory_says_raising_only_with_a_round(org_factory):
+    from apps.captable import services
+
+    org = org_factory(slug="raiser", display_name="Raiser")
+    org_factory(slug="quiet", display_name="Quiet")
+    services.add_round(
+        org, name="Pre-seed", date="2026-10-29", instrument="safe",
+        post_money_valuation="1500000", conversion_timing="POST_MONEY",
+        conversion_mfn=False, pro_rata=False,
+    )
+    from apps.orgs.api import _venture_card
+    from apps.orgs.models import Org
+    from django.db.models import Exists, OuterRef
+    from apps.captable.models import Round
+
+    qs = Org.objects.annotate(raising=Exists(Round.objects.filter(org=OuterRef("pk"))))
+    cards = {o.slug: _venture_card(o) for o in qs.prefetch_related("pictures", "links", "posts", "quotes")}
+    assert cards["raiser"]["raising"] is True
+    assert cards["quiet"]["raising"] is False

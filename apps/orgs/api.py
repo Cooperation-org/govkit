@@ -49,7 +49,7 @@ from datetime import date
 import logging
 
 from django.conf import settings
-from django.db.models import Count
+from django.db.models import Count, Exists, OuterRef
 from django.http import Http404, JsonResponse
 from django.urls import path, reverse
 from django.views.decorators.csrf import csrf_exempt
@@ -601,8 +601,13 @@ def ventures_directory(request):
     """
     if not _s2s_authorized(request):
         return JsonResponse({"error": "unauthorized"}, status=401)
+    from apps.captable.models import Round
+
     qs = (
-        Org.objects.annotate(member_count=Count("memberships"))
+        Org.objects.annotate(
+            member_count=Count("memberships"),
+            raising=Exists(Round.objects.filter(org=OuterRef("pk"))),
+        )
         .prefetch_related("pictures", "links", "posts", "quotes")
         .order_by("display_name")
     )
@@ -633,6 +638,9 @@ def _venture_card(org):
         "asks": org.asks,
         "socials": org.socials or [],
         "member_count": org.member_count,
+        # A round is recorded: the page offers investors a way in. The terms are not
+        # here; they are for signed-in people (captable offering endpoint).
+        "raising": bool(getattr(org, "raising", False)),
         "pictures": [
             {"url": p.url, "grid_url": p.grid_url, "caption": p.caption} for p in org.pictures.all()
         ],
