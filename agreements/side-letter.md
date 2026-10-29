@@ -34,9 +34,14 @@ that year.
 its customers, its workers, or a cooperative or other entity they control is a Change of Control under the
 SAFE. If no price is paid for the Company in that transfer, the Proceeds for the SAFE are calculated on the
 fair market value of the Company set by an independent appraiser the Company and a majority-in-interest of
-the SAFE holders agree on.
+the SAFE holders agree on. If they do not agree within 30 days, each names one appraiser and those two name a
+third, whose value controls. The Company pays the appraisers.
 
-**5. No other changes.** Except as stated in this letter, the SAFE is unchanged. If this letter and the
+**5. Before payment.** The Investor pays the Purchase Amount only after (a) the Company is formed as a
+Delaware corporation and (b) every person or company that wrote the Company's software has signed an
+assignment of it to the Company.
+
+**6. No other changes.** Except as stated in this letter, the SAFE is unchanged. If this letter and the
 SAFE conflict, this letter controls.
 
 | | |
