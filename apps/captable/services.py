@@ -1093,12 +1093,24 @@ def offering(org):
         pre = post - target
     if post is None and pre is not None and target is not None:
         post = pre + target
+    # Pro forma after the round: the founders hold everything the round does not
+    # sell, the pool and the unsold investor side together, split by pie share.
+    target_pct = (target / post * HUNDRED) if (target and post) else None
+    founders_pct = HUNDRED - (target_pct or ZERO)
+    holders = [
+        {"label": ln.label, "pie_share_pct": ln.pie_share_pct,
+         "pct_after": ln.pie_share_pct * founders_pct / HUNDRED}
+        for ln in compute_cap_table(org).lines
+        if ln.kind in (KIND_FOUNDER, KIND_SPONSOR) and ln.pie_share_pct
+    ]
     return {
         "round": rnd,
+        "pro_forma": holders,
+        "founders_pct_after": founders_pct,
         "post_money": post,
         "pre_money": pre,
         "target_amount": target,
-        "target_pct": (target / post * HUNDRED) if (target and post) else None,
+        "target_pct": target_pct,
         "founders_pool_pct": cfg.founders_pool_pct,
         "investor_side_pct": HUNDRED - cfg.founders_pool_pct,
         "investor_side_value": (post * (HUNDRED - cfg.founders_pool_pct) / HUNDRED) if post else None,

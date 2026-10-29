@@ -621,6 +621,12 @@ class OfferingView(APIView):
                 "founders_pool_pct": _s(o["founders_pool_pct"]),
                 "investor_side_pct": _s(o["investor_side_pct"]),
                 "investor_side_value": _s(o["investor_side_value"]),
+                "founders_pct_after": _s(o["founders_pct_after"]),
+                "pro_forma": [
+                    {"label": h["label"], "pie_share_pct": _s(h["pie_share_pct"]),
+                     "pct_after": _s(h["pct_after"])}
+                    for h in o["pro_forma"]
+                ],
                 "legal_name": o["legal_name"],
                 "incorporated": o["incorporated"],
                 **_round_terms(rnd),

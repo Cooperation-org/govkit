@@ -85,6 +85,11 @@
       'govkit-offering .off-legend b { font-variant-numeric: tabular-nums; }',
       'govkit-offering .what { opacity: 0.65; }',
       'govkit-offering .off-docs { margin: 0; padding-left: 18px; }',
+      'govkit-offering .off-pf { border-collapse: collapse; margin: 0 0 6px; min-width: 260px; }',
+      'govkit-offering .off-pf td { padding: 4px 18px 4px 0; border-bottom: 1px solid rgba(127,127,127,0.2); }',
+      'govkit-offering .off-pf td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }',
+      'govkit-offering .off-pf tr.tot td { border-bottom: none; }',
+      'govkit-offering .off-note { font-size: 13px; opacity: 0.7; margin: 0 0 14px; }',
       '@media (max-width: 480px) { govkit-offering .off-terms { grid-template-columns: 1fr; gap: 0 0; } govkit-offering .off-terms dd { margin-bottom: 8px; } }',
       'govkit-offering .off-btn { display: inline-block; padding: 10px 16px; border-radius: 8px; background: #1f2937; color: #fff; text-decoration: none; font-weight: 600; }',
       // The shares read UNDER the pie in a narrow card (golda 2026-08-17): side
@@ -2070,7 +2075,7 @@
     var sides = [
       { label: 'Founders pool', what: 'earned by work', pct: pool, color: sliceColor(0) },
       { label: 'This round', what: d.target_amount ? dollars(d.target_amount) : '', pct: round, color: sliceColor(1) },
-      { label: 'Investor side, not yet sold', what: 'at a sale, shared pro rata by all', pct: side - round, color: 'rgba(127,127,127,0.35)' }
+      { label: 'Investor side, not yet sold', what: 'held by the founders until sold', pct: side - round, color: 'rgba(127,127,127,0.35)' }
     ];
     var wrap = el('div', 'off-pie');
     wrap.appendChild(renderOfferingPie(sides));
@@ -2090,6 +2095,24 @@
     host.appendChild(wrap);
 
     // The SAFE first: it is the agreement; the rest go with it.
+    var pf = d.pro_forma || [];
+    if (pf.length) {
+      host.appendChild(el('div', 'off-sub', 'Pro forma after this round'));
+      var t = el('table', 'off-pf');
+      pf.forEach(function (h) {
+        var tr = el('tr');
+        tr.appendChild(el('td', null, h.label));
+        tr.appendChild(el('td', 'num', pctText(h.pct_after)));
+        t.appendChild(tr);
+      });
+      var tr2 = el('tr', 'tot');
+      tr2.appendChild(el('td', null, 'This round'));
+      tr2.appendChild(el('td', 'num', pctText(d.target_pct)));
+      t.appendChild(tr2);
+      host.appendChild(t);
+      host.appendChild(el('p', 'off-note', 'Founders hold the founders pool and the unsold investor side together, split by their share of the pie.'));
+    }
+
     var docs = (d.documents || []).filter(function (x) { return safeHref(x.url); })
       .sort(function (a, b) { return (b.kind === 'SAFE') - (a.kind === 'SAFE'); });
     if (docs.length) {

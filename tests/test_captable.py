@@ -996,3 +996,13 @@ def test_agreement_form_is_public_markdown(client):
     md = r.json()["markdown"]
     assert md.startswith("# SAFE")
     assert client.get(reverse("captable-agreement", kwargs={"name": "settings"})).status_code == 404
+
+
+def test_offering_pro_forma_founders_hold_the_rest(venture):
+    org, admin, member = venture
+    _seed_pie(org, admin, member)
+    _offer_round(org)
+    o = services.offering(org)
+    after = sum((h["pct_after"] for h in o["pro_forma"]), Decimal("0"))
+    assert round(after + o["target_pct"], 6) == Decimal("100")
+    assert [round(h["pie_share_pct"]) for h in o["pro_forma"]] == [60, 40]
