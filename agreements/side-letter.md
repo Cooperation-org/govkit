@@ -6,8 +6,6 @@ https://www.ycombinator.com/documents. Everything not in this letter is the YC S
 
 # Side letter to the SAFE, Workers.VC form
 
-Draft. Fill the bracketed terms. Not legal advice.
-
 [Date]
 
 [Investor Name]
