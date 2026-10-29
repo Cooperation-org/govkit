@@ -2051,6 +2051,7 @@
       terms.appendChild(el('dd', null, v));
     }
     var post = d.conversion_timing === 'PRE_MONEY' ? 'Pre-money valuation cap' : 'Post-money valuation cap';
+    term('Company', d.legal_name || (d.incorporated ? '' : 'Not yet incorporated'));
     term('Raising', dollars(d.target_amount));
     term(post, dollars(d.conversion_valuation_cap || d.post_money));
     term('Pre-money', d.conversion_timing === 'PRE_MONEY' ? '' : dollars(d.pre_money));
@@ -2066,7 +2067,7 @@
     var sides = [
       { label: 'Founders pool', what: 'earned by work', pct: pool, color: sliceColor(0) },
       { label: 'This round', what: d.target_amount ? dollars(d.target_amount) : '', pct: round, color: sliceColor(1) },
-      { label: 'Investor side, not yet sold', what: '', pct: side - round, color: 'rgba(127,127,127,0.35)' }
+      { label: 'Investor side, not yet sold', what: 'at a sale, shared pro rata by all', pct: side - round, color: 'rgba(127,127,127,0.35)' }
     ];
     var wrap = el('div', 'off-pie');
     wrap.appendChild(renderOfferingPie(sides));
