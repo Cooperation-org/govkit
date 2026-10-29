@@ -353,3 +353,34 @@ def test_portfolio_forbidden_for_non_member(client, team, outsider):
 def test_portfolio_signed_out_gets_a_status_not_a_login_page(client, team):
     org, _, _ = team
     assert client.get(f"/api/v1/projects/orgs/{org.slug}/portfolio/").status_code == 401
+
+
+# --------------------------------------------------------------------------- team CRM
+
+
+def test_team_crm_is_member_readable(client, team):
+    """Reach out and Deals fill from GovKit's own read of the team CRM, so a member
+    signed in to GovKit but not to the CRM still sees them."""
+    org, user, _ = team
+    rows = {"currency": "USD", "count_to_reach": 1, "reachout": [{"id": 7}], "deals": [{"id": 62}]}
+    client.force_login(user)
+    with patch("apps.projects.crm.team_crm", return_value=rows) as read:
+        resp = client.get(f"/api/v1/projects/orgs/{org.slug}/crm/?limit=3")
+    assert resp.status_code == 200
+    assert resp.json() == rows
+    read.assert_called_once_with(org.slug, 3)
+
+
+def test_team_crm_without_a_crm_is_404(client, team):
+    org, user, _ = team
+    client.force_login(user)
+    with patch("apps.projects.crm.team_crm", return_value=None):
+        assert client.get(f"/api/v1/projects/orgs/{org.slug}/crm/").status_code == 404
+
+
+def test_team_crm_non_member_is_403(client, team, user_factory):
+    org, _, _ = team
+    client.force_login(user_factory())
+    with patch("apps.projects.crm.team_crm") as read:
+        assert client.get(f"/api/v1/projects/orgs/{org.slug}/crm/").status_code == 403
+    read.assert_not_called()

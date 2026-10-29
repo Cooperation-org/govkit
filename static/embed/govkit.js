@@ -9,6 +9,9 @@
 //   <govkit-checklist>  genesis checklist modules + items  (orgs/<org>/checklist/)
 //   <govkit-tasks>      open tracker work                  (tasksources/orgs/<org>/tasks/open/)
 //   <govkit-money>      project portfolio + totals         (projects/orgs/<org>/portfolio/)
+//   <govkit-reachout>   who to reach out to next, from the team CRM  (projects/orgs/<org>/crm/)
+//   <govkit-deals>      the team CRM's deals: won, and with an amount (projects/orgs/<org>/crm/)
+//                       Both take data-crm (the team CRM origin) to link each row to its lead.
 //   <govkit-captable>   the company: founders pool, investors, not yet sold
 //   <govkit-offering>   the round on offer, to anyone signed in (an outside investor)
 //                                                          (captable/orgs/<org>/)
@@ -66,12 +69,14 @@
     s.id = 'govkit-embed-styles';
     s.textContent = [
       'govkit-pie, govkit-feed, govkit-checklist, govkit-tasks, govkit-money,',
+      'govkit-reachout, govkit-deals,',
       'govkit-activity, govkit-ventures, govkit-news, govkit-captable, govkit-offering {',
       '  display: block; font-family: system-ui, -apple-system, sans-serif;',
       '  font-size: 13px; color: inherit; line-height: 1.4;',
       '}',
       'govkit-pie[hidden], govkit-feed[hidden], govkit-checklist[hidden], govkit-tasks[hidden],',
       'govkit-money[hidden], govkit-activity[hidden], govkit-ventures[hidden],',
+      'govkit-reachout[hidden], govkit-deals[hidden],',
       'govkit-news[hidden], govkit-captable[hidden], govkit-offering[hidden] { display: none; }',
       'govkit-offering { font-size: 15px; }',
       'govkit-offering .off-sub { font-size: 13px; opacity: 0.7; margin-bottom: 10px; }',
@@ -138,6 +143,17 @@
       '  govkit-feed td:first-child { grid-column: 1; grid-row: 2; font-size: 12px; opacity: 0.75; }',
       '  govkit-feed td.val { grid-column: 2; grid-row: 2; font-size: 12.5px; }',
       '}',
+      'govkit-reachout ul, govkit-deals ul { list-style: none; margin: 0; padding: 0; }',
+      'govkit-reachout li, govkit-deals li { display: flex; gap: 10px; align-items: baseline;',
+      '  padding: 7px 0; border-top: 1px solid rgba(127,127,127,0.15); }',
+      'govkit-reachout li:first-child, govkit-deals li:first-child { border-top: none; }',
+      'govkit-reachout .who, govkit-deals .who { font-weight: 500; color: inherit; text-decoration: none;',
+      '  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
+      'govkit-reachout a.who:hover, govkit-deals a.who:hover { text-decoration: underline; }',
+      'govkit-reachout .why, govkit-deals .why { flex: 1; min-width: 0; font-size: 12px; opacity: 0.65;',
+      '  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
+      'govkit-reachout .acts { display: flex; gap: 10px; flex: none; font-size: 12px; }',
+      'govkit-deals .num { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; }',
       'govkit-feed .val, govkit-money .num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; opacity: 0.85; }',
       // The task sheet. Lives on <body>, so it reads the host page's own tokens
       // (--surface / --ink / --hairline / --font-head) and falls back to warm
@@ -2158,6 +2174,88 @@
       });
   }
 
+
+  // --- <govkit-reachout> / <govkit-deals> ----------------------------------
+  // The team CRM read by GovKit, so the cards fill for anyone signed in to
+  // workers.vc whether or not they are signed in to the CRM itself.
+
+  function crmLeadLink(host, id, text) {
+    var crm = (host.dataset.crm || '').replace(/\/+$/, '');
+    var href = /^https:\/\//.test(crm) ? crm + '/web#id=' + id + '&model=crm.lead&view_type=form' : null;
+    var a = el(href ? 'a' : 'span', 'who', text);
+    if (href) { a.href = href; a.target = '_blank'; a.rel = 'noopener'; }
+    return a;
+  }
+
+  function renderReachout(host, d) {
+    var leads = d.reachout || [];
+    if (!leads.length) return false;
+    var ul = el('ul');
+    leads.forEach(function (l) {
+      var li = el('li');
+      var who = crmLeadLink(host, l.id, l.partner_name || l.name);
+      if (l.name && l.name !== who.textContent) who.title = l.name;
+      li.appendChild(who);
+      var why = l.outreach_score_reason || '';
+      if (l.last_outreach_date) {
+        var t = Date.parse(l.last_outreach_date);
+        if (!isNaN(t)) {
+          var days = Math.floor(Math.max(0, Date.now() - t) / 86400000);
+          why = days === 0 ? 'contacted today' : 'no reply in ' + days + (days === 1 ? ' day' : ' days');
+        }
+      }
+      li.appendChild(el('span', 'why', why));
+      var acts = el('span', 'acts');
+      if (l.email) {
+        var m = el('a', null, 'email');
+        m.href = 'mailto:' + l.email;
+        acts.appendChild(m);
+      }
+      if (l.linkedin && /^https?:\/\//i.test(l.linkedin)) {
+        var ln = el('a', null, 'LinkedIn');
+        ln.href = l.linkedin; ln.target = '_blank'; ln.rel = 'noopener';
+        acts.appendChild(ln);
+      }
+      li.appendChild(acts);
+      ul.appendChild(li);
+    });
+    host.appendChild(ul);
+    if (typeof d.count_to_reach === 'number') host.setAttribute('data-count', String(d.count_to_reach));
+    return true;
+  }
+
+  function dealAmount(deal, currency) {
+    var sym = currency === 'USD' ? '$' : '';
+    var tail = sym ? '' : (currency ? ' ' + currency : '');
+    if (deal.recurring_revenue != null) {
+      var per = deal.recurring_months === 1 ? '/mo' : deal.recurring_months === 12 ? '/yr'
+        : (deal.recurring_plan ? ' ' + deal.recurring_plan.toLowerCase() : '');
+      return sym + money(deal.recurring_revenue, null) + tail + per;
+    }
+    if (deal.expected_revenue != null && num(deal.expected_revenue) > 0) {
+      return sym + money(deal.expected_revenue, null) + tail;
+    }
+    return '';
+  }
+
+  function renderDeals(host, d) {
+    var deals = d.deals || [];
+    if (!deals.length) return false;
+    var ul = el('ul');
+    deals.forEach(function (deal) {
+      var li = el('li');
+      var who = crmLeadLink(host, deal.id, deal.partner_name || deal.name);
+      if (deal.name && deal.name !== who.textContent) who.title = deal.name;
+      li.appendChild(who);
+      li.appendChild(el('span', 'why', deal.won ? deal.stage || 'Won' : (deal.stage || '') +
+        (deal.probability != null ? ' · ' + Math.round(deal.probability) + '%' : '')));
+      li.appendChild(el('span', 'num', dealAmount(deal, d.currency)));
+      ul.appendChild(li);
+    });
+    host.appendChild(ul);
+    return true;
+  }
+
   // --- element registration ------------------------------------------------
 
   function define(tag, path, render) {
@@ -2175,6 +2273,8 @@
   define('govkit-checklist', 'orgs/{org}/checklist/', renderChecklist);
   define('govkit-tasks', 'tasksources/orgs/{org}/tasks/open/', renderTasks);
   define('govkit-money', 'projects/orgs/{org}/portfolio/', renderMoney);
+  define('govkit-reachout', 'projects/orgs/{org}/crm/', renderReachout);
+  define('govkit-deals', 'projects/orgs/{org}/crm/', renderDeals);
   define('govkit-captable', 'captable/orgs/{org}/', renderCaptable);
   define('govkit-activity', 'commons/orgs/{org}/attention/', renderActivity);
   if (!customElements.get('govkit-ventures')) {

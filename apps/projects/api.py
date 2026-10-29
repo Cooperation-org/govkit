@@ -5,6 +5,7 @@ Routes carry ``org_slug`` so OrgContextMiddleware populates ``request.org`` /
 ``request.membership`` (same tenancy + membership gate as the HTML views):
 
     GET    /api/v1/projects/orgs/<slug>/portfolio/                whole-org money picture
+    GET    /api/v1/projects/orgs/<slug>/crm/                      team CRM: reach out + deals
     GET    /api/v1/projects/orgs/<slug>/projects/                 list projects
     POST   /api/v1/projects/orgs/<slug>/projects/                 create           (steward)
     GET    /api/v1/projects/orgs/<slug>/projects/<id>/            retrieve
@@ -32,7 +33,7 @@ from rest_framework.views import APIView
 
 from apps.drops.api import IsStewardOrAdmin, OrgScopedMixin
 
-from . import services
+from . import crm, services
 from .models import Deal, Project, ProjectLink, Split
 from .serializers import (
     DealSerializer,
@@ -120,6 +121,21 @@ class PortfolioView(APIView):
         return Response(services.portfolio_summary(request.org))
 
 
+class TeamCrmView(APIView):
+    """The team CRM's reach-out queue and deals, for the dash's Reach out and Deals
+    cards (member-readable). 404 when the team has no readable CRM."""
+
+    def get(self, request, org_slug):
+        try:
+            limit = int(request.query_params.get("limit", 5))
+        except ValueError:
+            limit = 5
+        data = crm.team_crm(request.org.slug, limit)
+        if data is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        return Response(data)
+
+
 ORG = r"orgs/(?P<org_slug>[-\w]+)"
 
 router = DefaultRouter()
@@ -127,4 +143,5 @@ router.register(rf"{ORG}/projects", ProjectViewSet, basename="project")
 
 urlpatterns = router.urls + [
     path("orgs/<slug:org_slug>/portfolio/", PortfolioView.as_view(), name="project-portfolio"),
+    path("orgs/<slug:org_slug>/crm/", TeamCrmView.as_view(), name="project-team-crm"),
 ]
