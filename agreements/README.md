@@ -4,9 +4,9 @@
 
 **[team-agreement.md](team-agreement.md)** · one page, six clauses, adopt or strike each.
 
-**[side-letter.md](side-letter.md)** · what an investor signs with the unmodified [YC post-money SAFE](https://www.ycombinator.com/documents): founders pool, no vote, amendments. Everything else is YC's.
+**[safe.md](safe.md)** · the investor SAFE: investor side and founders pool, converts at the next priced round. The form ventures use.
 
-**[safe.md](safe.md)** · the earlier full form, from the 2021 Rolling SAFE; for reference.
+**[side-letter.md](side-letter.md)** · alternative, not in use: the unmodified [YC post-money SAFE](https://www.ycombinator.com/documents) plus a side letter.
 
 ## Components
 

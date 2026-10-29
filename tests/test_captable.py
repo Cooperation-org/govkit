@@ -988,3 +988,11 @@ def test_offering_404_without_a_round(client, venture, user_factory):
     client.force_login(user_factory(email="investor@example.com"))
     r = client.get(reverse("captable-offering", kwargs={"org_slug": org.slug}))
     assert r.status_code == 404
+
+
+def test_agreement_form_is_public_markdown(client):
+    r = client.get(reverse("captable-agreement", kwargs={"name": "safe"}))
+    assert r.status_code == 200
+    md = r.json()["markdown"]
+    assert md.startswith("# SAFE")
+    assert client.get(reverse("captable-agreement", kwargs={"name": "settings"})).status_code == 404

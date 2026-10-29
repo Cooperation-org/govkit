@@ -32,6 +32,8 @@ OrgContextMiddleware resolves ``request.org`` and answers non-members 403.
     GET    /api/v1/captable/orgs/<slug>/ocf/                 OCF package as JSON (members)
     GET    /api/v1/captable/orgs/<slug>/ocf/?as=zip          the same files as <slug>.ocf.zip
     GET    /api/v1/captable/orgs/<slug>/offering/            the round offered to investors
+    GET    /api/v1/captable/agreements/<name>/               a form in agreements/ as Markdown
+                                                             (public: blank forms, no terms)
                                                              (anyone signed in; 401 if not)
 
 A holder is named by ``holder`` = "m:<membership id>" or "h:<external holder id>", or a
@@ -44,6 +46,7 @@ import io
 import zipfile
 from decimal import InvalidOperation
 
+from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -632,6 +635,29 @@ class OfferingView(APIView):
 offering_view = OfferingView.as_view()
 offering_view.org_context_exempt = True
 
+# The blank forms an investor may read before signing in. Named here, never taken
+# from the path as a file name.
+AGREEMENT_FILES = {"safe": "safe.md", "side-letter": "side-letter.md"}
+
+
+class AgreementView(APIView):
+    """A blank agreement form, as Markdown, for a page to show in full. The forms carry
+    brackets, not a company's terms, and are public in the repo already."""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request, name):
+        filename = AGREEMENT_FILES.get(name)
+        if filename is None:
+            return Response({"detail": "No such agreement."}, status=404)
+        text = (settings.BASE_DIR / "agreements" / filename).read_text(encoding="utf-8")
+        # The drafting note at the top is for the repo, not the reader.
+        if text.startswith("<!--"):
+            text = text.split("-->", 1)[1].lstrip()
+        return Response({"name": name, "markdown": text})
+
+
 ORG = "orgs/<slug:org_slug>/"
 
 urlpatterns = [
@@ -654,4 +680,5 @@ urlpatterns = [
     path(ORG + "events/", EventsView.as_view(), name="captable-events"),
     path(ORG + "ocf/", OcfView.as_view(), name="captable-ocf"),
     path(ORG + "offering/", offering_view, name="captable-offering"),
+    path("agreements/<slug:name>/", AgreementView.as_view(), name="captable-agreement"),
 ]
