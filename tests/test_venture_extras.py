@@ -617,10 +617,13 @@ def test_directory_says_raising_only_with_a_round(org_factory):
     )
     from apps.orgs.api import _venture_card
     from apps.orgs.models import Org
-    from django.db.models import Exists, OuterRef
+    from django.db.models import Count, Exists, OuterRef
     from apps.captable.models import Round
 
-    qs = Org.objects.annotate(raising=Exists(Round.objects.filter(org=OuterRef("pk"))))
+    qs = Org.objects.annotate(
+        member_count=Count("memberships"),
+        raising=Exists(Round.objects.filter(org=OuterRef("pk"))),
+    )
     cards = {o.slug: _venture_card(o) for o in qs.prefetch_related("pictures", "links", "posts", "quotes")}
     assert cards["raiser"]["raising"] is True
     assert cards["quiet"]["raising"] is False
