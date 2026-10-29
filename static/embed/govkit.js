@@ -83,6 +83,7 @@
       'govkit-offering .off-legend b { font-variant-numeric: tabular-nums; }',
       'govkit-offering .what { opacity: 0.65; }',
       'govkit-offering .off-docs { margin: 0; padding-left: 18px; }',
+      '@media (max-width: 480px) { govkit-offering .off-terms { grid-template-columns: 1fr; gap: 0 0; } govkit-offering .off-terms dd { margin-bottom: 8px; } }',
       'govkit-offering .off-btn { display: inline-block; padding: 10px 16px; border-radius: 8px; background: #1f2937; color: #fff; text-decoration: none; font-weight: 600; }',
       // The shares read UNDER the pie in a narrow card (golda 2026-08-17): side
       // by side they were squeezed and the names ran over the edge. Beside the
