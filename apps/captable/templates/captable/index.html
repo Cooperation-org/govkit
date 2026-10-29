@@ -184,6 +184,7 @@
             <tr class="gk-cap-terms">
               <td colspan="7">
                 <span class="gk-cap-row">
+                  <label>Raising <input form="round-{{ r.round_id }}" type="number" step="0.01" min="0" name="target_amount" value="{{ t.target_amount|plain }}" class="gk-cap-amt"></label>
                 {% if r.instrument == "priced" %}
                   <label>Price per share <input form="round-{{ r.round_id }}" type="number" step="any" min="0" name="price_per_share" value="{{ t.price_per_share|plain }}" class="gk-cap-amt"></label>
                 {% else %}

@@ -121,6 +121,8 @@ def index(request, org_slug):
 def _terms_text(rnd, currency):
     """A round's terms as one line for a reader: "$4,000,000 cap · 20% discount · MFN"."""
     parts = []
+    if rnd.target_amount:
+        parts.append(f"raising {money(rnd.target_amount, currency)}")
     if rnd.instrument == Instrument.PRICED and rnd.price_per_share:
         parts.append(f"{plain(rnd.price_per_share)} {currency} per share")
     if rnd.conversion_valuation_cap:

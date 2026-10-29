@@ -149,6 +149,9 @@ class Round(OrgScoped):
     post_money_valuation = models.DecimalField(
         max_digits=18, decimal_places=2, null=True, blank=True
     )
+    # What the company is asking for in this round (the round size it offers). What it
+    # has raised is still the sum of the investments.
+    target_amount = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
     # Priced rounds only: what one share cost, so an export can state a share count.
     price_per_share = models.DecimalField(max_digits=20, decimal_places=10, null=True, blank=True)
     # SAFE and note terms, named as OCF's SAFE_CONVERSION / CONVERTIBLE_NOTE_CONVERSION.

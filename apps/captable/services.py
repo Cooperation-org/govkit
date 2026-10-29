@@ -648,6 +648,7 @@ ROUND_FIELDS = (
     "instrument",
     "pre_money_valuation",
     "post_money_valuation",
+    "target_amount",
     "price_per_share",
     "conversion_valuation_cap",
     "conversion_discount",
@@ -695,6 +696,7 @@ def _round_fields(data: dict) -> dict:
     for f in (
         "pre_money_valuation",
         "post_money_valuation",
+        "target_amount",
         "price_per_share",
         "conversion_valuation_cap",
     ):
@@ -1075,6 +1077,39 @@ def delete_valuation(v: Valuation, by=None):
 # --------------------------------------------------------------------------- #
 # The company's documents: SAFE agreement, bylaws, certificate of incorporation, other.
 # --------------------------------------------------------------------------- #
+def offering(org):
+    """What an outside investor is offered now: the latest round, the two sides, the
+    documents. None when the company has no round. Every number is read or derived here,
+    none typed: the pre-money of a post-money SAFE is post-money minus the round size, and
+    the percentage the round size buys is round size / post-money."""
+    rnd = Round.objects.for_org(org).order_by("-date", "-id").first()
+    if rnd is None:
+        return None
+    cfg = get_settings(org)
+    post = rnd.post_money_valuation or rnd.conversion_valuation_cap
+    target = rnd.target_amount
+    pre = rnd.pre_money_valuation
+    if pre is None and post is not None and target is not None:
+        pre = post - target
+    if post is None and pre is not None and target is not None:
+        post = pre + target
+    return {
+        "round": rnd,
+        "post_money": post,
+        "pre_money": pre,
+        "target_amount": target,
+        "target_pct": (target / post * HUNDRED) if (target and post) else None,
+        "founders_pool_pct": cfg.founders_pool_pct,
+        "investor_side_pct": HUNDRED - cfg.founders_pool_pct,
+        "investor_side_value": (post * (HUNDRED - cfg.founders_pool_pct) / HUNDRED) if post else None,
+        "stage": Stage(cfg.stage).label,
+        "currency": cfg.currency,
+        "legal_name": cfg.legal_name,
+        "incorporated": cfg.incorporated,
+        "documents": documents(org),
+    }
+
+
 def documents(org):
     return list(CompanyDocument.objects.for_org(org).select_related("uploaded_by"))
 

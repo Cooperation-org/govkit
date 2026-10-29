@@ -31,6 +31,8 @@ OrgContextMiddleware resolves ``request.org`` and answers non-members 403.
     GET    /api/v1/captable/orgs/<slug>/events/?limit=       every change, newest first (members)
     GET    /api/v1/captable/orgs/<slug>/ocf/                 OCF package as JSON (members)
     GET    /api/v1/captable/orgs/<slug>/ocf/?as=zip          the same files as <slug>.ocf.zip
+    GET    /api/v1/captable/orgs/<slug>/offering/            the round offered to investors
+                                                             (anyone signed in; 401 if not)
 
 A holder is named by ``holder`` = "m:<membership id>" or "h:<external holder id>", or a
 new outside holder by ``holder_name`` (+ ``holder_type`` INDIVIDUAL / INSTITUTION).
@@ -46,12 +48,12 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.urls import path
-from rest_framework.permissions import SAFE_METHODS
+from rest_framework.permissions import SAFE_METHODS, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.orgs.embed_auth import EmbedSessionAuthentication
-from apps.orgs.models import MembershipRole
+from apps.orgs.models import MembershipRole, Org
 
 from . import ocf, services
 from .models import (
@@ -579,6 +581,57 @@ class OcfView(_CapView):
         return Response(ocf.build_package(request.org))
 
 
+class OfferingView(APIView):
+    """The round on offer, for an outside investor: signed in, not a member.
+
+    Membership is what OrgContextMiddleware enforces, and an investor is not a member,
+    so this view is exempt from it and requires only a signed-in person. It answers
+    only the offer: the round's terms, the two sides, the documents. No holder, no
+    pie, no investment."""
+
+    authentication_classes = [_ReadOrEmbedWrite]
+    # Its own 401 below: DRF's IsAuthenticated answers a signed-out session 403, and the
+    # card has to tell "sign in" from "not allowed".
+    permission_classes = [AllowAny]
+
+    def get(self, request, org_slug):
+        if not request.user.is_authenticated:
+            return Response({"detail": "Sign in to see the round."}, status=401)
+        org = get_object_or_404(Org, slug=org_slug)
+        o = services.offering(org)
+        if o is None:
+            return Response({"detail": "No round is open."}, status=404)
+        rnd = o["round"]
+        return Response(
+            {
+                "org": org.display_name,
+                "round_name": rnd.name,
+                "date": rnd.date.isoformat(),
+                "instrument": rnd.instrument,
+                "instrument_label": rnd.get_instrument_display(),
+                "stage": o["stage"],
+                "currency": o["currency"],
+                "post_money": _s(o["post_money"]),
+                "pre_money": _s(o["pre_money"]),
+                "target_amount": _s(o["target_amount"]),
+                "target_pct": _s(o["target_pct"]),
+                "founders_pool_pct": _s(o["founders_pool_pct"]),
+                "investor_side_pct": _s(o["investor_side_pct"]),
+                "investor_side_value": _s(o["investor_side_value"]),
+                "legal_name": o["legal_name"],
+                "incorporated": o["incorporated"],
+                **_round_terms(rnd),
+                "documents": [
+                    {"kind": d.kind, "kind_label": d.get_kind_display(), "title": d.title, "url": d.url}
+                    for d in o["documents"]
+                ],
+            }
+        )
+
+
+offering_view = OfferingView.as_view()
+offering_view.org_context_exempt = True
+
 ORG = "orgs/<slug:org_slug>/"
 
 urlpatterns = [
@@ -600,4 +653,5 @@ urlpatterns = [
     path(ORG + "documents/<int:pk>/", DocumentView.as_view(), name="captable-document"),
     path(ORG + "events/", EventsView.as_view(), name="captable-events"),
     path(ORG + "ocf/", OcfView.as_view(), name="captable-ocf"),
+    path(ORG + "offering/", offering_view, name="captable-offering"),
 ]

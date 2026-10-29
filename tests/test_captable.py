@@ -926,3 +926,65 @@ def test_page_shows_new_sections_to_admins(client, venture):
     client.force_login(member.user)
     html = client.get(url).content.decode()
     assert 'name="conversion_valuation_cap"' not in html and 'id="classes"' in html
+
+
+# --- The offering: the round an outside investor reads -------------------------------
+
+
+def _offer_round(org):
+    return services.add_round(
+        org,
+        name="Pre-seed",
+        date="2026-10-29",
+        instrument="safe",
+        post_money_valuation="1500000",
+        conversion_valuation_cap="1500000",
+        target_amount="250000",
+        conversion_timing="POST_MONEY",
+        conversion_mfn=False,
+        pro_rata=False,
+    )
+
+
+def test_offering_derives_pre_money_and_percent(venture):
+    org, _, _ = venture
+    _offer_round(org)
+    o = services.offering(org)
+    assert o["pre_money"] == Decimal("1250000")
+    assert round(o["target_pct"], 2) == Decimal("16.67")
+    assert o["founders_pool_pct"] == Decimal("55.00")
+    assert o["investor_side_pct"] == Decimal("45.00")
+
+
+def test_offering_none_without_a_round(venture):
+    org, _, _ = venture
+    assert services.offering(org) is None
+
+
+def test_offering_signed_out_is_401(client, venture):
+    org, _, _ = venture
+    _offer_round(org)
+    r = client.get(reverse("captable-offering", kwargs={"org_slug": org.slug}))
+    assert r.status_code == 401
+
+
+def test_offering_open_to_a_signed_in_non_member(client, venture, user_factory):
+    org, _, _ = venture
+    _offer_round(org)
+    outsider = user_factory(email="investor@example.com")
+    client.force_login(outsider)
+    r = client.get(reverse("captable-offering", kwargs={"org_slug": org.slug}))
+    assert r.status_code == 200
+    d = r.json()
+    assert d["target_amount"] == "250000.00"
+    assert d["pre_money"] == "1250000.00"
+    assert d["founders_pool_pct"] == "55.00"
+    # The offer only: no holders, no investments.
+    assert "lines" not in d and "holders" not in d
+
+
+def test_offering_404_without_a_round(client, venture, user_factory):
+    org, _, _ = venture
+    client.force_login(user_factory(email="investor@example.com"))
+    r = client.get(reverse("captable-offering", kwargs={"org_slug": org.slug}))
+    assert r.status_code == 404

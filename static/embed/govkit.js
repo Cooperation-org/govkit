@@ -10,6 +10,7 @@
 //   <govkit-tasks>      open tracker work                  (tasksources/orgs/<org>/tasks/open/)
 //   <govkit-money>      project portfolio + totals         (projects/orgs/<org>/portfolio/)
 //   <govkit-captable>   the company: founders pool, investors, not yet sold
+//   <govkit-offering>   the round on offer, to anyone signed in (an outside investor)
 //                                                          (captable/orgs/<org>/)
 //   <govkit-onboarding> "Set up" button + the step-at-a-time setup dialog
 //                       (accounts/me via window.__gkMe, captable/orgs/<org>/)
@@ -63,13 +64,26 @@
     s.id = 'govkit-embed-styles';
     s.textContent = [
       'govkit-pie, govkit-feed, govkit-checklist, govkit-tasks, govkit-money,',
-      'govkit-activity, govkit-ventures, govkit-news, govkit-captable {',
+      'govkit-activity, govkit-ventures, govkit-news, govkit-captable, govkit-offering {',
       '  display: block; font-family: system-ui, -apple-system, sans-serif;',
       '  font-size: 13px; color: inherit; line-height: 1.4;',
       '}',
       'govkit-pie[hidden], govkit-feed[hidden], govkit-checklist[hidden], govkit-tasks[hidden],',
       'govkit-money[hidden], govkit-activity[hidden], govkit-ventures[hidden],',
-      'govkit-news[hidden], govkit-captable[hidden] { display: none; }',
+      'govkit-news[hidden], govkit-captable[hidden], govkit-offering[hidden] { display: none; }',
+      'govkit-offering { font-size: 15px; }',
+      'govkit-offering .off-sub { font-size: 13px; opacity: 0.7; margin-bottom: 10px; }',
+      'govkit-offering .off-terms { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0 0 18px; }',
+      'govkit-offering .off-terms dt { opacity: 0.7; }',
+      'govkit-offering .off-terms dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }',
+      'govkit-offering .off-pie { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; margin-bottom: 14px; }',
+      'govkit-offering .off-legend { list-style: none; margin: 0; padding: 0; }',
+      'govkit-offering .off-legend li { margin: 4px 0; }',
+      'govkit-offering .off-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }',
+      'govkit-offering .off-legend b { font-variant-numeric: tabular-nums; }',
+      'govkit-offering .what { opacity: 0.65; }',
+      'govkit-offering .off-docs { margin: 0; padding-left: 18px; }',
+      'govkit-offering .off-btn { display: inline-block; padding: 10px 16px; border-radius: 8px; background: #1f2937; color: #fff; text-decoration: none; font-weight: 600; }',
       // The shares read UNDER the pie in a narrow card (golda 2026-08-17): side
       // by side they were squeezed and the names ran over the edge. Beside the
       // pie only when the card itself is wide enough for the names.
@@ -1986,6 +2000,134 @@
     }).catch(function () {});
   }
 
+  // --- <govkit-offering> ---------------------------------------------------
+  // The round on offer, for an outside investor. Anyone signed in may read it;
+  // signed out, the card offers the sign-in that brings them back here.
+
+  function pctText(v, digits) {
+    var n = num(v);
+    return n == null ? '' : n.toFixed(digits == null ? 1 : digits).replace(/\.0+$/, '') + '%';
+  }
+
+  function dollars(v) {
+    var n = num(v);
+    return n == null ? '' : '$' + money(n, null);
+  }
+
+  function renderOfferingPie(sides) {
+    var svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 200 200');
+    svg.setAttribute('width', '180');
+    svg.setAttribute('height', '180');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', sides.map(function (s) { return s.label + ' ' + pctText(s.pct); }).join(', '));
+    var C = 100, R = 90, a0 = -Math.PI / 2;
+    sides.forEach(function (s) {
+      var frac = (num(s.pct) || 0) / 100;
+      if (frac <= 0) return;
+      var a1 = a0 + frac * 2 * Math.PI;
+      var p = document.createElementNS(SVG_NS, 'path');
+      p.setAttribute('d', 'M' + C + ',' + C +
+        ' L' + (C + R * Math.cos(a0)) + ',' + (C + R * Math.sin(a0)) +
+        ' A' + R + ',' + R + ' 0 ' + (frac > 0.5 ? 1 : 0) + ' 1 ' +
+        (C + R * Math.cos(a1)) + ',' + (C + R * Math.sin(a1)) + ' Z');
+      p.setAttribute('fill', s.color);
+      p.setAttribute('stroke', '#fff');
+      p.setAttribute('stroke-width', '2');
+      svg.appendChild(p);
+      a0 = a1;
+    });
+    return svg;
+  }
+
+  function renderOffering(host, d) {
+    host.appendChild(el('div', 'off-sub', [d.stage, d.instrument_label].filter(Boolean).join(' · ')));
+
+    var terms = el('dl', 'off-terms');
+    function term(k, v) {
+      if (!v) return;
+      terms.appendChild(el('dt', null, k));
+      terms.appendChild(el('dd', null, v));
+    }
+    var post = d.conversion_timing === 'PRE_MONEY' ? 'Pre-money valuation cap' : 'Post-money valuation cap';
+    term('Raising', dollars(d.target_amount));
+    term(post, dollars(d.conversion_valuation_cap || d.post_money));
+    term('Pre-money', d.conversion_timing === 'PRE_MONEY' ? '' : dollars(d.pre_money));
+    if (d.target_amount && d.target_pct) term(dollars(d.target_amount) + ' buys', pctText(d.target_pct) + ' of the company');
+    term('Discount', d.conversion_discount != null ? pctText(num(d.conversion_discount) * 100) : 'None');
+    term('Most favored nation', d.conversion_mfn ? 'Yes' : 'No');
+    term('Pro rata right', d.pro_rata ? 'Yes' : 'No');
+    host.appendChild(terms);
+
+    var pool = num(d.founders_pool_pct) || 0;
+    var side = num(d.investor_side_pct) || 0;
+    var round = Math.min(num(d.target_pct) || 0, side);
+    var sides = [
+      { label: 'Founders pool', what: 'earned by work', pct: pool, color: sliceColor(0) },
+      { label: 'This round', what: d.target_amount ? dollars(d.target_amount) : '', pct: round, color: sliceColor(1) },
+      { label: 'Investor side, not yet sold', what: '', pct: side - round, color: 'rgba(127,127,127,0.35)' }
+    ];
+    var wrap = el('div', 'off-pie');
+    wrap.appendChild(renderOfferingPie(sides));
+    var legend = el('ul', 'off-legend');
+    sides.forEach(function (s) {
+      if (s.pct <= 0) return;
+      var li = el('li');
+      var dot = el('span', 'dot');
+      dot.style.background = s.color;
+      li.appendChild(dot);
+      li.appendChild(el('b', null, pctText(s.pct)));
+      li.appendChild(document.createTextNode(' ' + s.label));
+      if (s.what) li.appendChild(el('span', 'what', ' · ' + s.what));
+      legend.appendChild(li);
+    });
+    wrap.appendChild(legend);
+    host.appendChild(wrap);
+
+    var docs = (d.documents || []).filter(function (x) { return safeHref(x.url); });
+    if (docs.length) {
+      var ul = el('ul', 'off-docs');
+      docs.forEach(function (x) {
+        var li = el('li');
+        var a = el('a', null, x.title || x.kind_label);
+        a.href = safeHref(x.url);
+        a.target = '_blank';
+        a.rel = 'noopener';
+        li.appendChild(a);
+        ul.appendChild(li);
+      });
+      host.appendChild(ul);
+    }
+  }
+
+  function mountOffering(host) {
+    ensureStyles();
+    var c = cfg(host);
+    if (!c) return goDark(host);
+    fetch(c.up + '/api/v1/captable/orgs/' + c.org + '/offering/', { credentials: 'include' })
+      .then(function (r) {
+        host.replaceChildren();
+        host.hidden = false;
+        if (r.status === 401) {
+          host.appendChild(el('p', 'off-gate', 'The terms are for signed-in investors.'));
+          var a = el('a', 'off-btn', 'Sign in to see the round');
+          a.href = c.up + '/accounts/linkedtrust/start/?next=' + encodeURIComponent(location.href);
+          host.appendChild(a);
+          return;
+        }
+        if (r.status === 404) {
+          host.appendChild(el('p', 'off-gate', 'No round is open.'));
+          return;
+        }
+        if (r.status !== 200) throw new Error('http ' + r.status);
+        return r.json().then(function (d) { renderOffering(host, d); });
+      })
+      .catch(function (err) {
+        console.warn('[govkit] govkit-offering:', err.message || err);
+        goDark(host);
+      });
+  }
+
   // --- element registration ------------------------------------------------
 
   function define(tag, path, render) {
@@ -2013,6 +2155,11 @@
   if (!customElements.get('govkit-onboarding')) {
     customElements.define('govkit-onboarding', class extends HTMLElement {
       connectedCallback() { if (this.__mounted) return; this.__mounted = true; mountOnboarding(this); }
+    });
+  }
+  if (!customElements.get('govkit-offering')) {
+    customElements.define('govkit-offering', class extends HTMLElement {
+      connectedCallback() { if (this.__mounted) return; this.__mounted = true; mountOffering(this); }
     });
   }
   if (!customElements.get('govkit-news')) {
