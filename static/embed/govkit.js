@@ -35,6 +35,8 @@
 //   - <govkit-checklist data-week="1"> — optional. Which week of the program today
 //     is, from the host's cohort clock. That module opens first instead of the
 //     first one with work left. Omit it and nothing changes.
+//   - <govkit-checklist data-closed> — optional. No module opens until the person
+//     opens one (a module they opened this session stays open).
 //   - Every fetch carries credentials: 'include' (the member's own GovKit session;
 //     cross-origin needs GovKit's CORS allowlist — see PLAN-cohort-dash.md).
 //     GETs are deduped per URL for the life of the page, so components that read
@@ -592,7 +594,8 @@
     // of the program today is (the cohort clock), so the panel opens on the week
     // the team is actually in — an earlier week left unfinished stays closed.
     // Without it, fall back to the first module with work left.
-    if (!open.length) {
+    // data-closed: open nothing until the person opens a module.
+    if (!open.length && !('closed' in host.dataset)) {
       var week = parseInt(host.dataset.week, 10);
       var thisWeek = isNaN(week) ? null : modules.filter(function (m) {
         return m.week === week;
