@@ -255,6 +255,12 @@ Pages take the full width of the screen. No narrow centered column.
 
 What a person clicks opens where they clicked, in place, pushing the rest down. No side panels, no overlays, no jumping elsewhere on the page.
 
+## 23. Only what is unique to this record
+
+> "ONLY SHOW ME UNIQUE CONCRETE USEFUL INFO ABOUT EACH INDIVIDUAL LEAD" · "no prompts no clues"
+
+A row or card shows facts about that one record. No placeholder text, no empty-state sentences, no system lines, no text an app or AI generated about itself.
+
 ## Working this way
 
 - **Show a design, don't describe one.** "this is why i needed to SEE it. your
