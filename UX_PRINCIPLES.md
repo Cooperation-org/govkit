@@ -249,6 +249,12 @@ icon. Same for a label that restates the column above it.
 
 Pages take the full width of the screen. No narrow centered column.
 
+## 22. Keep me where I am looking
+
+> "if i am focused or looking at one thing KEEP ME THERE" · "don't make stuff move or happen SOMEWHERE ELSE"
+
+What a person clicks opens where they clicked, in place, pushing the rest down. No side panels, no overlays, no jumping elsewhere on the page.
+
 ## Working this way
 
 - **Show a design, don't describe one.** "this is why i needed to SEE it. your
