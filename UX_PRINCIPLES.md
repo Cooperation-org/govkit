@@ -236,6 +236,19 @@ through. Three reads as a choice.
 When a list of options runs past three, the extras are usually the same thing
 said twice or a path nobody takes. Find them and cut.
 
+## 20. Never repeat a word down a page
+
+> "NEVER REPEAT WORDS ON A PAGE THAT IS ALWAYS A WASTE OF HUMAN EYES"
+
+A word that appears on every row or card says it once, at the top, or becomes an
+icon. Same for a label that restates the column above it.
+
+## 21. Use the whole window
+
+> "do not make narrow"
+
+Pages take the full width of the screen. No narrow centered column.
+
 ## Working this way
 
 - **Show a design, don't describe one.** "this is why i needed to SEE it. your
