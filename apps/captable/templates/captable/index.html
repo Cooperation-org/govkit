@@ -11,7 +11,7 @@
   <ol class="gk-decisions">
     <li><a href="#rounds">Valuation</a><b>{% if offer.post_money %}{{ offer.post_money|money:cur }} post-money, {{ offer.round.name }}{% else %}not set{% endif %}</b></li>
     <li><a href="#rounds">Tranche</a><b>{% if offer.target_amount %}{{ offer.target_amount|money:cur }}{% if offer.target_pct %} &middot; {{ offer.target_pct|floatformat:2 }}% of the company{% endif %}{% else %}not set{% endif %}</b></li>
-    <li><a href="#pool">Split</a><b>{{ table.founders_pool_pct }}% founders pool &middot; {{ table.investor_pool_pct }}% investor side</b></li>
+    <li><a href="#pool">Split</a><b>{{ table.founders_pool_pct|floatformat:"-2" }}% founders pool &middot; {{ table.investor_pool_pct|floatformat:"-2" }}% investor side</b></li>
     <li><a href="{% url 'pie:index' org_slug=current_org.slug %}">Governance pie</a><b>earned by work</b></li>
   </ol>
   <details class="gk-fold">
@@ -82,7 +82,7 @@
         {% if pool_only %}
           {% if outside %}
             <tr class="gk-cap-group" id="investors">
-              <td class="gk-muted">{{ outside.label }}</td>
+              <td class="gk-muted">Investor side</td>
               <td></td>
               <td class="gk-num">{{ outside.pct_display }}%</td>
               <td class="gk-num">{{ outside.value|money:cur }}</td>
