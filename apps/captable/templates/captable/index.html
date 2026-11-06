@@ -8,9 +8,32 @@
     <h1>{{ page_title }}</h1>
     <a href="{% url 'captable-ocf' org_slug=current_org.slug %}?as=zip">Export (Open Cap Format) &darr;</a>
   </div>
-  {% if table.latest_post_money %}
-    <p class="gk-muted">{{ table.latest_post_money|money:cur }} post-money, {{ table.latest_round_name }}</p>
-  {% endif %}
+  <ol class="gk-decisions">
+    <li><a href="#rounds">Valuation</a><b>{% if offer.post_money %}{{ offer.post_money|money:cur }} post-money, {{ offer.round.name }}{% else %}not set{% endif %}</b></li>
+    <li><a href="#rounds">Tranche</a><b>{% if offer.target_amount %}{{ offer.target_amount|money:cur }}{% if offer.target_pct %} &middot; {{ offer.target_pct|floatformat:2 }}% of the company{% endif %}{% else %}not set{% endif %}</b></li>
+    <li><a href="#pool">Split</a><b>{{ table.founders_pool_pct }}% founders pool &middot; {{ table.investor_pool_pct }}% investor side</b></li>
+    <li><a href="{% url 'pie:index' org_slug=current_org.slug %}">Governance pie</a><b>earned by work</b></li>
+  </ol>
+  <details class="gk-fold">
+    <summary>How the numbers work</summary>
+    <ul>
+      <li>{{ table.unit_name|capfirst }}: 1 {{ cur }} of reviewed work each.</li>
+      <li>The founders pool is a fixed % of the company. Each holder's share = their {{ table.unit_name }} &divide; all {{ table.unit_name }} &times; pool %, so it shrinks as others earn, until the next round grows the pool.</li>
+      <li>Investors own what they bought: amount &divide; post-money valuation.</li>
+      <li>Votes come from the governance pie, earned by work only. <a href="{% url 'pie:index' org_slug=current_org.slug %}">Governance pie</a></li>
+    </ul>
+    <p><b>Ways to set valuation</b></p>
+    <table class="gk-cap">
+      <thead><tr><th>Method</th><th>What moves it</th><th>Used by</th></tr></thead>
+      <tbody>
+        <tr><td>Investment price</td><td>An investment at a stated valuation</td><td>Priced rounds; SAFEs with a cap; Fairmint rolling closes</td></tr>
+        <tr><td>Formula</td><td>Net assets + multiple &times; revenue, quarterly</td><td>SAIC 1973&ndash;2006; Kiewit (book value)</td></tr>
+        <tr><td>Sale curve</td><td>Price rises as investor units sell</td><td>Fairmint CAFE; Aktionariat</td></tr>
+        <tr><td>Revenue reserve</td><td>A fixed % of revenue funds buybacks</td><td>Fairmint c-org contract</td></tr>
+      </tbody>
+    </table>
+    <p><a href="https://workers.vc/equity/">Equity model</a> &middot; <a href="https://demos.linkedtrust.us/i/valuation-options/">Valuation options</a></p>
+  </details>
 
   <div class="gk-card" id="pool">
     <table class="gk-cap">

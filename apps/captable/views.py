@@ -107,6 +107,7 @@ def index(request, org_slug):
         "valuations": list(Valuation.objects.for_org(org).select_related("stock_class")),
         "valuation_types": ValuationType.choices,
         "documents": services.documents(org),
+        "offer": services.offering(org),
         "document_kinds": DocumentKind.choices,
         "uploads_on": storage.configured(),
         "franchise": franchise,

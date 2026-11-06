@@ -192,6 +192,7 @@ def table_dict(table, org=None):
         "unsold_pct": _s(table.unsold_pct.quantize(services.PCT_Q)),
         "latest_post_money": _s(table.latest_post_money),
         "latest_round_name": table.latest_round_name,
+        "latest_target_amount": _s(max(terms.values(), key=lambda r: (r.date, r.pk)).target_amount) if terms else None,
         "total_pct": _s(table.total_pct),
         "total_value": _s(table.total_value),
         "lines": [_line(ln) for ln in table.lines],

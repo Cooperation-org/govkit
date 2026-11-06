@@ -945,3 +945,12 @@ details.gk-unfold fieldset { border: none; padding: 0.25rem 0 0.75rem; margin: 0
 
 /* pie page: Governance / Equity switch under the h1 */
 .gk-view-switch { margin: 0.25rem 0 0.5rem; }
+
+/* Cap table: the three decisions on top, explanation folded below. */
+.gk-decisions { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; }
+.gk-decisions li { padding-right: 1rem; }
+.gk-decisions li a { display: block; font-size: 0.85rem; }
+.gk-decisions li b { font-weight: 600; }
+.gk-fold { margin: 0 0 1rem; }
+.gk-fold > summary { cursor: pointer; color: var(--gk-muted); }
+.gk-fold ul { margin: 0.5rem 0; padding-left: 1.2rem; }
