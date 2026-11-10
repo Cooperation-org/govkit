@@ -1372,3 +1372,10 @@ starting-split / lock-in cards. Equity = compute_cap_table lines: "Founders pool
 worker lines inside; "Investor side" group with each investor and "Not yet sold"; POOL_ONLY scope
 shows the pool plus "Held outside this record". Math unchanged (pie share x pool %; the spec's
 work value / valuation at the drop is open, govkit-vs-spec rule 2). Partial `templates/pie/_equity.html`.
+
+## TEAM ACCESS TO TOOLS (2026-11-10, in progress)
+New `apps/access`: per-org `ToolConnection` (Taiga / Odoo admin login, secret encrypted, write-only),
+append-only `AccessChange` audit. Access itself is read live from each tool, never stored.
+`Membership.can_grant_access` (admins + these may grant/revoke). Card `<govkit-access>` on the
+members page: one row per person (members first, then emails found only in the tools), one
+column per tool, grant/revoke immediate. Non-members by email, never in the pie.
