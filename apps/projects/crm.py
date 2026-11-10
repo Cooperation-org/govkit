@@ -149,4 +149,3 @@ def team_crm(org_slug: str, limit: int = 5) -> dict | None:
             for d in deals
         ],
     }
-
