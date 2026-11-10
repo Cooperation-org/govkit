@@ -481,6 +481,10 @@ class Membership(models.Model):
     discord_user_id = models.CharField(max_length=32, blank=True, db_index=True)
     discord_username = models.CharField(max_length=255, blank=True)
 
+    # May add and remove people's access to the team's tools (apps.access), as an
+    # admin can. Set by an admin on the members page.
+    can_grant_access = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

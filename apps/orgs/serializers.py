@@ -135,7 +135,7 @@ class MembershipSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Membership
-        fields = ["id", "email", "role", "hourly_rate", "effective_rate"]
+        fields = ["id", "email", "role", "hourly_rate", "effective_rate", "can_grant_access"]
         read_only_fields = ["id", "email", "effective_rate"]
 
     def to_representation(self, instance):

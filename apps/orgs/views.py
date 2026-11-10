@@ -420,6 +420,8 @@ def members(request, org_slug):
             "rate_form": OrgRateForm(
                 initial={"default_hourly_rate": request.org.default_hourly_rate}
             ),
+            # GovKit's own origin + base path, for the <govkit-access> card's data-up.
+            "embed_up": request.build_absolute_uri(reverse("orgs:landing")).rstrip("/"),
         },
     )
 
@@ -910,7 +912,8 @@ def member_update(request, org_slug, membership_id):
 
     membership.role = new_role
     membership.hourly_rate = form.cleaned_data.get("hourly_rate")
-    membership.save(update_fields=["role", "hourly_rate"])
+    membership.can_grant_access = form.cleaned_data.get("can_grant_access", False)
+    membership.save(update_fields=["role", "hourly_rate", "can_grant_access"])
     messages.success(request, "Member updated.")
     return redirect("orgs:members", org_slug=request.org.slug)
 

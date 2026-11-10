@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Access — {{ current_org.display_name }} — GovKit{% endblock %}
+{% block content %}
+  <h1>Access</h1>
+
+  <govkit-access data-up="{{ embed_up }}" data-org="{{ current_org.slug }}"></govkit-access>
+
+  {% if is_admin %}
+    <section class="gk-card" id="tools">
+      <h2>Tools</h2>
+      {% if connections %}
+        <table class="gk-table">
+          <thead><tr><th>Name</th><th>Tool</th><th>URL</th><th>Admin login</th><th>Role</th><th>On</th><th></th></tr></thead>
+          <tbody>
+            {% for c in connections %}
+              <tr>
+                <td>{{ c.display_name }}</td>
+                <td>{{ c.get_kind_display }}</td>
+                <td><a href="{{ c.base_url }}" target="_blank" rel="noopener">{{ c.base_url }}</a></td>
+                <td>{{ c.admin_login }}</td>
+                <td>{{ c.default_role }}</td>
+                <td>{% if c.enabled %}on{% else %}<span class="gk-badge gk-badge-closed">off</span>{% endif %}</td>
+                <td><a href="{% url 'access:index' org_slug=current_org.slug %}?tool={{ c.pk }}#tools">Edit</a></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+
+      <form method="post" action="{% url 'access:save_tool' org_slug=current_org.slug %}">
+        {% csrf_token %}
+        {% if editing %}<input type="hidden" name="tool_id" value="{{ editing.pk }}">{% endif %}
+        <h3>{% if editing %}{{ editing.display_name }}{% else %}Add a tool{% endif %}</h3>
+        <div class="gk-form-grid">
+          {% for field in form %}
+            {% if field.name != "enabled" %}
+              <div class="gk-field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}
+                  {% if field.name == "admin_secret_input" %}<small>{% if editing.admin_secret %}set (hidden){% else %}not set{% endif %}</small>{% endif %}
+                </label>
+                {{ field }}
+                {% for e in field.errors %}<span class="gk-error">{{ e }}</span>{% endfor %}
+              </div>
+            {% endif %}
+          {% endfor %}
+          <div class="gk-field">
+            <label class="gk-check">{{ form.enabled }} {{ form.enabled.label }}</label>
+          </div>
+        </div>
+        {% if form.non_field_errors %}<p class="gk-error">{{ form.non_field_errors }}</p>{% endif %}
+        <p>
+          <button type="submit" class="gk-btn">Save</button>
+          {% if editing %}<a class="gk-btn" href="{% url 'access:index' org_slug=current_org.slug %}#tools">Cancel</a>{% endif %}
+        </p>
+      </form>
+    </section>
+  {% endif %}
+{% endblock %}
+{% block scripts %}<script src="{% static 'embed/govkit.js' %}" defer></script>{% endblock %}

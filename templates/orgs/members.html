@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Members — {{ current_org.display_name }} — GovKit{% endblock %}
 {% block content %}
   <h1>Members — {{ current_org.display_name }}</h1>
@@ -38,6 +39,7 @@
                 <input type="number" step="0.01" name="hourly_rate"
                        value="{{ m.hourly_rate|default_if_none:'' }}" placeholder="(org default)">
                 <span class="gk-placeholder">effective: {{ m.effective_rate|default_if_none:'—' }}</span>
+                <label class="gk-check"><input type="checkbox" name="can_grant_access" {% if m.can_grant_access or m.role == 'admin' %}checked{% endif %}{% if m.role == 'admin' %} disabled{% endif %}> Grants tool access</label>
                 <button type="submit">Save</button>
               </form>
             </td>
@@ -81,6 +83,11 @@
       <button type="submit">Save default</button>
       <small>Members without an override use it.</small>
     </form>
+  </div>
+
+  <div class="gk-card" id="access">
+    <h2><a href="{% url 'access:index' org_slug=current_org.slug %}">Access</a></h2>
+    <govkit-access data-up="{{ embed_up }}" data-org="{{ current_org.slug }}"></govkit-access>
   </div>
 
   <div class="gk-card">
@@ -418,3 +425,4 @@
     })();
   </script>
 {% endblock %}
+{% block scripts %}<script src="{% static 'embed/govkit.js' %}" defer></script>{% endblock %}

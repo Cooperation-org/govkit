@@ -39,6 +39,7 @@ urlpatterns = [
     path("api/v1/commons/", include("apps.commons.api")),
     path("api/v1/comms/", include("apps.comms.api")),
     path("api/v1/captable/", include("apps.captable.api")),
+    path("api/v1/access/", include("apps.access.api")),
     # --- LinkedTrust OIDC seam (uncomment once the package is installed) ---
     # path("api/v1/auth/linkedtrust/", include("linkedtrust_auth.urls")),
     # --- Org-scoped feature pages (flat namespaces) ---
@@ -51,6 +52,7 @@ urlpatterns = [
     path(ORG + "projects/", include("apps.projects.urls")),
     path(ORG + "comms/", include("apps.comms.urls")),
     path(ORG + "captable/", include("apps.captable.urls")),
+    path(ORG + "access/", include("apps.access.urls")),
     # --- The sent week, on its own page. No org in the path: it is the link
     # that went out in the email, and it has to keep working on its own.
     path("week/", include("apps.comms.public_urls")),

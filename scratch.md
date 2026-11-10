@@ -1373,9 +1373,13 @@ worker lines inside; "Investor side" group with each investor and "Not yet sold"
 shows the pool plus "Held outside this record". Math unchanged (pie share x pool %; the spec's
 work value / valuation at the drop is open, govkit-vs-spec rule 2). Partial `templates/pie/_equity.html`.
 
-## TEAM ACCESS TO TOOLS (2026-11-10, in progress)
+## TEAM ACCESS TO TOOLS (2026-11-10, shipped)
 New `apps/access`: per-org `ToolConnection` (Taiga / Odoo admin login, secret encrypted, write-only),
 append-only `AccessChange` audit. Access itself is read live from each tool, never stored.
 `Membership.can_grant_access` (admins + these may grant/revoke). Card `<govkit-access>` on the
 members page: one row per person (members first, then emails found only in the tools), one
 column per tool, grant/revoke immediate. Non-members by email, never in the pie.
+Page `/o/<org>/access/` (tab "Access": admins + can_grant_access) holds the card and, for admins,
+the Tools form; card also on the members page. API `/api/v1/access/orgs/<org>/` (matrix),
+`grant/`, `revoke/`, `changes/`, `connections/`. ToolConnection has `database` (Odoo needs it).
+Taiga boards = active boards the admin login manages (`i_am_admin`). No live credentials set.

@@ -321,6 +321,7 @@ class MemberUpdateForm(forms.Form):
     hourly_rate = forms.DecimalField(
         max_digits=12, decimal_places=2, required=False, label="Hourly rate override"
     )
+    can_grant_access = forms.BooleanField(required=False, label="Grants tool access")
 
 
 class OrgRateForm(forms.Form):

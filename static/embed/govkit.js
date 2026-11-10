@@ -22,6 +22,8 @@
 //                       no data-org — it lists every venture for a person in the pool)
 //   <govkit-news>       what the ventures did about ME      (commons/news/mine/; data-up only,
 //                       no data-org — it is the signed-in person's own rail)
+//   <govkit-access>     who may use the team's tools; grant / revoke per board
+//                       (access/orgs/<org>/; org admins and members allowed to grant)
 //
 // Contract with the host page:
 //   - Every component takes data-up (GovKit origin, e.g. https://dash.workers.vc —
@@ -370,6 +372,20 @@
       'govkit-captable .rowopen { background: none; border: none; padding: 0; font: inherit; font-weight: 600; color: inherit; text-align: left; cursor: pointer; }',
       'govkit-captable .rowopen:hover { text-decoration: underline; }',
       'govkit-ventures textarea { width: 100%; font: inherit; font-size: 13px; margin: 6px 0; border-radius: 6px; border: 1px solid rgba(127,127,127,0.4); background: none; color: inherit; padding: 6px 8px; box-sizing: border-box; }',
+      'govkit-access { display: block; font-family: system-ui, -apple-system, sans-serif; font-size: 13px; color: inherit; line-height: 1.4; }',
+      'govkit-access[hidden] { display: none; }',
+      'govkit-access .acc-wrap { overflow-x: auto; }',
+      'govkit-access table { width: 100%; border-collapse: collapse; }',
+      'govkit-access th, govkit-access td { padding: 4px 8px; border-bottom: 1px solid rgba(127,127,127,0.2); text-align: left; vertical-align: middle; }',
+      'govkit-access thead th { font-weight: 600; white-space: nowrap; }',
+      'govkit-access thead tr + tr th { font-weight: 400; opacity: 0.75; }',
+      'govkit-access td.cell, govkit-access th.scope { text-align: center; }',
+      'govkit-access th.group { padding-top: 14px; opacity: 0.75; font-weight: 600; }',
+      'govkit-access .email { opacity: 0.65; margin-left: 6px; }',
+      'govkit-access .err, govkit-access .status.failed { color: var(--gk-cat-1, #c94f58); font-weight: 400; }',
+      'govkit-access .status { opacity: 0.75; }',
+      'govkit-access form { display: flex; gap: 6px; margin-top: 10px; }',
+      'govkit-access form input { flex: 1 1 auto; max-width: 28rem; font: inherit; padding: 4px 8px; }',
     ].join('\n');
     document.head.appendChild(s);
   }
@@ -2256,6 +2272,185 @@
     return true;
   }
 
+  // --- <govkit-access> -----------------------------------------------------
+  // Who may use the team's tools. One row per person (GovKit members first,
+  // then people found only in the tools), one column per Taiga board and one
+  // for the CRM. A checkbox grants or revokes at once, through GovKit, which
+  // reads the tools live; the row's last cell shows what the tool answered.
+  // Pattern: permission matrix with grouped column headers (WAI-ARIA table +
+  // native checkboxes, each labelled with its person, tool and board).
+
+  function mountAccess(host) {
+    ensureStyles();
+    var c = cfg(host);
+    if (!c) return goDark(host);
+    var base = c.up + '/api/v1/access/orgs/' + c.org + '/';
+    fetch(base, { credentials: 'include' })
+      .then(function (r) { if (r.status !== 200) throw new Error('http ' + r.status); return r.json(); })
+      .then(function (d) {
+        host.replaceChildren();
+        if (renderAccess(host, d, base) === false) goDark(host);
+        else host.hidden = false;
+      })
+      .catch(function (err) {
+        console.warn('[govkit] govkit-access:', err.message || err);
+        goDark(host);
+      });
+  }
+
+  function renderAccess(host, d, base) {
+    var tools = d.tools || [];
+    if (!tools.length) return false;
+    var people = d.people || [];
+    var single = function (t) {
+      return t.error || !t.scopes.length || (t.scopes.length === 1 && !t.scopes[0].slug);
+    };
+    var width = 2 + tools.reduce(function (n, t) {
+      return n + (t.error || !t.scopes.length ? 1 : t.scopes.length);
+    }, 0);
+
+    var table = el('table');
+    var thead = el('thead');
+    var top = el('tr');
+    var sub = el('tr');
+    var who = el('th', null, 'Person');
+    who.rowSpan = 2;
+    who.scope = 'col';
+    top.appendChild(who);
+    tools.forEach(function (t) {
+      var th = el('th', single(t) ? 'scope' : null, t.label);
+      th.scope = 'colgroup';
+      if (single(t)) th.rowSpan = 2;
+      else th.colSpan = t.scopes.length;
+      if (t.error) {
+        th.appendChild(document.createElement('br'));
+        th.appendChild(el('span', 'err', t.error));
+      }
+      top.appendChild(th);
+      if (!single(t)) {
+        t.scopes.forEach(function (s) {
+          var sh = el('th', 'scope', s.name || s.slug);
+          sh.scope = 'col';
+          sub.appendChild(sh);
+        });
+      }
+    });
+    var st = el('th');
+    st.rowSpan = 2;
+    top.appendChild(st);
+    thead.appendChild(top);
+    if (sub.children.length) thead.appendChild(sub);
+    else top.querySelectorAll('th').forEach(function (h) { h.rowSpan = 1; });
+    table.appendChild(thead);
+
+    var members = el('tbody');
+    var others = el('tbody');
+    var othersHead = el('tr');
+    var gh = el('th', 'group', 'Tool access only');
+    gh.colSpan = width;
+    gh.scope = 'rowgroup';
+    othersHead.appendChild(gh);
+    others.appendChild(othersHead);
+    var rows = {};
+
+    function row(p) {
+      var tr = el('tr');
+      var th = el('th');
+      th.scope = 'row';
+      th.appendChild(el('span', null, p.name || p.email));
+      if (p.name) th.appendChild(el('span', 'email', p.email));
+      tr.appendChild(th);
+      var status = el('td', 'status');
+      tools.forEach(function (t) {
+        if (t.error || !t.scopes.length) { tr.appendChild(el('td')); return; }
+        var have = (p.access || {})[String(t.id)] || [];
+        t.scopes.forEach(function (s) {
+          var td = el('td', 'cell');
+          var box = el('input');
+          box.type = 'checkbox';
+          box.checked = have.indexOf(s.slug) !== -1;
+          box.setAttribute('aria-label', [t.label, s.name || s.slug, p.email].filter(Boolean).join(' · '));
+          box.addEventListener('change', function () { toggle(p.email, t, s, box, status); });
+          td.appendChild(box);
+          tr.appendChild(td);
+        });
+      });
+      tr.appendChild(status);
+      rows[p.email] = tr;
+      return tr;
+    }
+
+    function toggle(email, t, s, box, status) {
+      var want = box.checked;
+      box.disabled = true;
+      status.className = 'status';
+      status.textContent = '';
+      fetch(base + (want ? 'grant/' : 'revoke/'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'X-Govkit-Embed': '1', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, connection: t.id, scope: s.slug }),
+      })
+        .then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (b) { return { ok: r.ok, b: b }; });
+        })
+        .then(function (res) {
+          var ok = res.ok && res.b.result === 'ok';
+          if (!ok) box.checked = !want;
+          status.className = 'status' + (ok ? '' : ' failed');
+          status.textContent = [t.label, s.name, res.b.detail || (ok ? '' : 'failed')]
+            .filter(Boolean).join(': ');
+          if (res.b.id) {
+            document.dispatchEvent(new CustomEvent('govkit:changed', {
+              detail: { type: 'access', id: res.b.id },
+            }));
+          }
+        })
+        .catch(function () {
+          box.checked = !want;
+          status.className = 'status failed';
+          status.textContent = t.label + ': GovKit unreachable';
+        })
+        .then(function () { box.disabled = false; });
+    }
+
+    people.forEach(function (p) {
+      (p.is_member ? members : others).appendChild(row(p));
+    });
+    table.appendChild(members);
+    table.appendChild(others);
+    othersHead.hidden = others.children.length < 2;
+
+    var wrap = el('div', 'acc-wrap');
+    wrap.appendChild(table);
+    host.appendChild(wrap);
+
+    var form = el('form');
+    var input = el('input');
+    input.type = 'email';
+    input.required = true;
+    input.placeholder = 'Email';
+    input.setAttribute('aria-label', 'Add person by email');
+    var add = el('button', null, 'Add');
+    add.type = 'submit';
+    form.appendChild(input);
+    form.appendChild(add);
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var email = input.value.trim().toLowerCase();
+      if (!email || !input.checkValidity()) return;
+      if (!rows[email]) {
+        others.appendChild(row({ email: email, name: '', is_member: false, access: {} }));
+        othersHead.hidden = false;
+      }
+      var first = rows[email].querySelector('input');
+      if (first) first.focus();
+      input.value = '';
+    });
+    host.appendChild(form);
+    return true;
+  }
+
   // --- element registration ------------------------------------------------
 
   function define(tag, path, render) {
@@ -2290,6 +2485,11 @@
   if (!customElements.get('govkit-offering')) {
     customElements.define('govkit-offering', class extends HTMLElement {
       connectedCallback() { if (this.__mounted) return; this.__mounted = true; mountOffering(this); }
+    });
+  }
+  if (!customElements.get('govkit-access')) {
+    customElements.define('govkit-access', class extends HTMLElement {
+      connectedCallback() { if (this.__mounted) return; this.__mounted = true; mountAccess(this); }
     });
   }
   if (!customElements.get('govkit-news')) {

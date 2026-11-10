@@ -65,6 +65,17 @@ def nav(request):
                 "active": view_name == "orgs:settings",
             }
         )
+    # Tool access: admins, and members an admin allowed to grant it.
+    if membership is not None and (
+        membership.role == MembershipRole.ADMIN or membership.can_grant_access
+    ):
+        tabs.append(
+            {
+                "label": "Access",
+                "url_name": "access:index",
+                "active": namespace == "access",
+            }
+        )
     # Remember which tool this person was last using in this org, so coming back
     # to the org lands where they left off instead of always on the pie. Read on
     # the way in by orgs.views.open_org; only GETs count, so a form post that
