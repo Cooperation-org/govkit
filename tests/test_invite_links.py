@@ -418,3 +418,106 @@ def test_link_payload_carries_the_public_join_url(client, team_link, settings):
         **_auth(),
     ).json()
     assert body["join_url"] == f"https://dash.example/join/{team_link.code}/"
+
+
+# --- The members page: make, see, copy and close a team link --------------------------
+
+
+def _members(org):
+    return reverse("orgs:members", kwargs={"org_slug": org.slug})
+
+
+@pytest.mark.django_db
+def test_admin_makes_a_team_link_from_the_members_page(client, admin_org, settings):
+    org, admin = admin_org
+    settings.PUBLIC_BASE_URL = "https://dash.example"
+    client.force_login(admin)
+    resp = client.post(
+        reverse("orgs:team_link_create", kwargs={"org_slug": org.slug}),
+        {"label": "Slack #volunteers", "expires_in": "30", "max_uses": "200"},
+    )
+    link = InviteLink.objects.get(org=org)
+    assert link.kind == InviteKind.ORG
+    assert link.role == MembershipRole.MEMBER
+    assert link.max_uses == 200
+    assert link.created_by == admin
+    assert abs((link.expires_at - timezone.now()).days - 30) <= 1
+    assert resp["Location"] == _members(org) + f"?link={link.code}#team-link"
+
+    page = client.get(resp["Location"]).content.decode()
+    url = f"https://dash.example/join/{link.code}/"
+    assert f'data-link="{url}"' in page  # the copy button, in the just-made panel and the list
+    assert "Your team link: Slack #volunteers" in page
+    assert "0 of 200" in page
+
+
+@pytest.mark.django_db
+def test_team_link_on_a_date_works_through_that_whole_day(client, admin_org):
+    org, admin = admin_org
+    client.force_login(admin)
+    day = timezone.localdate() + timedelta(days=10)
+    client.post(
+        reverse("orgs:team_link_create", kwargs={"org_slug": org.slug}),
+        {"expires_in": "date", "expires_on": day.isoformat()},
+    )
+    link = InviteLink.objects.get(org=org)
+    assert timezone.localtime(link.expires_at).date() == day + timedelta(days=1)
+    assert timezone.localtime(link.expires_at).hour == 0
+
+
+@pytest.mark.django_db
+def test_team_link_needs_a_future_date(client, admin_org):
+    org, admin = admin_org
+    client.force_login(admin)
+    for posted in ({"expires_in": "date"}, {"expires_in": "date", "expires_on": "2000-01-01"}):
+        client.post(reverse("orgs:team_link_create", kwargs={"org_slug": org.slug}), posted)
+    assert not InviteLink.objects.filter(org=org).exists()
+
+
+@pytest.mark.django_db
+def test_only_admins_make_or_close_team_links(client, admin_org, team_link, user_factory):
+    from apps.orgs.models import Membership
+
+    org, _ = admin_org
+    member = user_factory(email="m@example.com")
+    Membership.objects.create(org=org, user=member, role=MembershipRole.MEMBER)
+    client.force_login(member)
+    create = client.post(
+        reverse("orgs:team_link_create", kwargs={"org_slug": org.slug}), {"expires_in": "7"}
+    )
+    close = client.post(
+        reverse("orgs:team_link_close", kwargs={"org_slug": org.slug, "link_id": team_link.id})
+    )
+    assert create.status_code == 403
+    assert close.status_code == 403
+    assert InviteLink.objects.filter(org=org).count() == 1
+    team_link.refresh_from_db()
+    assert team_link.active
+
+
+@pytest.mark.django_db
+def test_admin_closes_a_team_link_and_members_stay(client, admin_org, team_link, settings):
+    from apps.orgs.models import Membership
+
+    org, admin = admin_org
+    client.force_login(admin)
+    resp = client.post(
+        reverse("orgs:team_link_close", kwargs={"org_slug": org.slug, "link_id": team_link.id})
+    )
+    team_link.refresh_from_db()
+    assert not team_link.active
+    assert resp["Location"] == _members(org) + "#team-link"
+    assert Membership.objects.filter(org=org, user=admin).exists()
+    page = client.get(_members(org)).content.decode()
+    assert "closed" in page
+    assert f"/join/{team_link.code}/" not in page  # no copyable URL for a shut link
+
+
+@pytest.mark.django_db
+def test_team_link_of_another_org_cannot_be_closed(client, admin_org, org_factory):
+    org, admin = admin_org
+    other = InviteLink.objects.create(org=org_factory(slug="other"), kind=InviteKind.ORG)
+    client.force_login(admin)
+    client.post(reverse("orgs:team_link_close", kwargs={"org_slug": org.slug, "link_id": other.id}))
+    other.refresh_from_db()
+    assert other.active

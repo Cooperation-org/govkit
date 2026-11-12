@@ -84,6 +84,12 @@ urlpatterns = [
         views.invite_delete,
         name="invite_delete",
     ),
+    path("o/<slug:org_slug>/members/links/", views.team_link_create, name="team_link_create"),
+    path(
+        "o/<slug:org_slug>/members/links/<int:link_id>/close/",
+        views.team_link_close,
+        name="team_link_close",
+    ),
     path("o/<slug:org_slug>/members/rate/", views.org_rate, name="org_rate"),
     path(
         "o/<slug:org_slug>/members/<int:membership_id>/remove/",

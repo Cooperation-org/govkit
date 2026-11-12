@@ -324,6 +324,57 @@ class MemberUpdateForm(forms.Form):
     can_grant_access = forms.BooleanField(required=False, label="Grants tool access")
 
 
+class TeamLinkForm(forms.Form):
+    """An admin opens a shared team link: one URL for a whole group, that lapses.
+
+    Always a team link (membership as a member). Pool doors and other roles stay
+    with the management command, where they are a deliberate act.
+    """
+
+    EXPIRY_DAYS = (7, 30, 90)
+    ON_A_DATE = "date"
+
+    label = forms.CharField(
+        max_length=255,
+        required=False,
+        label="Name",
+        help_text="For you, to tell links apart (e.g. 'Slack #volunteers').",
+    )
+    expires_in = forms.ChoiceField(
+        choices=[(str(d), f"In {d} days") for d in EXPIRY_DAYS] + [(ON_A_DATE, "On a date")],
+        initial="30",
+        label="Expires",
+    )
+    expires_on = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        label="Date",
+    )
+    max_uses = forms.IntegerField(
+        min_value=1, required=False, label="Most people", help_text="Blank means no limit."
+    )
+
+    def clean(self):
+        data = super().clean()
+        from datetime import datetime, time, timedelta
+
+        from django.utils import timezone
+
+        choice = data.get("expires_in")
+        if choice == self.ON_A_DATE:
+            day = data.get("expires_on")
+            if day is None:
+                raise forms.ValidationError("Pick the date the link stops working.")
+            if day <= timezone.localdate():
+                raise forms.ValidationError("Pick a date after today.")
+            # Open through the whole of that day.
+            end = datetime.combine(day + timedelta(days=1), time.min)
+            data["expires_at"] = timezone.make_aware(end)
+        elif choice:
+            data["expires_at"] = timezone.now() + timedelta(days=int(choice))
+        return data
+
+
 class OrgRateForm(forms.Form):
     """Admin sets the org-wide default hourly rate (Q5a: both rate modes supported)."""
 

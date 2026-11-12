@@ -198,6 +198,86 @@
     {% endif %}
   </div>
 
+  <div class="gk-card" id="team-link">
+    <h2>Team link</h2>
+    <p class="gk-muted">One link for a whole group. Anyone who opens it signs in with
+      LinkedTrust and joins {{ current_org.display_name }} as a member.</p>
+
+    {% for link in team_links %}{% if link.code == new_link_code %}
+      <div class="gk-minted" role="status">
+        <h2>Your team link{% if link.label %}: {{ link.label }}{% endif %}</h2>
+        <div class="gk-sharelink">
+          <input readonly value="{{ link.join_url }}" aria-label="Team link" onclick="this.select()">
+          <button type="button" class="gk-copy gk-copy-icon" data-link="{{ link.join_url }}"
+                  aria-label="Copy team link" title="Copy"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg></button>
+        </div>
+      </div>
+    {% endif %}{% endfor %}
+
+    <form method="post" action="{% url 'orgs:team_link_create' org_slug=current_org.slug %}">
+      {% csrf_token %}
+      <div class="gk-form-grid">
+        <div class="gk-field">
+          <label for="{{ team_link_form.label.id_for_label }}">{{ team_link_form.label.label }}
+            <small>optional — {{ team_link_form.label.help_text|lower }}</small></label>
+          {{ team_link_form.label }}
+        </div>
+        <div class="gk-field">
+          <label for="{{ team_link_form.expires_in.id_for_label }}">{{ team_link_form.expires_in.label }}</label>
+          {{ team_link_form.expires_in }}
+        </div>
+        <div class="gk-field" id="gk-link-date-field">
+          <label for="{{ team_link_form.expires_on.id_for_label }}">{{ team_link_form.expires_on.label }}
+            <small>the last day it works</small></label>
+          {{ team_link_form.expires_on }}
+        </div>
+        <div class="gk-field">
+          <label for="{{ team_link_form.max_uses.id_for_label }}">{{ team_link_form.max_uses.label }}
+            <small>optional — {{ team_link_form.max_uses.help_text|lower }}</small></label>
+          {{ team_link_form.max_uses }}
+        </div>
+      </div>
+      <p class="gk-mint-row"><button type="submit" class="gk-btn-primary">Make team link</button></p>
+    </form>
+
+    {% if team_links %}
+      <table>
+        <thead>
+          <tr><th>Link</th><th>Opens</th><th>Used</th><th>Expires</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for link in team_links %}
+            <tr>
+              <td>
+                {% if link.label %}<div>{{ link.label }}</div>{% endif %}
+                {% if link.is_open %}
+                  <div class="gk-sharelink">
+                    <input readonly value="{{ link.join_url }}" aria-label="Link {{ link.label|default:link.code }}">
+                    <button type="button" class="gk-copy gk-copy-icon" data-link="{{ link.join_url }}" aria-label="Copy link" title="Copy"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg></button>
+                  </div>
+                {% endif %}
+              </td>
+              <td>{% if link.kind == 'pool' %}Applicant pool{% else %}Team ({{ link.get_role_display|lower }}){% endif %}</td>
+              <td class="gk-num">{{ link.use_count }}{% if link.max_uses %} of {{ link.max_uses }}{% endif %}</td>
+              <td class="gk-muted">{% if link.expires_at %}{{ link.expires_at|date:"Y-m-d" }}{% else %}never{% endif %}</td>
+              <td><span class="gk-badge {% if link.is_open %}gk-badge-live{% else %}gk-badge-closed{% endif %}">{% if link.is_open %}open{% else %}{{ link.closed_reason }}{% endif %}</span></td>
+              <td>
+                {% if link.active %}
+                  <form method="post"
+                        action="{% url 'orgs:team_link_close' org_slug=current_org.slug link_id=link.id %}"
+                        onsubmit="return confirm('Close this link? Nobody new can join with it. Everyone who already joined stays.')">
+                    {% csrf_token %}
+                    <button type="submit" class="gk-btn-danger">Close</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </div>
+
   <div class="gk-card" id="invite">
     <h2>Invite someone</h2>
 
@@ -397,6 +477,12 @@
       }
       kind.addEventListener("change", syncFounder);
       syncFounder();
+
+      var linkExpiry = document.getElementById("{{ team_link_form.expires_in.id_for_label }}");
+      var linkDate = document.getElementById("gk-link-date-field");
+      function syncLinkDate() { linkDate.hidden = linkExpiry.value !== "date"; }
+      linkExpiry.addEventListener("change", syncLinkDate);
+      syncLinkDate();
 
       var wallPick = document.getElementById("wall-pick");
       if (wallPick) {

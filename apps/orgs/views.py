@@ -48,6 +48,7 @@ from .forms import (
     SetSponsorStakeForm,
     SetStartingValueForm,
     SponsorGrantForm,
+    TeamLinkForm,
 )
 from .genesis import MODULES, module_of, modules_for, start_genesis, toggle_item
 from .sitepull import SiteUnreachable, fetch_profile
@@ -62,6 +63,7 @@ from .invites import (
     get_invite_for_accept,
     join_via_link,
     landing_after_accept,
+    link_join_url,
     needs_linkedtrust,
 )
 from .models import (
@@ -69,6 +71,7 @@ from .models import (
     ExternalHolder,
     Invite,
     InviteKind,
+    InviteLink,
     InviteStatus,
     Membership,
     MembershipRole,
@@ -394,6 +397,13 @@ def members(request, org_slug):
     minted_invite = (
         next((i for i in invites if i.code == minted_code), None) if minted_code else None
     )
+    # Shared links: one URL for a whole group. Every one of this org's, newest
+    # first, so an admin sees what is out there and can shut any of them.
+    team_links = list(
+        InviteLink.objects.filter(org=request.org).annotate(use_count=Count("invites"))
+    )
+    for link in team_links:
+        link.join_url = link_join_url(link, request)
     return render(
         request,
         "orgs/members.html",
@@ -402,6 +412,9 @@ def members(request, org_slug):
             "roles": MembershipRole.choices,
             "unit_name": request.org.unit_name,
             "invite_form": InviteForm(),
+            "team_links": team_links,
+            "team_link_form": TeamLinkForm(),
+            "new_link_code": request.GET.get("link", ""),
             "invites": invites,
             "minted_invite": minted_invite,
             # Whether a picture can be uploaded here at all — see _picture_field.html.
@@ -854,6 +867,51 @@ def invite_create(request, org_slug):
     )
     url = reverse("orgs:members", kwargs={"org_slug": request.org.slug})
     return redirect(f"{url}?minted={invite.code}")
+
+
+@login_required
+@require_POST
+def team_link_create(request, org_slug):
+    """Admin opens a shared team link: anyone with it joins as a member until it lapses."""
+    _require_admin(request)
+    form = TeamLinkForm(request.POST)
+    if not form.is_valid():
+        for error in form.non_field_errors() or ["Please correct the link details."]:
+            messages.error(request, error)
+        return redirect(
+            reverse("orgs:members", kwargs={"org_slug": request.org.slug}) + "#team-link"
+        )
+    data = form.cleaned_data
+    link = InviteLink.objects.create(
+        org=request.org,
+        kind=InviteKind.ORG,
+        role=MembershipRole.MEMBER,
+        label=data.get("label", ""),
+        max_uses=data.get("max_uses"),
+        expires_at=data["expires_at"],
+        created_by=request.user,
+    )
+    return redirect(
+        reverse("orgs:members", kwargs={"org_slug": request.org.slug})
+        + f"?link={link.code}#team-link"
+    )
+
+
+@login_required
+@require_POST
+def team_link_close(request, org_slug, link_id):
+    """Admin shuts a shared link. Nobody new gets in; everyone already in stays."""
+    _require_admin(request)
+    link = InviteLink.objects.filter(org=request.org, id=link_id).first()
+    if link is None:
+        messages.error(request, "That link was not found.")
+    else:
+        link.active = False
+        link.save(update_fields=["active"])
+        messages.success(
+            request, f"Link {link.label or link.code} closed. Members who joined stay."
+        )
+    return redirect(reverse("orgs:members", kwargs={"org_slug": request.org.slug}) + "#team-link")
 
 
 @login_required
