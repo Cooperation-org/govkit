@@ -196,7 +196,7 @@ def test_google_signed_in_person_is_joined_as_their_linkedtrust_identity(
         client, {"sub": "lt-9", "email": "g.lt@example.com", "email_verified": True}
     )
 
-    membership = Membership.objects.get(org=org_invite.org)
+    membership = Membership.objects.get(org=org_invite.org, user__email="g.lt@example.com")
     assert membership.user.auth_provider == "linkedtrust"
     assert membership.user.auth_provider_id == "lt-9"
     assert not Membership.objects.filter(user=google_user).exists()
