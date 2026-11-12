@@ -54,6 +54,35 @@ class InviteError(Exception):
     """The invite code is unknown, expired, revoked, or already used."""
 
 
+LINKEDTRUST_PROVIDER = "linkedtrust"
+
+
+def needs_linkedtrust(user) -> bool:
+    """Must this person sign in with LinkedTrust before they are joined to a team?
+
+    Every tool behind a membership hangs off the member's LinkedTrust OIDC `sub`
+    (the team CRM user is provisioned by matching it), so a membership made for
+    an account with no sub is one the rest of the stack cannot serve. Only where
+    LinkedTrust is configured: a standalone GovKit has no LinkedTrust to send
+    anyone to.
+    """
+    return bool(settings.LINKEDTRUST_CLIENT_ID) and user.auth_provider != LINKEDTRUST_PROVIDER
+
+
+def accept_would_join(invite: Invite, user) -> bool:
+    """Would accepting `invite` as `user` create a membership right now?
+
+    Mirrors accept_invite_for_user: a pool accept joins nobody; an existing member
+    on an org link is previewing it; a member on someone else's venture link is too.
+    """
+    if invite.kind == InviteKind.POOL:
+        return False
+    is_member = Membership.objects.filter(org=invite.org, user=user).exists()
+    if invite.kind == InviteKind.BYOV:
+        return not is_member or addressed_to(invite, user)
+    return not is_member
+
+
 def get_invite_for_accept(code: str) -> Invite:
     """Look up a live invite by code. Raises InviteError unless it can still be accepted."""
     invite = Invite.objects.filter(code=code).select_related("org").first()

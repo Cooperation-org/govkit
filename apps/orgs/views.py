@@ -55,8 +55,10 @@ from .invites import (
     SESSION_KEY,
     InviteError,
     accept_invite_for_user,
+    accept_would_join,
     cohort_front_door_url,
     get_invite_for_accept,
+    needs_linkedtrust,
 )
 from .models import (
     Cohort,
@@ -1239,7 +1241,9 @@ def _finish_accept(request, invite, user):
 def accept_invite(request, code):
     """
     Land here from a magic link (directly, or via the doorway after commit). Signed-in
-    visitors join immediately. Anonymous visitors get the door: the invite code is a
+    visitors join immediately — except, where LinkedTrust is configured, someone signed
+    in another way whom this accept would join to a team: they go through LinkedTrust
+    first, so the membership belongs to an identity the team's tools can serve. Anonymous visitors get the door: the invite code is a
     bearer capability (see apps/orgs/invites.py), so one button creates their account
     and membership — zero friction, we trust the inviter. Existing sign-ins remain a
     side path (code stashed in session; consume_pending_invite finishes after login).
@@ -1256,6 +1260,18 @@ def accept_invite(request, code):
         return redirect("orgs:landing")
 
     if request.user.is_authenticated:
+        if accept_would_join(invite, request.user) and needs_linkedtrust(request.user):
+            # Signed in some other way (Google, an email-only account): a membership
+            # made for this account would have no LinkedTrust sub, so the team's
+            # tools could not be set up for it. Sign out and take the same road as
+            # an anonymous visitor: code stashed, LinkedTrust, join on the way back.
+            # Signing out first matters — logging a different user in afterwards
+            # flushes the session, and the stashed code with it.
+            from django.contrib.auth import logout
+
+            logout(request)
+            request.session[SESSION_KEY] = code
+            return redirect("accounts:linkedtrust_start")
         return _finish_accept(request, invite, request.user)
 
     # Anonymous: stash the code so the "use my existing sign-in" side door (or any
