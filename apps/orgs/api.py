@@ -19,6 +19,8 @@ Endpoints:
 Org-scoped (path carries org_slug, so OrgContextMiddleware resolves request.org and
 enforces membership — 404 unknown org, 403 authenticated non-member):
   GET  /api/v1/orgs/{org_slug}/checklist/       genesis checklist as JSON (read-only)
+  GET  /api/v1/orgs/{org_slug}/welcome/         a new member's welcome: team + tools + ready?
+  POST /api/v1/orgs/{org_slug}/welcome/dismiss/ the member closed it
 
 Doorway S2S (plain Django views, Bearer settings.GOVKIT_S2S_TOKEN — NOT session auth;
 the magic-link contract on the coordination board):
@@ -67,6 +69,7 @@ from apps.commons import storage
 from .embed_auth import EmbedSessionAuthentication
 from .forms import looks_like_url, normalize_url
 from .genesis import modules_for, serialize_modules, toggle_item
+from . import welcome
 from .invites import link_join_url
 from .models import (
     Invite,
@@ -237,6 +240,31 @@ class ChecklistToggleView(APIView):
                 ),
             }
         )
+
+
+class WelcomeView(APIView):
+    """GET: the welcome panel for the signed-in member of this org (apps.orgs.welcome).
+
+    Members only, by path (OrgContextMiddleware). A superuser looking in without a
+    membership has nothing to be welcomed to: {"show": false}.
+    """
+
+    def get(self, request, org_slug):
+        if request.membership is None:
+            return Response({"show": False})
+        return Response(welcome.welcome(request.membership))
+
+
+class WelcomeDismissView(APIView):
+    """POST: the member closed the panel. It stays closed."""
+
+    authentication_classes = [EmbedSessionAuthentication]
+
+    def post(self, request, org_slug):
+        if request.membership is None:
+            raise PermissionDenied("Only members have a welcome to close.")
+        welcome.dismiss(request.membership)
+        return Response({"show": False})
 
 
 # --- Doorway S2S invite endpoints --------------------------------------------------------
@@ -1098,6 +1126,12 @@ urlpatterns = router.urls + [
         "<slug:org_slug>/checklist/<str:item_key>/toggle/",
         ChecklistToggleView.as_view(),
         name="org-checklist-toggle",
+    ),
+    path("<slug:org_slug>/welcome/", WelcomeView.as_view(), name="org-welcome"),
+    path(
+        "<slug:org_slug>/welcome/dismiss/",
+        WelcomeDismissView.as_view(),
+        name="org-welcome-dismiss",
     ),
     path("ventures/public/", ventures_directory, name="s2s_ventures_directory"),
     path(

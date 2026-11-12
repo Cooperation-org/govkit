@@ -485,6 +485,10 @@ class Membership(models.Model):
     # admin can. Set by an admin on the members page.
     can_grant_access = models.BooleanField(default=False)
 
+    # When they closed the welcome panel (<govkit-welcome>) a new member sees on
+    # their first visits. Null = not closed yet.
+    welcome_dismissed_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

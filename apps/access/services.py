@@ -95,6 +95,39 @@ def access_matrix(org) -> dict:
     return {"tools": tools, "people": rows}
 
 
+# How long one tool read is reused by has_access. A newly joined member's welcome
+# panel asks every few seconds while their access is being set up; this keeps that
+# to one read of each tool per window, not one per poll.
+HAS_ACCESS_CACHE_SECONDS = 15
+
+
+def has_access(org, email) -> dict:
+    """Does `email` have access in each kind of tool the org has connected? Read live.
+
+    {kind: True | False | None} per ToolKind the org has an enabled connection for;
+    None when that tool could not be read. A kind the org has not connected is
+    absent — there is nothing here to answer from.
+    """
+    from django.core.cache import cache
+
+    email = (email or "").strip().lower()
+    result = {}
+    for conn in connections(org):
+        key = f"access-read:{conn.pk}:{conn.updated_at.timestamp()}"
+        people = cache.get(key)
+        if people is None:
+            try:
+                _, people = adapter_for(conn).read()
+            except ToolError as exc:
+                logger.warning("access: reading %s failed: %s", conn, exc)
+                result.setdefault(conn.kind, None)
+                continue
+            cache.set(key, people, HAS_ACCESS_CACHE_SECONDS)
+        found = bool(email) and bool((people.get(email) or {}).get("scopes"))
+        result[conn.kind] = bool(result.get(conn.kind)) or found
+    return result
+
+
 def _connection(org, connection_id):
     try:
         return connections(org).get(pk=int(connection_id))

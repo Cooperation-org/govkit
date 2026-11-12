@@ -244,6 +244,8 @@ def dashboard(request, org_slug):
             "join_page_url": _join_page_url(request.org),
             "pie": pie if pie.total > 0 else None,
             "segments": _svg_segments(pie) if pie.total > 0 else [],
+            # GovKit's own origin + base path, for the <govkit-welcome> card's data-up.
+            "embed_up": request.build_absolute_uri(reverse("orgs:landing")).rstrip("/"),
         },
     )
 

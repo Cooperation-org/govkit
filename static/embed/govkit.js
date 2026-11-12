@@ -24,6 +24,9 @@
 //                       no data-org — it is the signed-in person's own rail)
 //   <govkit-access>     who may use the team's tools; grant / revoke per board
 //                       (access/orgs/<org>/; org admins and members allowed to grant)
+//   <govkit-welcome>    a newly joined member's welcome: the team they joined, its
+//                       CRM and Board, and whether each is ready for them yet
+//                       (orgs/<org>/welcome/; renders nothing once closed or not new)
 //
 // Contract with the host page:
 //   - Every component takes data-up (GovKit origin, e.g. https://dash.workers.vc —
@@ -386,6 +389,17 @@
       'govkit-access .status { opacity: 0.75; }',
       'govkit-access form { display: flex; gap: 6px; margin-top: 10px; }',
       'govkit-access form input { flex: 1 1 auto; max-width: 28rem; font: inherit; padding: 4px 8px; }',
+      'govkit-welcome { display: block; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; color: inherit; line-height: 1.5; }',
+      'govkit-welcome[hidden] { display: none; }',
+      'govkit-welcome .wel-title { margin: 0 0 4px; font-family: var(--font-head, Georgia, serif); font-size: 18px; font-weight: 600; }',
+      'govkit-welcome .wel-sub { margin: 0 0 10px; opacity: 0.75; }',
+      'govkit-welcome ul { list-style: none; margin: 0 0 10px; padding: 0; border-top: 1px solid var(--hairline, rgba(127,127,127,0.2)); }',
+      'govkit-welcome li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 2px; border-bottom: 1px solid var(--hairline, rgba(127,127,127,0.2)); }',
+      'govkit-welcome a { color: var(--accent, #0f766e); font-weight: 600; }',
+      'govkit-welcome .wel-status { font-size: 13px; opacity: 0.75; text-align: right; }',
+      'govkit-welcome .wel-status.ready { opacity: 1; color: var(--gk-ok, #2f7d4f); }',
+      'govkit-welcome .wel-foot { display: flex; justify-content: flex-end; }',
+      'govkit-welcome .wel-close { font: inherit; font-size: 13px; cursor: pointer; color: inherit; background: none; border: 1px solid var(--hairline, rgba(127,127,127,0.4)); border-radius: 6px; padding: 4px 14px; }',
     ].join('\n');
     document.head.appendChild(s);
   }
@@ -2451,6 +2465,87 @@
     return true;
   }
 
+  // --- <govkit-welcome> ----------------------------------------------------
+  // The first thing a newly joined member sees: what they joined, and the team's
+  // tools with whether each is ready for them. Status comes from the tool itself
+  // (GovKit reads it live). "unknown" means GovKit has no way to tell, and the
+  // words say so plainly rather than claiming ready. While anything is still
+  // being set up it asks again every few seconds, for a couple of minutes.
+
+  var WELCOME_POLL_MS = 5000;
+  var WELCOME_POLL_TRIES = 24;
+  var WELCOME_STATUS = {
+    ready: 'Ready',
+    setting_up: 'Setting up\u2026',
+    unknown: 'Usually ready within a minute',
+  };
+
+  function mountWelcome(host) {
+    ensureStyles();
+    var c = cfg(host);
+    if (!c) return goDark(host);
+    var url = c.up + '/api/v1/orgs/' + c.org + '/welcome/';
+    var tries = 0;
+
+    function draw(d) {
+      host.replaceChildren();
+      if (!d || !d.show) return goDark(host);
+      host.appendChild(el('h2', 'wel-title', 'Welcome to ' + (d.org_name || '')));
+      var tools = d.tools || [];
+      host.appendChild(el('p', 'wel-sub', tools.length
+        ? 'You are a ' + String(d.role || '').toLowerCase() + ' of the team. Your team\u2019s tools:'
+        : 'You are a ' + String(d.role || '').toLowerCase() + ' of the team.'));
+      if (tools.length) {
+        var list = el('ul');
+        tools.forEach(function (t) {
+          var li = el('li');
+          var href = safeHref(t.url);
+          var name = href ? el('a', null, t.label) : el('span', null, t.label);
+          if (href) { name.href = href; name.target = '_blank'; name.rel = 'noopener'; }
+          li.appendChild(name);
+          li.appendChild(el('span', 'wel-status ' + (t.status || ''),
+            WELCOME_STATUS[t.status] || WELCOME_STATUS.unknown));
+          list.appendChild(li);
+        });
+        host.appendChild(list);
+      }
+      var foot = el('div', 'wel-foot');
+      var close = el('button', 'wel-close', 'Got it');
+      close.type = 'button';
+      close.addEventListener('click', function () {
+        close.disabled = true;
+        fetch(c.up + '/api/v1/orgs/' + c.org + '/welcome/dismiss/', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'X-Govkit-Embed': '1' },
+        })
+          .then(function (r) { if (!r.ok) throw new Error(r.status); goDark(host); })
+          .catch(function () { close.disabled = false; });
+      });
+      foot.appendChild(close);
+      host.appendChild(foot);
+      host.hidden = false;
+
+      var waiting = tools.some(function (t) { return t.status === 'setting_up'; });
+      if (waiting && tries < WELCOME_POLL_TRIES) {
+        tries += 1;
+        setTimeout(load, WELCOME_POLL_MS);
+      }
+    }
+
+    // Not jget: each poll must actually ask again, not reuse the page's first answer.
+    function load() {
+      fetch(url, { credentials: 'include' })
+        .then(function (r) { if (r.status !== 200) throw new Error('http ' + r.status); return r.json(); })
+        .then(draw)
+        .catch(function (err) {
+          console.warn('[govkit] govkit-welcome:', err.message || err);
+          if (!tries) goDark(host);
+        });
+    }
+    load();
+  }
+
   // --- element registration ------------------------------------------------
 
   function define(tag, path, render) {
@@ -2490,6 +2585,11 @@
   if (!customElements.get('govkit-access')) {
     customElements.define('govkit-access', class extends HTMLElement {
       connectedCallback() { if (this.__mounted) return; this.__mounted = true; mountAccess(this); }
+    });
+  }
+  if (!customElements.get('govkit-welcome')) {
+    customElements.define('govkit-welcome', class extends HTMLElement {
+      connectedCallback() { if (this.__mounted) return; this.__mounted = true; mountWelcome(this); }
     });
   }
   if (!customElements.get('govkit-news')) {

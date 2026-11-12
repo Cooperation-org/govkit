@@ -1,7 +1,10 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}{{ current_org.display_name }} — GovKit{% endblock %}
 {% block content %}
   <h1>{{ current_org.display_name }}</h1>
+
+  <govkit-welcome class="gk-card" hidden data-up="{{ embed_up }}" data-org="{{ current_org.slug }}"></govkit-welcome>
 
   {% if profile_todo %}
     <div class="gk-card gk-firstthing">
@@ -117,3 +120,4 @@
     </div>
   {% endif %}
 {% endblock %}
+{% block scripts %}<script src="{% static 'embed/govkit.js' %}" defer></script>{% endblock %}

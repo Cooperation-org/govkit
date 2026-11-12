@@ -42,6 +42,8 @@ env = environ.Env(
     COHORT_PERSON_URL=(str, ""),
     COHORT_RECRUIT_URL=(str, "https://wellfound.com/"),
     COHORT_POOL_LANDING=(str, ""),
+    COHORT_CRM_URL=(str, ""),
+    COHORT_BOARD_URL=(str, ""),
     VENTURE_PAGE_BASE_URL=(str, ""),
     PUBLIC_BASE_URL=(str, ""),
     # Where the public "About <org>" stub sends a non-member's "Request to join"
@@ -421,6 +423,22 @@ if COHORT_POOL_LANDING and not COHORT_POOL_LANDING.startswith("https://"):
     raise ImproperlyConfigured(
         f"COHORT_POOL_LANDING must be an https URL; got {COHORT_POOL_LANDING!r}."
     )
+
+# A team's own tools, linked from the welcome panel (<govkit-welcome>) a newly
+# joined member sees. URL templates with {org_slug}; empty hides that link.
+# Validated here so a typo fails at startup rather than as a dead link.
+COHORT_CRM_URL = env("COHORT_CRM_URL")
+COHORT_BOARD_URL = env("COHORT_BOARD_URL")
+for _name, _template in (
+    ("COHORT_CRM_URL", COHORT_CRM_URL),
+    ("COHORT_BOARD_URL", COHORT_BOARD_URL),
+):
+    if _template and ("{org_slug}" not in _template or not _template.startswith("https://")):
+        from django.core.exceptions import ImproperlyConfigured
+
+        raise ImproperlyConfigured(
+            f"{_name} must be an https URL template containing {{org_slug}}; got {_template!r}."
+        )
 
 # --- LinkedTrust OIDC (default login) — read by django-linkedtrust-auth ---
 LINKEDTRUST_URL = env("LINKEDTRUST_URL")
