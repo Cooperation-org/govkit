@@ -80,6 +80,7 @@ from .models import (
     OrgPicture,
     OrgPost,
     OrgQuote,
+    default_invite_expiry,
 )
 from .serializers import (
     InviteSerializer,
@@ -474,6 +475,12 @@ def invite_mint(request, org_slug):
         audience=audience,
         role=role,
         from_link=invite_link,
+        expires_at=(
+            # A link's invites never outlive the link itself.
+            invite_link.invite_expires_at()
+            if invite_link is not None
+            else default_invite_expiry()
+        ),
         name=str(body.get("name", ""))[:255],
         email=str(body.get("email", ""))[:254],
         link=str(body.get("link", ""))[:1000],

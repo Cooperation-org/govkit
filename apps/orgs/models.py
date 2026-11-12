@@ -591,6 +591,17 @@ class InviteLink(models.Model):
             return "full"
         return ""
 
+    def invite_expires_at(self):
+        """Expiry for an invite minted through this link.
+
+        The usual invite lifetime, but never past the link's own expiry: a door
+        that closes on Friday must not hand out invites that still open next month.
+        """
+        default = default_invite_expiry()
+        if self.expires_at is not None and self.expires_at < default:
+            return self.expires_at
+        return default
+
 
 class Invite(models.Model):
     """
