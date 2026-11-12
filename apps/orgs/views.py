@@ -52,18 +52,23 @@ from .forms import (
 from .genesis import MODULES, module_of, modules_for, start_genesis, toggle_item
 from .sitepull import SiteUnreachable, fetch_profile
 from .invites import (
+    LINK_SESSION_KEY,
     SESSION_KEY,
     InviteError,
     accept_invite_for_user,
     accept_would_join,
     cohort_front_door_url,
+    find_join_link,
     get_invite_for_accept,
+    join_via_link,
+    landing_after_accept,
     needs_linkedtrust,
 )
 from .models import (
     Cohort,
     ExternalHolder,
     Invite,
+    InviteKind,
     InviteStatus,
     Membership,
     MembershipRole,
@@ -1326,3 +1331,52 @@ def accept_invite(request, code):
         return _finish_accept(request, invite, user)
 
     return render(request, "orgs/invite_door.html", door_context)
+
+
+def join_link(request, code):
+    """
+    One step in through a shared link: sign in with LinkedTrust, and you are in.
+
+    The link is handed to a whole group (one URL in a Slack channel). Nobody is
+    asked for a wall card on the way (golda 2026-11-12: decouple the attestation
+    from the signup). A team link makes the person a member; a pool link screens
+    them into the applicant pool, exactly as a pool invite always has.
+
+    Opening the URL signed out spends nothing — the code waits in the session
+    across the LinkedTrust round-trip, so a link preview or a bot fetching it
+    leaves no rows behind. The join itself (join_via_link) is keyed on the
+    person, so clicking again is harmless.
+    """
+    from django.contrib.auth import logout
+
+    try:
+        link = find_join_link(code)
+    except InviteError as exc:
+        messages.error(request, str(exc))
+        return redirect("orgs:landing")
+
+    user = request.user
+    if user.is_authenticated:
+        joining_team = (
+            link.kind == InviteKind.ORG
+            and not Membership.objects.filter(org=link.org, user=user).exists()
+        )
+        if not (joining_team and needs_linkedtrust(user)):
+            try:
+                membership, venture_org = join_via_link(link, user)
+            except InviteError as exc:
+                messages.error(request, str(exc))
+                return redirect("orgs:landing")
+            request.session.pop(LINK_SESSION_KEY, None)
+            return redirect(landing_after_accept(membership, venture_org))
+
+    if not link.is_open:
+        messages.error(request, f"This invite link is {link.closed_reason}.")
+        return redirect("orgs:landing")
+    if user.is_authenticated:
+        # Signed in without LinkedTrust: same reason, and same order, as accept_invite.
+        logout(request)
+    request.session[LINK_SESSION_KEY] = code
+    if settings.LINKEDTRUST_CLIENT_ID:
+        return redirect("accounts:linkedtrust_start")
+    return redirect("accounts:login")

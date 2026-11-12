@@ -25,7 +25,11 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from apps.orgs.invites import claim_invite_for_email, consume_pending_invite
+from apps.orgs.invites import (
+    claim_invite_for_email,
+    consume_pending_invite,
+    consume_pending_link,
+)
 
 from . import google_oauth, oidc
 from .auth_handlers import UserUpsertError, upsert_oauth_user
@@ -313,6 +317,9 @@ def _complete_login(request, user, next_url=None):
     # Where the pending invite lands them (org join -> cohort front door / org
     # dashboard; pool accept -> pool landing) — the URL logic lives with the invite.
     invite_destination = consume_pending_invite(request)
+    if invite_destination is None:
+        # Or a shared link they opened on the way in (apps.orgs.views.join_link).
+        invite_destination = consume_pending_link(request)
     if invite_destination is None:
         # No code in hand, but they may still have been invited: an invite addressed
         # to the email they just signed in with admits them (golda, 2026-08-08).

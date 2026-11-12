@@ -67,6 +67,7 @@ from apps.commons import storage
 from .embed_auth import EmbedSessionAuthentication
 from .forms import looks_like_url, normalize_url
 from .genesis import modules_for, serialize_modules, toggle_item
+from .invites import link_join_url
 from .models import (
     Invite,
     InviteAudience,
@@ -304,7 +305,7 @@ def _invite_payload(invite: Invite, request) -> dict:
     }
 
 
-def _invite_link_payload(link: InviteLink) -> dict:
+def _invite_link_payload(link: InviteLink, request=None) -> dict:
     """What a shared link opens, and whether it is still open."""
     return {
         "code": link.code,
@@ -319,6 +320,9 @@ def _invite_link_payload(link: InviteLink) -> dict:
         "expires_at": link.expires_at.isoformat() if link.expires_at else None,
         "org_slug": link.org.slug,
         "org_name": link.org.display_name,
+        # The one-step way in (LinkedTrust sign-in, then joined — no wall card).
+        # Relayed to a browser by the doorway, so the public host.
+        "join_url": link_join_url(link, request),
     }
 
 
@@ -518,7 +522,7 @@ def invite_link_detail(request, org_slug, code):
     link = InviteLink.objects.filter(org__slug=org_slug, code=code).select_related("org").first()
     if link is None:
         return JsonResponse({"error": "not_found"}, status=404)
-    return JsonResponse(_invite_link_payload(link))
+    return JsonResponse(_invite_link_payload(link, request))
 
 
 invite_link_detail.org_context_exempt = True
@@ -537,7 +541,7 @@ def invite_link_by_code(request, code):
     link = InviteLink.objects.filter(code=code).select_related("org").first()
     if link is None:
         return JsonResponse({"error": "not_found"}, status=404)
-    return JsonResponse(_invite_link_payload(link))
+    return JsonResponse(_invite_link_payload(link, request))
 
 
 invite_link_by_code.org_context_exempt = True

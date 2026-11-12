@@ -18,6 +18,8 @@ urlpatterns = [
     path("", views.landing, name="landing"),
     path("onboarding/", views.onboarding, name="onboarding"),
     path("invites/<str:code>/accept/", views.accept_invite, name="accept_invite"),
+    # A shared link (InviteLink), walked through in one step.
+    path("join/<str:code>/", views.join_link, name="join_link"),
     # Accelerator-admin cross-org oversight (not superuser-only).
     path("teams/", views.all_teams, name="all_teams"),
     # The cohort's mentors + the calendars they shared. Team admins only.

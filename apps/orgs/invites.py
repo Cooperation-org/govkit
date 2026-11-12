@@ -28,6 +28,7 @@ from .slugs import normalize_org_slug, unique_org_slug
 from .models import (
     Invite,
     InviteKind,
+    InviteLink,
     InviteStatus,
     Membership,
     MembershipRole,
@@ -36,6 +37,8 @@ from .models import (
 )
 
 SESSION_KEY = "pending_invite_code"
+# A shared link's code, held across the LinkedTrust round-trip the same way.
+LINK_SESSION_KEY = "pending_invite_link_code"
 
 
 def cohort_front_door_url(org):
@@ -285,3 +288,111 @@ def claim_invite_for_email(request):
     except InviteError:
         return None
     return landing_after_accept(membership, venture_org)
+
+
+# --- Shared links: one step in -------------------------------------------------------
+#
+# A shared InviteLink used to open only through the public doorway, which asks for a
+# wall card first and then mints the person's own invite against it. Joining no
+# longer waits on the card (golda 2026-11-12: "decouple the attestation from the
+# signup"): the link's own URL signs the person in with LinkedTrust and mints +
+# accepts their invite in one go. The doorway path (invite_mint with a claim id)
+# still works; nothing requires it.
+
+JOINABLE_LINK_KINDS = (InviteKind.ORG, InviteKind.POOL)
+
+
+def find_join_link(code: str) -> InviteLink:
+    """The shared link behind `code`. Raises InviteError when there is none.
+
+    Whether it is still open is join_via_link's question, asked after it has
+    checked whether this person is already through it.
+    """
+    link = (
+        InviteLink.objects.filter(code=code, kind__in=JOINABLE_LINK_KINDS)
+        .select_related("org")
+        .first()
+    )
+    if link is None:
+        raise InviteError("This invite link is invalid.")
+    return link
+
+
+@transaction.atomic
+def join_via_link(link: InviteLink, user) -> tuple[Membership | None, Org | None]:
+    """Mint `user` their own invite from a shared link and accept it.
+
+    Keyed on (link, user), so a refresh, a second click or a link preview never
+    spends another use:
+      - already a member of a team link's org: their membership, nothing minted;
+      - already through this link before: the same outcome, nothing minted —
+        except a team member an admin has since removed, who is told so rather
+        than let back in by the link they used the first time.
+    Otherwise the link must still be open (active, not expired, not full), checked
+    with the link row locked so two people cannot both take its last place.
+    Returns what accept_invite_for_user returns.
+    """
+    link = InviteLink.objects.select_for_update().select_related("org").get(pk=link.pk)
+    if link.kind == InviteKind.ORG:
+        membership = Membership.objects.filter(org=link.org, user=user).first()
+        if membership is not None:
+            return membership, None
+    if link.invites.filter(accepted_by=user).exists():
+        if link.kind == InviteKind.POOL:
+            return None, None
+        raise InviteError(
+            f"You joined {link.org.display_name} through this link before and are no "
+            "longer a member. Ask a team admin to invite you again."
+        )
+    if not link.is_open:
+        raise InviteError(f"This invite link is {link.closed_reason}.")
+    invite = Invite.objects.create(
+        org=link.org,
+        kind=link.kind,
+        audience=link.audience,
+        role=link.role,
+        from_link=link,
+        name=user.display_name,
+        email=user.email,
+        expires_at=link.invite_expires_at(),
+    )
+    return accept_invite_for_user(invite, user)
+
+
+def consume_pending_link(request):
+    """After login: finish a shared-link join held in the session.
+
+    Returns the URL to land on, or None when no link was pending. A link that shut
+    while they were signing in lands them on GovKit's landing with the reason —
+    never silently on a dash that does not have them.
+    """
+    from django.contrib import messages
+    from django.shortcuts import resolve_url
+
+    code = request.session.pop(LINK_SESSION_KEY, None)
+    if not code or not request.user.is_authenticated:
+        return None
+    try:
+        membership, venture_org = join_via_link(find_join_link(code), request.user)
+    except InviteError as exc:
+        messages.error(request, str(exc))
+        return resolve_url("orgs:landing")
+    return landing_after_accept(membership, venture_org)
+
+
+def link_join_path(link: InviteLink) -> str:
+    from django.urls import reverse
+
+    return reverse("orgs:join_link", kwargs={"code": link.code})
+
+
+def link_join_url(link: InviteLink, request=None) -> str:
+    """The public URL that walks a person through `link` in one step.
+
+    PUBLIC_BASE_URL when set (S2S callers relay it to a browser, and must never
+    hand out a loopback host), else the requesting host.
+    """
+    path = link_join_path(link)
+    if settings.PUBLIC_BASE_URL:
+        return settings.PUBLIC_BASE_URL + path
+    return request.build_absolute_uri(path) if request is not None else path
